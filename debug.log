@@ -1,0 +1,30 @@
+17:07:42.288527 Program started
+17:07:42.288564 Detected terminal type: xterm-256color
+17:07:42.288566 xterm-compatible terminal detected. Attempting to calibrate.
+17:07:42.292358 Calibrated character size: 10x20 pixels
+17:07:42.292363 Image path: ship.jpg
+17:07:42.292376 Character size: 10x20 pixels
+17:07:42.292924 Screen initialized
+17:07:42.293195 Screen cleared
+17:07:42.293203 Displaying content
+17:07:42.293205 Screen size: 101x64 characters
+17:07:42.293207 Displaying Sixel
+17:07:42.293209 Image area: 50x64 characters, 500x1260 pixels
+17:07:42.325103 Original image size: 1179x1471
+17:07:42.325136 Scaled image size: 500x623
+17:07:42.661600 Sixel display completed
+17:07:42.662480 Content display completed
+17:07:42.662487 Content displayed
+17:07:42.662500 Entering main event loop
+17:07:42.662503 Resize event
+17:07:42.662951 Displaying content
+17:07:42.662954 Screen size: 101x64 characters
+17:07:42.662957 Displaying Sixel
+17:07:42.662958 Image area: 50x64 characters, 500x1260 pixels
+17:07:42.693232 Original image size: 1179x1471
+17:07:42.693269 Scaled image size: 500x623
+17:07:43.051985 Sixel display completed
+17:07:43.053188 Content display completed
+17:22:53.972873 Key event: 27
+17:22:53.973409 Exit key pressed
+17:22:53.976724 Screen finalized

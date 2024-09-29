@@ -35,6 +35,18 @@ type LogBuffer struct {
 
 var logBuffer LogBuffer
 
+type Cursor struct {
+	x, y      int
+	visible   bool
+	blinkOn   bool
+	lastBlink time.Time
+}
+
+var cursor Cursor
+var imageBuffer *image.RGBA
+var imageBounds image.Rectangle
+
+// Write implements the io.Writer interface for LogBuffer
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 	lb.mutex.Lock()
 	defer lb.mutex.Unlock()
@@ -46,72 +58,133 @@ func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-func main() {
-	// Set up logging to both file and our custom buffer
-	logFile, err := os.Create("debug.log")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating log file: %v\n", err)
-		os.Exit(1)
+// blinkCursor handles the blinking of the cursor
+func blinkCursor(s tcell.Screen) {
+	now := time.Now()
+	if now.Sub(cursor.lastBlink) >= 500*time.Millisecond {
+		cursor.blinkOn = !cursor.blinkOn
+		cursor.lastBlink = now
+		redrawImageArea(s, cursor.x, cursor.y)
 	}
-	defer logFile.Close()
+}
 
-	logBuffer = LogBuffer{}
-	multiWriter := io.MultiWriter(logFile, &logBuffer)
-	log.SetOutput(multiWriter)
-	log.SetFlags(log.Ltime | log.Lmicroseconds)
-	log.Println("Program started")
+// redrawImageArea redraws a specific area of the image, including the cursor if present
+func redrawImageArea(s tcell.Screen, x, y int) {
+	if imageBuffer == nil {
+		return
+	}
 
-	// Check if image file path was provided
+	pixelX := x * charSize.Width
+	pixelY := y * charSize.Height
+
+	for dy := 0; dy < charSize.Height; dy++ {
+		for dx := 0; dx < charSize.Width; dx++ {
+			if pixelX+dx < imageBounds.Max.X && pixelY+dy < imageBounds.Max.Y {
+				c := imageBuffer.At(pixelX+dx, pixelY+dy)
+				r, g, b, _ := c.RGBA()
+				style := tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
+				s.SetContent(x, y, ' ', nil, style)
+			}
+		}
+	}
+
+	if x == cursor.x && y == cursor.y && cursor.visible && cursor.blinkOn {
+		style := tcell.StyleDefault.Background(tcell.ColorWhite)
+		s.SetContent(x, y, ' ', nil, style)
+	}
+
+	s.Show()
+}
+
+// main is the entry point of the application
+func main() {
+	imagePath := parseArgs()
+	setupLogging()
+	detectTerminalAndCalibrate()
+	s := initializeScreen()
+	defer finalizeScreen(s)
+
+	setupSignalHandling(s)
+	initializeCursor(s)
+	runMainLoop(s, imagePath)
+}
+
+// parseArgs parses command-line arguments and returns the image path
+func parseArgs() string {
 	if len(os.Args) < 2 {
 		log.Println("Insufficient arguments")
 		fmt.Println("Usage: go run main.go <path_to_image>")
 		os.Exit(1)
 	}
-	imagePath := os.Args[1]
+	return os.Args[1]
+}
 
-	// Detect terminal and calibrate char size
-	detectTerminalAndCalibrate()
+// setupLogging initializes the logging system
+func setupLogging() {
+	logFile, err := os.Create("debug.log")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating log file: %v\n", err)
+		os.Exit(1)
+	}
+	logBuffer = LogBuffer{}
+	multiWriter := io.MultiWriter(logFile, &logBuffer)
+	log.SetOutput(multiWriter)
+	log.SetFlags(log.Ltime | log.Lmicroseconds)
+	log.Println("Program started")
+}
 
-	log.Printf("Image path: %s", imagePath)
-	log.Printf("Character size: %dx%d pixels", charSize.Width, charSize.Height)
-
-	// Initialize screen
+// initializeScreen creates and initializes the tcell screen
+func initializeScreen() tcell.Screen {
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Printf("Error creating new screen: %v", err)
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-
-	defer func() {
-		s.Fini()
-		log.Println("Screen finalized")
-		fmt.Println("Terminal restored.")
-	}()
-
 	if err := s.Init(); err != nil {
 		log.Printf("Error initializing screen: %v", err)
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
 	log.Println("Screen initialized")
+	s.Clear()
+	return s
+}
 
-	// Set up signal handling for graceful shutdown
+// finalizeScreen properly closes the tcell screen
+func finalizeScreen(s tcell.Screen) {
+	s.Fini()
+	log.Println("Screen finalized")
+	fmt.Println("Terminal restored.")
+}
+
+// setupSignalHandling sets up handlers for system signals
+func setupSignalHandling(s tcell.Screen) {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		sig := <-signalChan
 		log.Printf("Received signal: %v", sig)
-		s.Fini()
+		finalizeScreen(s)
 		fmt.Println("Received termination signal. Terminal restored.")
 		os.Exit(0)
 	}()
+}
 
-	// Clear the screen
-	s.Clear()
-	log.Println("Screen cleared")
+// initializeCursor sets up the initial cursor position
+func initializeCursor(s tcell.Screen) {
+	width, height := s.Size()
+	cursor = Cursor{
+		x:         width / 4,
+		y:         height / 2,
+		visible:   true,
+		blinkOn:   true,
+		lastBlink: time.Now(),
+	}
+}
 
-	// Display content
+// runMainLoop runs the main event loop of the application
+func runMainLoop(s tcell.Screen, imagePath string) {
 	if err := displayContent(s, imagePath); err != nil {
 		log.Printf("Error displaying content: %v", err)
 		fmt.Fprintf(os.Stderr, "Error displaying content: %v\n", err)
@@ -119,7 +192,6 @@ func main() {
 	}
 	log.Println("Content displayed")
 
-	// Start a goroutine to update the log display
 	go func() {
 		for {
 			s.PostEvent(tcell.NewEventInterrupt(nil))
@@ -127,34 +199,40 @@ func main() {
 		}
 	}()
 
-	// Main event loop
 	log.Println("Entering main event loop")
 	for {
 		ev := s.PollEvent()
-		// Event Received debug messages are commented out as requested
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			log.Println("Resize event")
-			s.Clear()
-			s.Sync()
-			if err := displayContent(s, imagePath); err != nil {
-				log.Printf("Error redisplaying content after resize: %v", err)
-				fmt.Fprintf(os.Stderr, "Error redisplaying content: %v\n", err)
-			}
+			handleResize(s, imagePath)
 		case *tcell.EventKey:
-			log.Printf("Key event: %v", ev.Key())
-			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
-				log.Println("Exit key pressed")
-				return
-			}
+			handleKeyEvent(s, ev)
 		case *tcell.EventInterrupt:
-			if err := displayLogRightHalf(s); err != nil {
-				log.Printf("Error updating log display: %v", err)
-			}
+			handleInterrupt(s)
 		}
 	}
 }
 
+// handleResize handles screen resize events
+func handleResize(s tcell.Screen, imagePath string) {
+	log.Println("Resize event")
+	s.Clear()
+	s.Sync()
+	if err := displayContent(s, imagePath); err != nil {
+		log.Printf("Error redisplaying content after resize: %v", err)
+		fmt.Fprintf(os.Stderr, "Error redisplaying content: %v\n", err)
+	}
+}
+
+// handleInterrupt handles interrupt events for updating the display
+func handleInterrupt(s tcell.Screen) {
+	if err := displayLogRightHalf(s); err != nil {
+		log.Printf("Error updating log display: %v", err)
+	}
+	blinkCursor(s)
+}
+
+// detectTerminalAndCalibrate detects the terminal type and calibrates the character size
 func detectTerminalAndCalibrate() {
 	termType := os.Getenv("TERM")
 	log.Printf("Detected terminal type: %s", termType)
@@ -169,30 +247,20 @@ func detectTerminalAndCalibrate() {
 		log.Println("Non-xterm terminal or unable to detect. Using default character size.")
 		setDefaultCharSize()
 	}
-
-	// TODO: Implement a more robust calibration method
-	// This could involve displaying a calibration image or pattern and asking the user
-	// to adjust it to match a known physical size. For example:
-	// 1. Display a rectangle of a specific number of characters (e.g., 10x5)
-	// 2. Ask the user to measure the physical size of this rectangle
-	// 3. Use this information to calculate the pixel size of each character
-	// This would provide a more accurate calibration across different terminal types and configurations.
 }
 
+// calibrateXterm calibrates the character size for xterm-compatible terminals
 func calibrateXterm() error {
-	// Query terminal size in characters
 	charResponse, err := queryTerminal("\033[18t")
 	if err != nil {
 		return fmt.Errorf("failed to query terminal size in characters: %v", err)
 	}
 
-	// Query terminal size in pixels
 	pixelResponse, err := queryTerminal("\033[14t")
 	if err != nil {
 		return fmt.Errorf("failed to query terminal size in pixels: %v", err)
 	}
 
-	// Parse responses
 	var charRows, charCols, pixelHeight, pixelWidth int
 	_, err = fmt.Sscanf(charResponse, "\033[8;%d;%dt", &charRows, &charCols)
 	if err != nil {
@@ -203,7 +271,6 @@ func calibrateXterm() error {
 		return fmt.Errorf("failed to parse pixel size response: %v", err)
 	}
 
-	// Calculate character size
 	charSize.Width = pixelWidth / charCols
 	charSize.Height = pixelHeight / charRows
 
@@ -211,13 +278,13 @@ func calibrateXterm() error {
 	return nil
 }
 
+// queryTerminal sends a query to the terminal and returns the response
 func queryTerminal(query string) (string, error) {
 	_, err := fmt.Fprint(os.Stdout, query)
 	if err != nil {
 		return "", err
 	}
 
-	// Use a raw terminal to read the response
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		return "", err
@@ -233,55 +300,56 @@ func queryTerminal(query string) (string, error) {
 	return string(response[:n]), nil
 }
 
+// setDefaultCharSize sets default character size when calibration fails
 func setDefaultCharSize() {
 	charSize = CharSize{Width: 8, Height: 16}
 	log.Println("Using default character size: 8x16 pixels")
 }
 
+// displayContent displays the image and log on the screen
 func displayContent(s tcell.Screen, imagePath string) error {
 	log.Println("Displaying content")
-	// Get the terminal size
 	width, height := s.Size()
 	log.Printf("Screen size: %dx%d characters", width, height)
 
-	// Calculate the width of each half
 	halfWidth := width / 2
 
-	// Display Sixel on the left half
 	if err := displaySixelLeftHalf(s, imagePath, halfWidth, height); err != nil {
 		return fmt.Errorf("error displaying image: %v", err)
 	}
 
-	// Display log on the right half
 	if err := displayLogRightHalf(s); err != nil {
 		return fmt.Errorf("error displaying log: %v", err)
 	}
 
-	// Display instructions
-	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-	for x := 0; x < width; x++ {
-		s.SetContent(x, height-1, ' ', nil, style)
-	}
-	message := "Press ESC to exit"
-	for i, ch := range message {
-		s.SetContent(i, height-1, ch, nil, style)
-	}
+	displayInstructions(s, width, height)
 	s.Show()
 	log.Println("Content display completed")
 
 	return nil
 }
 
+// displayInstructions displays usage instructions at the bottom of the screen
+func displayInstructions(s tcell.Screen, width, height int) {
+	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+	for x := 0; x < width; x++ {
+		s.SetContent(x, height-1, ' ', nil, style)
+	}
+	message := "Use arrow keys to move cursor. Press ESC to exit"
+	for i, ch := range message {
+		s.SetContent(i, height-1, ch, nil, style)
+	}
+}
+
+// displaySixelLeftHalf displays the image on the left half of the screen
 func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightChars int) error {
 	log.Println("Displaying Sixel")
 
-	// Convert character dimensions to pixel dimensions
 	widthPixels := widthChars * charSize.Width
-	heightPixels := (heightChars - 1) * charSize.Height // Leave space for instructions
+	heightPixels := (heightChars - 1) * charSize.Height
 
 	log.Printf("Image area: %dx%d characters, %dx%d pixels", widthChars, heightChars, widthPixels, heightPixels)
 
-	// Open the image file
 	file, err := os.Open(imagePath)
 	if err != nil {
 		log.Printf("Error opening image file: %v", err)
@@ -289,14 +357,12 @@ func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightCh
 	}
 	defer file.Close()
 
-	// Decode the image
 	img, _, err := image.Decode(file)
 	if err != nil {
 		log.Printf("Error decoding image: %v", err)
 		return fmt.Errorf("error decoding image: %v", err)
 	}
 
-	// Calculate the scaling factor to fit the image width to the available space
 	srcWidth := img.Bounds().Dx()
 	srcHeight := img.Bounds().Dy()
 	scaleX := float64(widthPixels) / float64(srcWidth)
@@ -306,27 +372,23 @@ func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightCh
 		scale = scaleY
 	}
 
-	// Calculate the new dimensions
 	newWidth := int(float64(srcWidth) * scale)
 	newHeight := int(float64(srcHeight) * scale)
 
 	log.Printf("Original image size: %dx%d", srcWidth, srcHeight)
 	log.Printf("Scaled image size: %dx%d", newWidth, newHeight)
 
-	// Scale the image
-	scaledImg := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
-	draw.ApproxBiLinear.Scale(scaledImg, scaledImg.Bounds(), img, img.Bounds(), draw.Over, nil)
+	imageBuffer = image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	draw.ApproxBiLinear.Scale(imageBuffer, imageBuffer.Bounds(), img, img.Bounds(), draw.Over, nil)
+	imageBounds = imageBuffer.Bounds()
 
-	// Create a new Sixel encoder
 	enc := sixel.NewEncoder(os.Stdout)
 	enc.Width = newWidth
 	enc.Height = newHeight
 
-	// Move cursor to top-left corner
 	fmt.Print("\033[H")
 
-	// Encode and output the image as Sixel
-	if err := enc.Encode(scaledImg); err != nil {
+	if err := enc.Encode(imageBuffer); err != nil {
 		log.Printf("Error encoding image to Sixel: %v", err)
 		return fmt.Errorf("error encoding image to Sixel: %v", err)
 	}
@@ -335,6 +397,7 @@ func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightCh
 	return nil
 }
 
+// displayLogRightHalf displays the log messages on the right half of the screen
 func displayLogRightHalf(s tcell.Screen) error {
 	width, height := s.Size()
 	halfWidth := width / 2
@@ -362,6 +425,41 @@ func displayLogRightHalf(s tcell.Screen) error {
 		}
 	}
 
-	s.Show()
 	return nil
+}
+
+// handleKeyEvent handles key events for cursor movement and exit
+func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
+	width, height := s.Size()
+	halfWidth := width / 2
+	
+	oldX, oldY := cursor.x, cursor.y
+
+	switch ev.Key() {
+	case tcell.KeyEscape, tcell.KeyCtrlC:
+		log.Println("Exit key pressed")
+		s.Fini()
+		os.Exit(0)
+	case tcell.KeyUp:
+		if cursor.y > 0 {
+			cursor.y--
+		}
+	case tcell.KeyDown:
+		if cursor.y < height-2 {
+			cursor.y++
+		}
+	case tcell.KeyLeft:
+		if cursor.x > 0 {
+			cursor.x--
+		}
+	case tcell.KeyRight:
+		if cursor.x < halfWidth-1 {
+			cursor.x++
+		}
+	}
+
+	if oldX != cursor.x || oldY != cursor.y {
+		redrawImageArea(s, oldX, oldY)
+		redrawImageArea(s, cursor.x, cursor.y)
+	}
 }

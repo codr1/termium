@@ -1,24 +1,24 @@
-22:12:00.373974 Program started
-22:12:00.374014 Detected terminal type: xterm-256color
-22:12:00.374017 xterm-compatible terminal detected. Attempting to calibrate.
-22:12:00.375502 Calibrated character size: 10x20 pixels
-22:12:00.376768 Screen initialized
-22:12:00.377223 Displaying content
-22:12:00.377249 Screen size: 155x83 characters
-22:12:00.377251 Displaying Sixel
-22:12:00.377253 Image area: 77x83 characters, 770x1640 pixels
-22:12:00.378646 Original image size: 500x300
-22:12:00.378652 Scaled image size: 770x462
-22:12:00.768922 Sixel display completed
-22:12:00.770446 Content display completed
-22:12:00.770452 Content displayed
-22:12:00.770471 Entering main event loop
-22:12:00.770476 Resize event
-22:12:00.771670 Displaying content
-22:12:00.771679 Screen size: 155x83 characters
-22:12:00.771681 Displaying Sixel
-22:12:00.771683 Image area: 77x83 characters, 770x1640 pixels
-22:12:00.772954 Original image size: 500x300
-22:12:00.772959 Scaled image size: 770x462
-22:12:01.166322 Sixel display completed
-22:12:01.167587 Content display completed
+22:48:47.087827 Program started
+22:48:47.087868 Detected terminal type: xterm-256color
+22:48:47.087870 xterm-compatible terminal detected. Attempting to calibrate.
+22:48:47.089407 Calibrated character size: 10x20 pixels
+22:48:47.090375 Screen initialized
+22:48:47.091117 Displaying content
+22:48:47.091128 Screen size: 155x83 characters
+22:48:47.091131 Displaying Sixel
+22:48:47.091132 Image area: 77x83 characters, 770x1640 pixels
+22:48:47.092550 Original image size: 500x300
+22:48:47.092556 Scaled image size: 770x462
+22:48:47.486650 Sixel display completed
+22:48:47.488287 Content display completed
+22:48:47.488298 Content displayed
+22:48:47.488320 Entering main event loop
+22:48:47.488327 Resize event
+22:48:47.489490 Displaying content
+22:48:47.489764 Screen size: 155x83 characters
+22:48:47.489767 Displaying Sixel
+22:48:47.489768 Image area: 77x83 characters, 770x1640 pixels
+22:48:47.490817 Original image size: 500x300
+22:48:47.490822 Scaled image size: 770x462
+22:48:47.880898 Sixel display completed
+22:48:47.881960 Content display completed

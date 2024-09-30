@@ -4,11 +4,12 @@
   "description": "gRPC server for browser control using Puppeteer",
   "main": "dist/server.js",
   "scripts": {
+    "preinstall": "./src/scripts/preinstall.sh",
     "generate": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=generated --ts_proto_opt=env=node,outputServices=grpc-js,useOptionals=messages --proto_path=./src src/bc.proto",
     "build": "tsc",
     "start": "node dist/server.js",
     "clean": "rm -rf dist generated",
-    "postinstall": "npm run generate && npm run build"
+    "postinstall": "./src/scripts/postinstall.sh"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.11.3",
@@ -16,7 +17,7 @@
     "commander": "^12.1.0",
     "daemonize2": "^0.4.2",
     "debug": "^4.3.7",
-    "puppeteer": "^19.0.0",
+    "puppeteer": "^23.4.1",
     "typescript": "^4.9.0"
   },
   "devDependencies": {

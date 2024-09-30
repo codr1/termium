@@ -149,7 +149,9 @@ const browserControlHandlers: BrowserControlServer = {
         try {
             if (!page) throw new Error('No active page');
             const screenshot = await page.screenshot({ type: 'png' });
-            callback(null, { data: screenshot });
+            const screenshotBuffer = Buffer.from(screenshot);
+
+            callback(null, { data: screenshotBuffer});
         } catch (error) {
             logDebug('Error in takeScreenshot:', (error as Error).message);
             callback({

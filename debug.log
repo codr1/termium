@@ -1,24 +1,25 @@
-22:48:47.087827 Program started
-22:48:47.087868 Detected terminal type: xterm-256color
-22:48:47.087870 xterm-compatible terminal detected. Attempting to calibrate.
-22:48:47.089407 Calibrated character size: 10x20 pixels
-22:48:47.090375 Screen initialized
-22:48:47.091117 Displaying content
-22:48:47.091128 Screen size: 155x83 characters
-22:48:47.091131 Displaying Sixel
-22:48:47.091132 Image area: 77x83 characters, 770x1640 pixels
-22:48:47.092550 Original image size: 500x300
-22:48:47.092556 Scaled image size: 770x462
-22:48:47.486650 Sixel display completed
-22:48:47.488287 Content display completed
-22:48:47.488298 Content displayed
-22:48:47.488320 Entering main event loop
-22:48:47.488327 Resize event
-22:48:47.489490 Displaying content
-22:48:47.489764 Screen size: 155x83 characters
-22:48:47.489767 Displaying Sixel
-22:48:47.489768 Image area: 77x83 characters, 770x1640 pixels
-22:48:47.490817 Original image size: 500x300
-22:48:47.490822 Scaled image size: 770x462
-22:48:47.880898 Sixel display completed
-22:48:47.881960 Content display completed
+21:09:20.063382 Program started
+21:09:20.063426 Detected terminal type: xterm-256color
+21:09:20.063429 xterm-compatible terminal detected. Attempting to calibrate.
+21:09:20.064922 Calibrated character size: 10x20 pixels
+21:09:20.066047 Screen initialized
+21:09:20.067542 Displaying content
+21:09:20.067551 Screen size: 155x83 characters
+21:09:20.067554 Displaying Sixel
+21:09:20.067556 Image area: 77x83 characters, 770x1640 pixels
+21:09:20.068798 Original image size: 500x300
+21:09:20.068804 Scaled image size: 770x462
+21:09:20.471590 Sixel display completed
+21:09:20.473301 Content display completed
+21:09:20.473328 Content displayed
+21:09:20.473351 Entering main event loop
+21:09:20.473357 Resize event
+21:09:20.474517 Displaying content
+21:09:20.474530 Screen size: 155x83 characters
+21:09:20.474533 Displaying Sixel
+21:09:20.474535 Image area: 77x83 characters, 770x1640 pixels
+21:09:20.476063 Original image size: 500x300
+21:09:20.476070 Scaled image size: 770x462
+21:09:20.877300 Sixel display completed
+21:09:20.878405 Content display completed
+21:09:24.691144 Exit key pressed

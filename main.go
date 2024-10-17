@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
+	"image/png"
 	"io"
 	"log"
 	"os"
@@ -14,9 +14,12 @@ import (
 	"syscall"
 	"time"
 
+	pb "github.com/codr1/termium/src/pb"
 	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
 	"golang.org/x/term"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -44,13 +47,25 @@ type Cursor struct {
 
 type MouseInfo struct {
 	PixelX, PixelY int
-	CharX, CharY int
+	CharX, CharY   int
 }
 
 var currentMouse MouseInfo
+
 var cursor Cursor
+
 var imageBuffer *image.RGBA
+
 var imageBounds image.Rectangle
+
+// GRPC Client
+var grpcClient pb.BrowserControlClient
+
+var grpcConn *grpc.ClientConn
+
+var screenshotMutex sync.Mutex
+
+var lastScreenshotTime time.Time
 
 // Write implements the io.Writer interface for LogBuffer
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
@@ -65,69 +80,68 @@ func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 }
 
 func displayErrorMessage(s tcell.Screen, message string) {
-    width, height := s.Size()
-    style := tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
-    
-    // Clear the bottom line
-    for x := 0; x < width; x++ {
-        s.SetContent(x, height-1, ' ', nil, style)
-    }
-    
-    // Display the error message
-    for i, ch := range message {
-        if i < width {
-            s.SetContent(i, height-1, ch, nil, style)
-        }
-    }
-    
-    s.Show()
+	width, height := s.Size()
+	style := tcell.StyleDefault.Foreground(tcell.ColorRed).Background(tcell.ColorBlack)
+
+	// Clear the bottom line
+	for x := 0; x < width; x++ {
+		s.SetContent(x, height-1, ' ', nil, style)
+	}
+
+	// Display the error message
+	for i, ch := range message {
+		if i < width {
+			s.SetContent(i, height-1, ch, nil, style)
+		}
+	}
+
+	s.Show()
 }
 
 func blinkCursor(s tcell.Screen) {
-    now := time.Now()
-    if now.Sub(cursor.lastBlink) >= 500*time.Millisecond {
-        cursor.blinkOn = !cursor.blinkOn
-        cursor.lastBlink = now
-        redrawImageArea(s, cursor.x, cursor.y)
-        s.Show()  // Make sure to show the changes
-    }
+	now := time.Now()
+	if now.Sub(cursor.lastBlink) >= 500*time.Millisecond {
+		cursor.blinkOn = !cursor.blinkOn
+		cursor.lastBlink = now
+		redrawImageArea(s, cursor.x, cursor.y)
+		s.Show() // Make sure to show the changes
+	}
 }
 
 // redrawImageArea redraws a specific area of the image, including the cursor if present
 func redrawImageArea(s tcell.Screen, x, y int) {
-    if imageBuffer == nil {
-        return
-    }
+	if imageBuffer == nil {
+		return
+	}
 
-    pixelX := x * charSize.Width
-    pixelY := y * charSize.Height
+	pixelX := x * charSize.Width
+	pixelY := y * charSize.Height
 
-    for dy := 0; dy < charSize.Height; dy++ {
-        for dx := 0; dx < charSize.Width; dx++ {
-            if pixelX+dx < imageBounds.Max.X && pixelY+dy < imageBounds.Max.Y {
-                c := imageBuffer.At(pixelX+dx, pixelY+dy)
-                r, g, b, _ := c.RGBA()
-                style := tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
-                s.SetContent(x, y, ' ', nil, style)
-            }
-        }
-    }
+	for dy := 0; dy < charSize.Height; dy++ {
+		for dx := 0; dx < charSize.Width; dx++ {
+			if pixelX+dx < imageBounds.Max.X && pixelY+dy < imageBounds.Max.Y {
+				c := imageBuffer.At(pixelX+dx, pixelY+dy)
+				r, g, b, _ := c.RGBA()
+				style := tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
+				s.SetContent(x, y, ' ', nil, style)
+			}
+		}
+	}
 
-    if x == cursor.x && y == cursor.y && cursor.visible {
-        style := tcell.StyleDefault.Background(tcell.ColorWhite)
-        if !cursor.blinkOn {
-            // Use the image color when the cursor is not visible
-            c := imageBuffer.At(pixelX, pixelY)
-            r, g, b, _ := c.RGBA()
-            style = tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
-        }
-        s.SetContent(x, y, ' ', nil, style)
-    }
+	if x == cursor.x && y == cursor.y && cursor.visible {
+		style := tcell.StyleDefault.Background(tcell.ColorWhite)
+		if !cursor.blinkOn {
+			// Use the image color when the cursor is not visible
+			c := imageBuffer.At(pixelX, pixelY)
+			r, g, b, _ := c.RGBA()
+			style = tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
+		}
+		s.SetContent(x, y, ' ', nil, style)
+	}
 }
 
 // main is the entry point of the application
 func main() {
-	imagePath := parseArgs()
 	setupLogging()
 	detectTerminalAndCalibrate()
 	s := initializeScreen()
@@ -135,19 +149,23 @@ func main() {
 
 	setupSignalHandling(s)
 	initializeCursor(s)
-	if err := runMainLoop(s, imagePath); err != nil {
-		displayErrorMessage(s, fmt.Sprint("Error in main loop: %v", err))
-	}
-}
 
-// parseArgs parses command-line arguments and returns the image path
-func parseArgs() string {
-	if len(os.Args) < 2 {
-		log.Println("Insufficient arguments")
-		fmt.Println("Usage: go run main.go <path_to_image>")
-		os.Exit(1)
+	// Connect to gRPC server and open a new tab
+	if err := connectToGRPCServer(); err != nil {
+		log.Fatalf("Failed to connect to gRPC server: %v", err)
 	}
-	return os.Args[1]
+	defer grpcConn.Close()
+
+	if err := openNewTab(); err != nil {
+		log.Fatalf("Failed to open new tab: %v", err)
+	}
+
+	// Start the screenshot goroutine
+	go screenshotLoop(s)
+
+	if err := runMainLoop(s); err != nil {
+		displayErrorMessage(s, fmt.Sprintf("Error in main loop: %v", err))
+	}
 }
 
 // setupLogging initializes the logging system
@@ -216,27 +234,102 @@ func initializeCursor(s tcell.Screen) {
 	}
 }
 
-// runMainLoop runs the main event loop of the application
-func runMainLoop(s tcell.Screen, imagePath string) error {
-	if err := displayContent(s, imagePath); err != nil {
-		log.Printf("Error displaying content: %v", err)
-		return fmt.Errorf("Error displaying content: %v", err)
+// connectToGRPCServer connects to the gRPC server
+func connectToGRPCServer() error {
+	var err error
+	grpcConn, err = grpc.Dial("localhost:50051", grpc.WithInsecure())
+	if err != nil {
+		return fmt.Errorf("failed to connect: %v", err)
 	}
-	log.Println("Content displayed")
+	grpcClient = pb.NewBrowserControlClient(grpcConn)
+	log.Println("Connected to gRPC server")
+	return nil
+}
 
-	go func() {
-		for {
-			s.PostEvent(tcell.NewEventInterrupt(nil))
-			time.Sleep(50 * time.Millisecond)  // Reduced from 100ms to 50ms for more frequent updates
+// openNewTab calls the openTab method on the server
+func openNewTab() error {
+	_, err := grpcClient.OpenTab(context.Background(), &pb.Empty{})
+	if err != nil {
+		return fmt.Errorf("failed to open new tab: %v", err)
+	}
+	log.Println("Opened new tab on the browser")
+	return nil
+}
+
+// screenshotLoop requests screenshots from the server every 200ms
+func screenshotLoop(s tcell.Screen) {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		screenshotMutex.Lock()
+		// Ensure at least 200ms have passed since the last screenshot
+		if time.Since(lastScreenshotTime) < 200*time.Millisecond {
+			screenshotMutex.Unlock()
+			continue
 		}
-	}()
+		lastScreenshotTime = time.Now()
+		screenshotMutex.Unlock()
 
+		err := requestAndDisplayScreenshot(s)
+		if err != nil {
+			log.Printf("Error requesting screenshot: %v", err)
+		}
+	}
+}
+
+// requestAndDisplayScreenshot requests a screenshot and updates the display
+func requestAndDisplayScreenshot(s tcell.Screen) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := grpcClient.TakeScreenshot(ctx, &pb.Empty{})
+	if err != nil {
+		log.Printf("Error taking screenshot: %v", err)
+		return err
+	}
+
+	img, err := png.Decode(strings.NewReader(string(resp.Data)))
+	if err != nil {
+		log.Printf("Error decoding screenshot PNG: %v", err)
+		return err
+	}
+
+	screenshotMutex.Lock()
+	imageBuffer = image.NewRGBA(img.Bounds())
+	draw.Draw(imageBuffer, img.Bounds(), img, image.Point{0, 0}, draw.Src)
+	imageBounds = imageBuffer.Bounds()
+	screenshotMutex.Unlock()
+
+	// Update the display
+	width, height := s.Size()
+	halfWidth := width / 2
+
+	// Clear the left half
+	for y := 0; y < height-1; y++ {
+		for x := 0; x < halfWidth; x++ {
+			s.SetContent(x, y, ' ', nil, tcell.StyleDefault)
+		}
+	}
+
+	// Display the new image
+	if err := displayImageBuffer(s, halfWidth, height); err != nil {
+		log.Printf("Error displaying image buffer: %v", err)
+		return err
+	}
+
+	s.Show()
+	return nil
+}
+
+// runMainLoop runs the main event loop of the application
+func runMainLoop(s tcell.Screen) error {
 	log.Println("Entering main event loop")
 	for {
 		ev := s.PollEvent()
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			handleResize(s, imagePath)
+			handleResize(s)
 		case *tcell.EventKey:
 			handleKeyEvent(s, ev)
 		case *tcell.EventMouse:
@@ -248,37 +341,46 @@ func runMainLoop(s tcell.Screen, imagePath string) error {
 }
 
 // handleResize handles screen resize events
-func handleResize(s tcell.Screen, imagePath string) {
+func handleResize(s tcell.Screen) {
 	log.Println("Resize event")
 	s.Clear()
 	s.Sync()
-	if err := displayContent(s, imagePath); err != nil {
-		log.Printf("Error redisplaying content after resize: %v", err)
-		displayErrorMessage(s, fmt.Sprintf("Error redisplaying content: %v", err))
-	}
+	// No need to redisplay static content, as the screenshot will be updated by the goroutine
 }
 
 // handleInterrupt handles interrupt events for updating the display
 func handleInterrupt(s tcell.Screen) {
-    if err := displayLogRightHalf(s); err != nil {
-        log.Printf("Error updating log display: %v", err)
-    }
-    blinkCursor(s)
-    displayMouseInfo(s)
+	blinkCursor(s)
+	displayMouseInfo(s)
 }
 
+// handleMouseEvent handles mouse events
 func handleMouseEvent(s tcell.Screen, ev *tcell.EventMouse) {
-    x, y := ev.Position()
-    currentMouse.CharX = x
-    currentMouse.CharY = y
-    currentMouse.PixelX = x * charSize.Width
-    currentMouse.PixelY = y * charSize.Height
-    
-    // Only update if the mouse is in the left half of the screen
-    width, _ := s.Size()
-    if x < width/2 {
-        displayMouseInfo(s)
-    }
+	x, y := ev.Position()
+	currentMouse.CharX = x
+	currentMouse.CharY = y
+	currentMouse.PixelX = x * charSize.Width
+	currentMouse.PixelY = y * charSize.Height
+
+	// Only update if the mouse is in the left half of the screen
+	width, _ := s.Size()
+	if x < width/2 {
+		displayMouseInfo(s)
+	}
+
+	// Handle mouse click
+	button := ev.Buttons()
+	if button&tcell.Button1 != 0 {
+		go sendMouseClick(currentMouse.PixelX, currentMouse.PixelY)
+	}
+}
+
+// sendMouseClick sends a mouse click event to the server
+func sendMouseClick(x, y int) {
+	_, err := grpcClient.ClickMouse(context.Background(), &pb.Coordinate{X: int32(x), Y: int32(y)})
+	if err != nil {
+		log.Printf("Error sending mouse click: %v", err)
+	}
 }
 
 // detectTerminalAndCalibrate detects the terminal type and calibrates the character size
@@ -355,69 +457,20 @@ func setDefaultCharSize() {
 	log.Println("Using default character size: 8x16 pixels")
 }
 
-// displayContent displays the image and log on the screen
-func displayContent(s tcell.Screen, imagePath string) error {
-	log.Println("Displaying content")
-	width, height := s.Size()
-	log.Printf("Screen size: %dx%d characters", width, height)
+// displayImageBuffer displays the imageBuffer on the left half of the screen
+func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
+	screenshotMutex.Lock()
+	defer screenshotMutex.Unlock()
 
-	halfWidth := width / 2
-
-	if err := displaySixelLeftHalf(s, imagePath, halfWidth, height); err != nil {
-		displayErrorMessage(s, fmt.Sprintf("Error displaying image: %v", err))
-		return fmt.Errorf("error displaying image: %v", err)
+	if imageBuffer == nil {
+		return nil
 	}
-
-	if err := displayLogRightHalf(s); err != nil {
-		displayErrorMessage(s, fmt.Sprintf("Error displaying log: %v", err))
-		return fmt.Errorf("error displaying log: %v", err)
-	}
-
-	displayInstructions(s, width, height)
-	s.Show()
-	log.Println("Content display completed")
-
-	return nil
-}
-
-// displayInstructions displays usage instructions at the bottom of the screen
-func displayInstructions(s tcell.Screen, width, height int) {
-	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-	for x := 0; x < width; x++ {
-		s.SetContent(x, height-1, ' ', nil, style)
-	}
-    message := "Use arrow keys to move cursor. Mouse over image for coordinates. Press ESC to exit"
-	for i, ch := range message {
-		s.SetContent(i, height-1, ch, nil, style)
-	}
-}
-
-// displaySixelLeftHalf displays the image on the left half of the screen
-func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightChars int) error {
-	log.Println("Displaying Sixel")
 
 	widthPixels := widthChars * charSize.Width
 	heightPixels := (heightChars - 1) * charSize.Height
 
-	log.Printf("Image area: %dx%d characters, %dx%d pixels", widthChars, heightChars, widthPixels, heightPixels)
-
-	file, err := os.Open(imagePath)
-	if err != nil {
-		log.Printf("Error opening image file: %v", err)
-		displayErrorMessage(s, fmt.Sprintf("Error opening image: %v", err))
-		return fmt.Errorf("error opening image: %v", err)
-	}
-	defer file.Close()
-
-	img, _, err := image.Decode(file)
-	if err != nil {
-		log.Printf("Error decoding image: %v", err)
-		displayErrorMessage(s, fmt.Sprintf("Error decoding image: %v", err))
-		return fmt.Errorf("error decoding image: %v", err)
-	}
-
-	srcWidth := img.Bounds().Dx()
-	srcHeight := img.Bounds().Dy()
+	srcWidth := imageBuffer.Bounds().Dx()
+	srcHeight := imageBuffer.Bounds().Dy()
 	scaleX := float64(widthPixels) / float64(srcWidth)
 	scaleY := float64(heightPixels) / float64(srcHeight)
 	scale := scaleX
@@ -428,12 +481,10 @@ func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightCh
 	newWidth := int(float64(srcWidth) * scale)
 	newHeight := int(float64(srcHeight) * scale)
 
-	log.Printf("Original image size: %dx%d", srcWidth, srcHeight)
 	log.Printf("Scaled image size: %dx%d", newWidth, newHeight)
 
-	imageBuffer = image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
-	draw.ApproxBiLinear.Scale(imageBuffer, imageBuffer.Bounds(), img, img.Bounds(), draw.Over, nil)
-	imageBounds = imageBuffer.Bounds()
+	scaledImage := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	draw.ApproxBiLinear.Scale(scaledImage, scaledImage.Bounds(), imageBuffer, imageBuffer.Bounds(), draw.Over, nil)
 
 	enc := sixel.NewEncoder(os.Stdout)
 	enc.Width = newWidth
@@ -441,108 +492,157 @@ func displaySixelLeftHalf(s tcell.Screen, imagePath string, widthChars, heightCh
 
 	fmt.Print("\033[H")
 
-	if err := enc.Encode(imageBuffer); err != nil {
+	if err := enc.Encode(scaledImage); err != nil {
 		log.Printf("Error encoding image to Sixel: %v", err)
-		displayErrorMessage(s, fmt.Sprintf("Error encoding image to Sixel: %v", err))
 		return fmt.Errorf("error encoding image to Sixel: %v", err)
 	}
-	log.Println("Sixel display completed")
+	log.Println("Sixel display updated")
 
 	return nil
 }
 
 // displayLogRightHalf displays the log messages on the right half of the screen
 func displayLogRightHalf(s tcell.Screen) error {
-    width, height := s.Size()
-    halfWidth := width / 2
-    style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+	width, height := s.Size()
+	halfWidth := width / 2
+	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
 
-    logBuffer.mutex.Lock()
-    defer logBuffer.mutex.Unlock()
+	logBuffer.mutex.Lock()
+	defer logBuffer.mutex.Unlock()
 
-    startIndex := 0
-    if len(logBuffer.messages) > height-4 {  // Changed from height-1 to height-4
-        startIndex = len(logBuffer.messages) - (height - 4)
-    }
+	startIndex := 0
+	if len(logBuffer.messages) > height-4 {
+		startIndex = len(logBuffer.messages) - (height - 4)
+	}
 
-    for y := 0; y < height-4; y++ {  // Changed from height-1 to height-4
-        for x := halfWidth; x < width; x++ {
-            s.SetContent(x, y, ' ', nil, style)
-        }
-        if y < len(logBuffer.messages)-startIndex {
-            message := logBuffer.messages[startIndex+y]
-            for x, ch := range message {
-                if halfWidth+x < width {
-                    s.SetContent(halfWidth+x, y, ch, nil, style)
-                }
-            }
-        }
-    }
+	for y := 0; y < height-4; y++ {
+		for x := halfWidth; x < width; x++ {
+			s.SetContent(x, y, ' ', nil, style)
+		}
+		if y < len(logBuffer.messages)-startIndex {
+			message := logBuffer.messages[startIndex+y]
+			for x, ch := range message {
+				if halfWidth+x < width {
+					s.SetContent(halfWidth+x, y, ch, nil, style)
+				}
+			}
+		}
+	}
 
-    return nil
+	return nil
 }
 
 func displayMouseInfo(s tcell.Screen) {
-    width, height := s.Size()
-    halfWidth := width / 2
-    style := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
+	width, height := s.Size()
+	halfWidth := width / 2
+	style := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
 
-    // Clear the area for mouse info
-    for y := height - 4; y < height - 1; y++ {
-        for x := halfWidth; x < width; x++ {
-            s.SetContent(x, y, ' ', nil, style)
-        }
-    }
+	// Clear the area for mouse info
+	for y := height - 4; y < height-1; y++ {
+		for x := halfWidth; x < width; x++ {
+			s.SetContent(x, y, ' ', nil, style)
+		}
+	}
 
-    // Display mouse info
-    info := []string{
-        fmt.Sprintf("Mouse Pixel: (%d, %d)", currentMouse.PixelX, currentMouse.PixelY),
-        fmt.Sprintf("Mouse Char:  (%d, %d)", currentMouse.CharX, currentMouse.CharY),
-    }
+	// Display mouse info
+	info := []string{
+		fmt.Sprintf("Mouse Pixel: (%d, %d)", currentMouse.PixelX, currentMouse.PixelY),
+		fmt.Sprintf("Mouse Char:  (%d, %d)", currentMouse.CharX, currentMouse.CharY),
+	}
 
-    for i, line := range info {
-        for x, ch := range line {
-            if halfWidth+x < width {
-                s.SetContent(halfWidth+x, height-4+i, ch, nil, style)
-            }
-        }
-    }
+	for i, line := range info {
+		for x, ch := range line {
+			if halfWidth+x < width {
+				s.SetContent(halfWidth+x, height-4+i, ch, nil, style)
+			}
+		}
+	}
 
-    s.Show()
+	s.Show()
+}
+
+// displayInstructions displays usage instructions at the bottom of the screen
+func displayInstructions(s tcell.Screen, width, height int) {
+	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+	for x := 0; x < width; x++ {
+		s.SetContent(x, height-1, ' ', nil, style)
+	}
+	message := "Use arrow keys to move cursor. Mouse over image for coordinates. Press ESC or Ctrl+C to exit"
+	for i, ch := range message {
+		s.SetContent(i, height-1, ch, nil, style)
+	}
 }
 
 // handleKeyEvent handles key events for cursor movement and exit
 func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 	width, height := s.Size()
 	halfWidth := width / 2
-	
+
 	oldX, oldY := cursor.x, cursor.y
 
-	switch ev.Key() {
-	case tcell.KeyEscape, tcell.KeyCtrlC:
-		log.Println("Exit key pressed")
-		s.Fini()
-		os.Exit(0)
-	case tcell.KeyUp:
-		if cursor.y > 0 {
-			cursor.y--
+	if ev.Modifiers()&tcell.ModCtrl != 0 {
+		// Ctrl+Key combinations
+		switch ev.Key() {
+		case tcell.KeyCtrlC:
+			log.Println("Exit key pressed")
+			s.Fini()
+			os.Exit(0)
+		case tcell.KeyCtrlUp:
+			if cursor.y > 0 {
+				cursor.y--
+			}
+		case tcell.KeyCtrlDown:
+			if cursor.y < height-2 {
+				cursor.y++
+			}
+		case tcell.KeyCtrlLeft:
+			if cursor.x > 0 {
+				cursor.x--
+			}
+		case tcell.KeyCtrlRight:
+			if cursor.x < halfWidth-1 {
+				cursor.x++
+			}
 		}
-	case tcell.KeyDown:
-		if cursor.y < height-2 {
-			cursor.y++
-		}
-	case tcell.KeyLeft:
-		if cursor.x > 0 {
-			cursor.x--
-		}
-	case tcell.KeyRight:
-		if cursor.x < halfWidth-1 {
-			cursor.x++
+	} else {
+		// Regular keys
+		switch ev.Key() {
+		case tcell.KeyEscape:
+			log.Println("Exit key pressed")
+			s.Fini()
+			os.Exit(0)
+		case tcell.KeyUp:
+			if cursor.y > 0 {
+				cursor.y--
+			}
+		case tcell.KeyDown:
+			if cursor.y < height-2 {
+				cursor.y++
+			}
+		case tcell.KeyLeft:
+			if cursor.x > 0 {
+				cursor.x--
+			}
+		case tcell.KeyRight:
+			if cursor.x < halfWidth-1 {
+				cursor.x++
+			}
+		default:
+			// Send keyboard input to server
+			go sendKeyboardInput(string(ev.Rune()))
 		}
 	}
 
 	if oldX != cursor.x || oldY != cursor.y {
 		redrawImageArea(s, oldX, oldY)
 		redrawImageArea(s, cursor.x, cursor.y)
+	}
+}
+
+// sendKeyboardInput sends keyboard input to the server
+func sendKeyboardInput(text string) {
+	_, err := grpcClient.SendKeyboardInput(context.Background(), &pb.Text{Content: text})
+	if err != nil {
+		log.Printf("Error sending keyboard input: %v", err)
 	}
 }

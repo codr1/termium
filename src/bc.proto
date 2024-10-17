@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package browsercontrol;
+package pb;
+
+option go_package = "github.com/codr1/termium/src/pb;pb";
 
 service BrowserControl {
   rpc OpenTab (Empty) returns (Message) {}

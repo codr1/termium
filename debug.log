@@ -1,25 +1,7 @@
-16:53:08.370139 Program started
-16:53:08.370173 Detected terminal type: xterm-256color
-16:53:08.370175 xterm-compatible terminal detected. Attempting to calibrate.
-16:53:08.371039 Calibrated character size: 10x20 pixels
-16:53:08.371403 Screen initialized
-16:53:08.371575 Displaying content
-16:53:08.371586 Screen size: 88x54 characters
-16:53:08.371588 Displaying Sixel
-16:53:08.371590 Image area: 44x54 characters, 440x1060 pixels
-16:53:08.380939 Original image size: 600x450
-16:53:08.380952 Scaled image size: 439x330
-16:53:08.563896 Sixel display completed
-16:53:08.564396 Content display completed
-16:53:08.564403 Content displayed
-16:53:08.564419 Entering main event loop
-16:53:08.564422 Resize event
-16:53:08.564680 Displaying content
-16:53:08.564683 Screen size: 88x54 characters
-16:53:08.564685 Displaying Sixel
-16:53:08.564686 Image area: 44x54 characters, 440x1060 pixels
-16:53:08.570905 Original image size: 600x450
-16:53:08.570911 Scaled image size: 439x330
-16:53:08.719601 Sixel display completed
-16:53:08.719971 Content display completed
-16:55:13.250182 Exit key pressed
+17:22:58.561118 Program started
+17:22:58.561158 Detected terminal type: xterm-256color
+17:22:58.561160 xterm-compatible terminal detected. Attempting to calibrate.
+17:22:58.561730 Calibrated character size: 10x20 pixels
+17:22:58.562380 Screen initialized
+17:22:58.562727 Connected to gRPC server
+17:22:58.623453 Failed to open new tab: failed to open new tab: rpc error: code = Unimplemented desc = The server does not implement the method /pb.BrowserControl/OpenTab

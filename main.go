@@ -14,14 +14,13 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/codr1/termium/src/pb"
+	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
 	"golang.org/x/term"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 
-	"github.com/gdamore/tcell/v2"
+	pb "termium/src/pb"
 )
 
 type CharSize struct {
@@ -583,25 +582,33 @@ func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 	if ev.Modifiers()&tcell.ModCtrl != 0 {
 		// Ctrl+Key combinations
 		switch ev.Key() {
-		case tcell.KeyCtrlC:
-			log.Println("Exit key pressed")
-			s.Fini()
-			os.Exit(0)
-		case tcell.KeyCtrlUp:
-			if cursor.y > 0 {
-				cursor.y--
+		case tcell.KeyUp:
+			if ev.Modifiers()&tcell.ModCtrl != 0 {
+				// Handle Ctrl+Up
+				fmt.Println("Ctrl+Up pressed")
+			} else {
+				// Handle regular Up key
 			}
-		case tcell.KeyCtrlDown:
-			if cursor.y < height-2 {
-				cursor.y++
+		case tcell.KeyDown:
+			if ev.Modifiers()&tcell.ModCtrl != 0 {
+				// Handle Ctrl+Down
+				fmt.Println("Ctrl+Down pressed")
+			} else {
+				// Handle regular Down key
 			}
-		case tcell.KeyCtrlLeft:
-			if cursor.x > 0 {
-				cursor.x--
+		case tcell.KeyLeft:
+			if ev.Modifiers()&tcell.ModCtrl != 0 {
+				// Handle Ctrl+Left
+				fmt.Println("Ctrl+Left pressed")
+			} else {
+				// Handle regular Left key
 			}
-		case tcell.KeyCtrlRight:
-			if cursor.x < halfWidth-1 {
-				cursor.x++
+		case tcell.KeyRight:
+			if ev.Modifiers()&tcell.ModCtrl != 0 {
+				// Handle Ctrl+Right
+				fmt.Println("Ctrl+Right pressed")
+			} else {
+				// Handle regular Right key
 			}
 		}
 	} else {

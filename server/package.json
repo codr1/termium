@@ -1,0 +1,28 @@
+{
+  "name": "termium-server",
+  "version": "1.0.0",
+  "description": "gRPC server for browser control using Puppeteer",
+  "main": "dist/server.js",
+  "scripts": {
+    "preinstall": "./scripts/preinstall.sh",
+    "generate": "protoc --plugin=$(which protoc-gen-ts_proto) --ts_proto_out=./generated --ts_proto_opt=env=node,outputServices=grpc-js,useOptionals=messages --proto_path=../proto ../proto/bc.proto",
+    "build": "tsc && cp -r generated dist/",
+    "start": "node dist/src/server.js",
+    "clean": "rm -rf dist generated"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.11.3",
+    "@protobuf-ts/runtime": "^2.9.4",
+    "commander": "^12.1.0",
+    "daemonize2": "^0.4.2",
+    "debug": "^4.3.7",
+    "puppeteer": "^23.4.1",
+    "typescript": "^4.9.0"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/node": "^18.0.0",
+    "ts-node": "^10.9.0",
+    "ts-proto": "^2.2.1"
+  }
+}

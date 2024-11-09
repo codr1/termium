@@ -1,29 +1,20 @@
 {
-  "name": "grpc-browser-control",
+  "name": "termium",
   "version": "1.0.0",
-  "description": "gRPC server for browser control using Puppeteer",
-  "main": "dist/server.js",
+  "private": true,
+  "workspaces": [
+    "server"
+  ],
   "scripts": {
-    "preinstall": "./src/scripts/preinstall.sh",
-    "generate": "protoc --plugin=protoc-gen-ts_proto=./node_modules/.bin/protoc-gen-ts_proto --ts_proto_out=generated --ts_proto_opt=env=node,outputServices=grpc-js,useOptionals=messages --proto_path=./src src/bc.proto",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "clean": "rm -rf dist generated",
-    "postinstall": "./src/scripts/postinstall.sh"
-  },
-  "dependencies": {
-    "@grpc/grpc-js": "^1.11.3",
-    "@protobuf-ts/runtime": "^2.9.4",
-    "commander": "^12.1.0",
-    "daemonize2": "^0.4.2",
-    "debug": "^4.3.7",
-    "puppeteer": "^23.4.1",
-    "typescript": "^4.9.0"
-  },
-  "devDependencies": {
-    "@types/debug": "^4.1.12",
-    "@types/node": "^18.0.0",
-    "ts-node": "^10.9.0",
-    "ts-proto": "^2.2.1"
+    "prepare": "mkdir -p proto client server/generated",
+    "install:all": "npm install && cd server && npm install",
+    "build:proto": "cd server && npm run generate",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && go build -o termium",
+    "build": "npm run prepare && npm run build:proto && npm run build:server && npm run build:client",
+    "start:server": "cd server && npm run start",
+    "start:client": "cd client && ./termium",
+    "clean": "rm -rf server/dist server/generated client/termium",
+    "clean:all": "npm run clean && rm -rf server/node_modules server/package-lock.json node_modules package-lock.json"
   }
 }

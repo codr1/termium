@@ -1,7 +1,0 @@
-17:22:58.561118 Program started
-17:22:58.561158 Detected terminal type: xterm-256color
-17:22:58.561160 xterm-compatible terminal detected. Attempting to calibrate.
-17:22:58.561730 Calibrated character size: 10x20 pixels
-17:22:58.562380 Screen initialized
-17:22:58.562727 Connected to gRPC server
-17:22:58.623453 Failed to open new tab: failed to open new tab: rpc error: code = Unimplemented desc = The server does not implement the method /pb.BrowserControl/OpenTab

@@ -13,7 +13,7 @@ Terminum allows you to run Chromium inside any terminal that supports sixel grap
 ### Prerequisites
 
 - Node.js (v18 or higher)
-- Go (v1.16 or higher)
+- Go (v1.23 or higher)
 - npm
 - A terminal that supports sixel graphics (Currently using Windows Terminal Preview for development)
 
@@ -24,33 +24,28 @@ git clone https://github.com/yourusername/terminum.git
 cd termium
 ```
 
-2. Install TypeScript server dependencies:
+2. Setup and Build   
 ```
-npm install
+./build.sh
 ```
-
-3. Install Go dependencies:
-go mod tidy
-
-4. Build TypeScript project:
-npm run build
-This will compile the TypeScript files into the dist/ directory.
 
 ### Project Structure
 <pre>
-terminum/
-│
-├── dist/               # Compiled TypeScript files (server)
-├── src/                # TypeScript source files
-│   ├── bc.proto        # gRPC proto file
-│   └── server.ts       # TypeScript server for Chromium interaction
-│
-├── main.go             # Go client file
-├── go.mod              # Go module dependencies
-├── go.sum              # Go module checksums
-│
-├── .env                # Environment variables (ignored in .gitignore)
-├── README.md           # This file
+termium/
+├── proto/
+│   └── bc.proto
+├── client/          # Go client code
+│   ├── main.go
+│   └── ...
+├── server/          # TypeScript server code
+│   ├── src/
+│   │   ├── server.ts
+│   │   └── ...
+│   ├── dist/
+│   └── ...
+├── README.md
+├── build.sh 
+└── package.json
 </pre>
 
 ### Description:
@@ -58,20 +53,36 @@ The TypeScript server uses Puppeteer to run a headless Chromium instance and exp
 The Go client provides a text-based UI for users to control the browser from within the terminal.
 
 
-### Usage
-Start the TypeScript Server
-After building the project, you can start the TypeScript server by running:
+### Usage - Starting the application in two separate terminals (temporarily)
+Once we are done with testing - this will be a single command. 
 
-npm run start
+#### Terminal 1 
+```
+npm run start:server
+```
 
 This will launch the headless Chromium instance and expose the necessary endpoints.
 
-### Run the Go Client
-To run the Go client (text-based UI):
+#### Terminal 2 
+```
+npm run start:client
+```
 
-go run main.go
-
+This will launch the Go client (text-based UI):
 This will start the terminal UI that interacts with the TypeScript server.
+ 
+### Development 
+To rebuild everything 
+```
+npm run buid
+```
+
+To clan everything and start fresh:
+```
+npm run clean:all
+./build.sh
+```
+
 
 ### Contribution
 Feel free to open issues or submit pull requests if you find any bugs or have new features in mind.

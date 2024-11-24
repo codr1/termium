@@ -48,3 +48,7 @@ yarn.lock
 # Miscellaneous
 .idea/               
 .vscode/             
+
+# Don't check in any PNG files as I am currently using those for debugging.
+*.PNG
+*.png

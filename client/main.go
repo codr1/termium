@@ -80,6 +80,7 @@ const (
 )
 
 // Write implements the io.Writer interface for LogBuffer
+
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 	lb.mutex.Lock()
 	defer lb.mutex.Unlock()
@@ -159,6 +160,15 @@ func main() {
 	if err != nil {
 		Debug(fmt.Sprintf("Failed to parse flags: %v", err), ERROR)
 		os.Exit(1)
+	}
+
+	// Set up logging first
+	if cfg.LogFile != "" {
+		if err := SetLogFile(cfg.LogFile); err != nil {
+			Debug(fmt.Sprintf("Failed to set up log file: %v", err), ERROR)
+			os.Exit(1)
+		}
+		defer CloseLogFile()
 	}
 
 	// Enable debug if flag is set
@@ -647,14 +657,12 @@ func queryTerminal(query string) (string, error) {
 	return string(response[:n]), nil
 }
 
-// setDefaultCharSize sets default character size when calibration fails
-func setDefaultCharSize() {
-	charSize = CharSize{Width: 8, Height: 16}
-	Debug("Using default character size: 8x16 pixels", DEBUG)
-}
-
-// displayImageBuffer displays the imageBuffer on the left half of the screen
 func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
+	startTime := time.Now()
+	defer func() {
+		Debug(fmt.Sprintf("Total displayImageBuffer time: %v", time.Since(startTime)), INFO)
+	}()
+
 	screenshotMutex.Lock()
 	defer screenshotMutex.Unlock()
 
@@ -678,10 +686,12 @@ func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
 	newHeight := int(float64(srcHeight) * scale)
 
 	Debug(fmt.Sprintf("Scaled image size: %dx%d", newWidth, newHeight), DEBUG)
-
+	scaleStart := time.Now()
 	scaledImage := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
 	draw.ApproxBiLinear.Scale(scaledImage, scaledImage.Bounds(), imageBuffer, imageBuffer.Bounds(), draw.Over, nil)
+	Debug(fmt.Sprintf("Image scaling time: %v", time.Since(scaleStart)), INFO)
 
+	encodeStart := time.Now()
 	enc := sixel.NewEncoder(os.Stdout)
 	enc.Width = newWidth
 	enc.Height = newHeight
@@ -692,6 +702,8 @@ func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
 		Debug(fmt.Sprintf("Error encoding image to Sixel: %v", err), ERROR)
 		return fmt.Errorf("error encoding image to Sixel: %v", err)
 	}
+
+	Debug(fmt.Sprintf("Sixel encoding and display time: %v", time.Since(encodeStart)), INFO)
 	Debug("Sixel display updated", DEBUG)
 
 	return nil

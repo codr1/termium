@@ -93,3 +93,6 @@ This project is currently using the CC BY-ND License.
 Additional Notes
 Ensure that your terminal supports sixel graphics for optimal display. You may need to configure your terminal settings.
 The .env file is used to configure environment-specific settings for both the server and client.
+
+TODO: 
+- Add a real home page navigation option

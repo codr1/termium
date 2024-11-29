@@ -1,0 +1,23 @@
+2024-11-28 19:11:05.032 [INFO] Log file initialized
+2024-11-28 19:11:05.032 [INFO] Starting application
+2024-11-28 19:11:05.032 [DEBUG] Debug mode enabled
+2024-11-28 19:11:05.032 [DEBUG] Terminal type: xterm-256color
+2024-11-28 19:11:05.032 [DEBUG] xterm-compatible terminal detected. Attempting to calibrate.
+2024-11-28 19:11:05.032 [DEBUG] Starting terminal calibration
+2024-11-28 19:11:05.033 [DEBUG] Raw character response: "\x1b[8;52;103t"
+2024-11-28 19:11:05.034 [DEBUG] Raw pixel response: "\x1b[4;1040;1030t"
+2024-11-28 19:11:05.034 [DEBUG] Parsed character dimensions - Rows: 52, Cols: 103
+2024-11-28 19:11:05.034 [DEBUG] Parsed pixel dimensions - Height: 1040, Width: 1030
+2024-11-28 19:11:05.034 [INFO] Calibrated character size: 10x20 pixels
+2024-11-28 19:11:05.035 [DEBUG] Screen initialized with border
+2024-11-28 19:11:05.036 [DEBUG] Loading splash screen from: ./ship.jpg
+2024-11-28 19:11:05.078 [DEBUG] Scaling image to: 510x636
+2024-11-28 19:11:05.439 [DEBUG] Displayed sixel image at offset (-203,-294) with size 510x636 in window 103x52
+2024-11-28 19:11:05.439 [INFO] Total displayImageBuffer time: 361.475467ms
+2024-11-28 19:11:05.439 [DEBUG] Scaling image to: 510x636
+2024-11-28 19:11:05.817 [DEBUG] Displayed sixel image at offset (-203,-294) with size 510x636 in window 103x52
+2024-11-28 19:11:05.817 [INFO] Total displayImageBuffer time: 377.800522ms
+2024-11-28 19:11:07.010 [DEBUG] Splash screen received key event: 256
+2024-11-28 19:11:07.010 [ERROR] Error showing splash screen: user requested exit
+2024-11-28 19:11:07.010 [DEBUG] Screen finalized
+2024-11-28 19:11:07.010 [INFO] Log file closed

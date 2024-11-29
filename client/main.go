@@ -79,6 +79,8 @@ const (
 	MenuSelect
 )
 
+var cfg *Config
+
 // Write implements the io.Writer interface for LogBuffer
 
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
@@ -156,7 +158,8 @@ func redrawImageArea(s tcell.Screen, x, y int) {
 // main is the entry point of the application
 func main() {
 	// Parse command line flags
-	cfg, err := parseFlags()
+	var err error
+	cfg, err = parseFlags()
 	if err != nil {
 		Debug(fmt.Sprintf("Failed to parse flags: %v", err), ERROR)
 		os.Exit(1)
@@ -223,6 +226,51 @@ func main() {
 	}
 }
 
+// Draws teal borders around both panels and sets the bottom panel background to navy
+func drawBorder(s tcell.Screen) {
+	width, height := s.Size()
+	bottomPanelHeight := 5
+	topPanelHeight := height - bottomPanelHeight
+
+	borderStyle := tcell.StyleDefault.Foreground(tcell.ColorTeal)
+	navyStyle := tcell.StyleDefault.Background(tcell.ColorNavy)
+
+	// Draw outer frame
+	for x := 0; x < width; x++ {
+		s.SetContent(x, 0, '─', nil, borderStyle)              // Top edge
+		s.SetContent(x, topPanelHeight, '─', nil, borderStyle) // Middle divider
+		s.SetContent(x, height-1, '─', nil, borderStyle)       // Bottom edge
+	}
+
+	// Draw vertical borders for top panel
+	for y := 1; y < topPanelHeight; y++ {
+		s.SetContent(0, y, '│', nil, borderStyle)
+		s.SetContent(width-1, y, '│', nil, borderStyle)
+	}
+
+	// Draw vertical borders for bottom panel and fill with navy background
+	for y := topPanelHeight + 1; y < height-1; y++ {
+		s.SetContent(0, y, '│', nil, borderStyle)
+		s.SetContent(width-1, y, '│', nil, borderStyle)
+		// Fill bottom panel with navy background
+		for x := 1; x < width-1; x++ {
+			s.SetContent(x, y, ' ', nil, navyStyle)
+		}
+	}
+
+	// Draw corners for top panel
+	s.SetContent(0, 0, '┌', nil, borderStyle)
+	s.SetContent(width-1, 0, '┐', nil, borderStyle)
+
+	// Draw corners for middle divider
+	s.SetContent(0, topPanelHeight, '├', nil, borderStyle)
+	s.SetContent(width-1, topPanelHeight, '┤', nil, borderStyle)
+
+	// Draw corners for bottom panel
+	s.SetContent(0, height-1, '└', nil, borderStyle)
+	s.SetContent(width-1, height-1, '┘', nil, borderStyle)
+}
+
 // initializeScreen creates and initializes the tcell screen
 func initializeScreen() tcell.Screen {
 	s, err := tcell.NewScreen()
@@ -236,8 +284,12 @@ func initializeScreen() tcell.Screen {
 	}
 	s.EnableMouse()
 
-	Debug("Screen initialized", DEBUG)
+	// Clear screen and draw border
 	s.Clear()
+	drawBorder(s)
+	s.Show()
+
+	Debug("Screen initialized with border", DEBUG)
 	return s
 }
 
@@ -411,9 +463,9 @@ func runMainLoop(s tcell.Screen) error {
 
 // handleResize handles screen resize events
 func handleResize(s tcell.Screen) {
-	Debug("Exit key pressed", DEBUG)
 	Debug("Resize event", DEBUG)
 	s.Clear()
+	drawBorder(s)
 	s.Sync()
 	// No need to redisplay static content, as the screenshot will be updated by the goroutine
 }
@@ -657,7 +709,18 @@ func queryTerminal(query string) (string, error) {
 	return string(response[:n]), nil
 }
 
+// setDefaultCharSize sets default character size when calibration fails
+func setDefaultCharSize() {
+	charSize = CharSize{Width: 8, Height: 16}
+	Debug("Using default character size: 8x16 pixels", DEBUG)
+}
+
+// Displays the image buffer using either sixel or character-based rendering within tcell's framework
 func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
+	if s == nil || imageBuffer == nil {
+		return fmt.Errorf("invalid screen or image buffer")
+	}
+
 	startTime := time.Now()
 	defer func() {
 		Debug(fmt.Sprintf("Total displayImageBuffer time: %v", time.Since(startTime)), INFO)
@@ -666,17 +729,32 @@ func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
 	screenshotMutex.Lock()
 	defer screenshotMutex.Unlock()
 
-	if imageBuffer == nil {
-		return nil
+	// Calculate display area accounting for tcell panels
+	bottomPanelHeight := 5
+	topPanelHeight := heightChars - bottomPanelHeight
+
+	// Scale image to fit available space
+	widthPixels := widthChars * charSize.Width
+	heightPixels := (topPanelHeight - 1) * charSize.Height
+
+	scaledImage := scaleImage(imageBuffer, widthPixels, heightPixels)
+
+	if cfg.UseTCell {
+		// Fallback to character-based rendering for terminals without sixel
+		return displayWithTcell(s, scaledImage, widthChars, topPanelHeight)
 	}
 
-	widthPixels := widthChars * charSize.Width
-	heightPixels := (heightChars - 1) * charSize.Height
+	// Use sixel rendering while respecting tcell boundaries
+	return displayWithSixelInTcell(s, scaledImage)
+}
 
-	srcWidth := imageBuffer.Bounds().Dx()
-	srcHeight := imageBuffer.Bounds().Dy()
-	scaleX := float64(widthPixels) / float64(srcWidth)
-	scaleY := float64(heightPixels) / float64(srcHeight)
+// Scales image efficiently using shared logic
+func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
+	srcWidth := src.Bounds().Dx()
+	srcHeight := src.Bounds().Dy()
+
+	scaleX := float64(targetWidth) / float64(srcWidth)
+	scaleY := float64(targetHeight) / float64(srcHeight)
 	scale := scaleX
 	if scaleY < scale {
 		scale = scaleY
@@ -685,74 +763,95 @@ func displayImageBuffer(s tcell.Screen, widthChars, heightChars int) error {
 	newWidth := int(float64(srcWidth) * scale)
 	newHeight := int(float64(srcHeight) * scale)
 
-	Debug(fmt.Sprintf("Scaled image size: %dx%d", newWidth, newHeight), DEBUG)
-	scaleStart := time.Now()
-	scaledImage := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
-	draw.ApproxBiLinear.Scale(scaledImage, scaledImage.Bounds(), imageBuffer, imageBuffer.Bounds(), draw.Over, nil)
-	Debug(fmt.Sprintf("Image scaling time: %v", time.Since(scaleStart)), INFO)
+	Debug(fmt.Sprintf("Scaling image to: %dx%d", newWidth, newHeight), DEBUG)
+	scaled := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
+	draw.ApproxBiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Over, nil)
 
-	encodeStart := time.Now()
+	return scaled
+}
+
+// Displays sixel graphics while respecting tcell's window boundaries and panels
+func displayWithSixelInTcell(s tcell.Screen, img *image.RGBA) error {
+	// Get terminal dimensions from tcell
+	width, height := s.Size()
+	bottomPanelHeight := 5
+	topPanelHeight := height - bottomPanelHeight
+
+	// Calculate usable area for image (accounting for borders and panels)
+	usableWidth := width - 2           // subtract left and right borders
+	usableHeight := topPanelHeight - 2 // subtract top border and panel divider
+
+	// Calculate centering offsets within usable area
+	imgWidth := img.Bounds().Dx()
+	imgHeight := img.Bounds().Dy()
+	xOffset := ((usableWidth - imgWidth) / 2) + 1   // +1 for left border
+	yOffset := ((usableHeight - imgHeight) / 2) + 1 // +1 for top border
+
+	// Position cursor for sixel output using calculated offsets
+	fmt.Printf("\033[H\033[%dB\033[%dC", yOffset, xOffset)
+
 	enc := sixel.NewEncoder(os.Stdout)
-	enc.Width = newWidth
-	enc.Height = newHeight
+	enc.Width = imgWidth
+	enc.Height = imgHeight
 
-	fmt.Print("\033[H")
+	// Save cursor position before sixel output
+	fmt.Print("\033[s")
 
-	if err := enc.Encode(scaledImage); err != nil {
-		Debug(fmt.Sprintf("Error encoding image to Sixel: %v", err), ERROR)
-		return fmt.Errorf("error encoding image to Sixel: %v", err)
+	if err := enc.Encode(img); err != nil {
+		Debug(fmt.Sprintf("Sixel encoding error: %v", err), ERROR)
+		return fmt.Errorf("sixel encoding error: %v", err)
 	}
 
-	Debug(fmt.Sprintf("Sixel encoding and display time: %v", time.Since(encodeStart)), INFO)
-	Debug("Sixel display updated", DEBUG)
+	// Restore cursor position
+	fmt.Print("\033[u")
+
+	Debug(fmt.Sprintf("Displayed sixel image at offset (%d,%d) with size %dx%d in window %dx%d",
+		xOffset, yOffset, imgWidth, imgHeight, width, height), DEBUG)
 
 	return nil
 }
 
-// displayLogRightHalf displays the log messages on the right half of the screen
-func displayLogRightHalf(s tcell.Screen) error {
+// Displays log messages in the bottom panel with navy background
+func displayBottomPanel(s tcell.Screen) error {
 	width, height := s.Size()
-	halfWidth := width / 2
-	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
+	bottomPanelHeight := 5
+	topPanelHeight := height - bottomPanelHeight
+	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
 
 	logBuffer.mutex.Lock()
 	defer logBuffer.mutex.Unlock()
 
 	startIndex := 0
-	if len(logBuffer.messages) > height-4 {
-		startIndex = len(logBuffer.messages) - (height - 4)
+	if len(logBuffer.messages) > bottomPanelHeight-2 { // -2 to account for borders
+		startIndex = len(logBuffer.messages) - (bottomPanelHeight - 2)
 	}
 
-	for y := 0; y < height-4; y++ {
-		for x := halfWidth; x < width; x++ {
-			s.SetContent(x, y, ' ', nil, style)
+	for y := 0; y < bottomPanelHeight-2; y++ {
+		// Fill entire line with navy background
+		for x := 1; x < width-1; x++ {
+			s.SetContent(x, topPanelHeight+1+y, ' ', nil, style)
 		}
+
 		if y < len(logBuffer.messages)-startIndex {
 			message := logBuffer.messages[startIndex+y]
 			for x, ch := range message {
-				if halfWidth+x < width {
-					s.SetContent(halfWidth+x, y, ch, nil, style)
+				if x < width-2 { // -2 to account for borders
+					s.SetContent(x+1, topPanelHeight+1+y, ch, nil, style)
 				}
 			}
 		}
 	}
-
 	return nil
 }
 
+// Displays current mouse coordinate information in the bottom panel
 func displayMouseInfo(s tcell.Screen) {
 	width, height := s.Size()
-	halfWidth := width / 2
-	style := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorBlack)
+	bottomPanelHeight := 5
+	topPanelHeight := height - bottomPanelHeight
+	style := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorNavy)
 
-	// Clear the area for mouse info
-	for y := height - 4; y < height-1; y++ {
-		for x := halfWidth; x < width; x++ {
-			s.SetContent(x, y, ' ', nil, style)
-		}
-	}
-
-	// Display mouse info
+	// Display mouse info in the last two lines of bottom panel
 	info := []string{
 		fmt.Sprintf("Mouse Pixel: (%d, %d)", currentMouse.PixelX, currentMouse.PixelY),
 		fmt.Sprintf("Mouse Char:  (%d, %d)", currentMouse.CharX, currentMouse.CharY),
@@ -760,8 +859,8 @@ func displayMouseInfo(s tcell.Screen) {
 
 	for i, line := range info {
 		for x, ch := range line {
-			if halfWidth+x < width {
-				s.SetContent(halfWidth+x, height-4+i, ch, nil, style)
+			if x < width-2 {
+				s.SetContent(x+1, topPanelHeight+bottomPanelHeight-2+i, ch, nil, style)
 			}
 		}
 	}
@@ -769,15 +868,20 @@ func displayMouseInfo(s tcell.Screen) {
 	s.Show()
 }
 
-// displayInstructions displays usage instructions at the bottom of the screen
+// Displays usage instructions in the bottom panel
 func displayInstructions(s tcell.Screen, width, height int) {
-	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-	for x := 0; x < width; x++ {
-		s.SetContent(x, height-1, ' ', nil, style)
+	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
+
+	// Clear the last line of bottom panel
+	for x := 1; x < width-1; x++ {
+		s.SetContent(x, height-2, ' ', nil, style)
 	}
+
 	message := "Use arrow keys to move cursor. Mouse over image for coordinates. Press ESC or Ctrl+C to exit"
 	for i, ch := range message {
-		s.SetContent(i, height-1, ch, nil, style)
+		if i < width-2 { // Account for borders
+			s.SetContent(i+1, height-2, ch, nil, style)
+		}
 	}
 }
 

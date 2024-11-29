@@ -11,6 +11,7 @@ type Config struct {
 	ServerAddr string
 	SplashPath string
 	LogFile    string
+	UseTCell   bool
 }
 
 func parseFlags() (*Config, error) {
@@ -21,11 +22,13 @@ func parseFlags() (*Config, error) {
 	flag.StringVar(&cfg.ServerAddr, "server", "localhost:50051", "Server address (ip:port)")
 	flag.StringVar(&cfg.SplashPath, "splash", "./ship.jpg", "Path to splash screen image")
 	flag.StringVar(&cfg.LogFile, "logfile", "", "Path to log file (optional, if not specified logs only go to console)")
+	flag.BoolVar(&cfg.UseTCell, "tcell", false, "Use tcell renderer instead of sixel graphics")
 
 	// Handle both --flag and -flag formats
 	flag.BoolVar(&cfg.Debug, "d", false, "Enable debug output (shorthand)")
 	flag.StringVar(&cfg.ServerAddr, "s", "localhost:50051", "Server address (shorthand)")
 	flag.StringVar(&cfg.LogFile, "l", "", "Path to log file (shorthand)")
+	flag.BoolVar(&cfg.UseTCell, "t", false, "Use tcell renderer (shorthand)")
 
 	// Custom usage message
 	flag.Usage = func() {

@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"time"
-
-	"github.com/fatih/color"
 )
 
 type Severity int
@@ -72,9 +70,8 @@ func CloseLogFile() {
 	}
 }
 
-// Debug outputs debug messages with severity levels and colors
+// Debug outputs debug messages with severity levels
 func Debug(message string, severity Severity) {
-	var colorFunc func(format string, a ...interface{}) string
 	var prefix string
 
 	switch severity {
@@ -82,28 +79,31 @@ func Debug(message string, severity Severity) {
 		if !debugEnabled {
 			return
 		}
-		colorFunc = color.New(color.Faint).SprintfFunc()
 		prefix = "[DEBUG]"
 	case INFO:
-		colorFunc = color.New(color.FgGreen).SprintfFunc()
 		prefix = "[INFO]"
 	case WARN:
-		colorFunc = color.New(color.FgYellow).SprintfFunc()
 		prefix = "[WARN]"
 	case ERROR:
-		colorFunc = color.New(color.FgRed).SprintfFunc()
 		prefix = "[ERROR]"
 	}
 
-	// Console output with color
-	fmt.Fprintln(os.Stderr, colorFunc("%s %s", prefix, message))
+	// Format the message with timestamp
+	timestamp := time.Now().Format("15:04:05.000")
+	formattedMsg := fmt.Sprintf("%s %s %s", timestamp, prefix, message)
 
-	// File output if enabled (with timestamp, no color)
+	// Write to log buffer for screen display
+	logBuffer.Write([]byte(formattedMsg))
+
+	// Write to log file if enabled
 	if logFile != nil {
-		timestamp := time.Now().Format("2006-01-02 15:04:05.000")
-		logLine := fmt.Sprintf("%s %s %s\n", timestamp, prefix, message)
+		// Use full timestamp for file logging
+		fullTimestamp := time.Now().Format("2006-01-02 15:04:05.000")
+		logLine := fmt.Sprintf("%s %s %s\n", fullTimestamp, prefix, message)
 		if _, err := logFile.WriteString(logLine); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to write to log file: %v\n", err)
+			// If we can't write to the log file, add that error to the log buffer
+			errorMsg := fmt.Sprintf("%s [ERROR] Failed to write to log file: %v", timestamp, err)
+			logBuffer.Write([]byte(errorMsg))
 		}
 	}
 }

@@ -52,3 +52,8 @@ yarn.lock
 # Don't check in any PNG files as I am currently using those for debugging.
 *.PNG
 *.png
+
+
+client/termium
+client/termium
+client/hi

@@ -82,16 +82,37 @@ const (
 var cfg *Config
 
 // Write implements the io.Writer interface for LogBuffer
-
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
 	lb.mutex.Lock()
 	defer lb.mutex.Unlock()
+
+	// Convert to string and clean up any control characters
 	message := string(p)
-	lb.messages = append(lb.messages, strings.TrimSpace(message))
-	if len(lb.messages) > 1000 {
-		lb.messages = lb.messages[1:]
+	message = cleanString(message)
+
+	// Only append non-empty messages
+	if message != "" {
+		lb.messages = append(lb.messages, message)
+
+		// Keep buffer size manageable
+		if len(lb.messages) > 1000 {
+			lb.messages = lb.messages[1:]
+		}
 	}
+
 	return len(p), nil
+}
+
+// cleanString removes control characters and normalizes whitespace
+func cleanString(s string) string {
+	var result []rune
+	for _, r := range s {
+		// Skip control characters except newline and tab
+		if r >= 32 && r != 127 || r == '\n' || r == '\t' {
+			result = append(result, r)
+		}
+	}
+	return string(result)
 }
 
 func displayErrorMessage(s tcell.Screen, message string) {
@@ -318,7 +339,7 @@ func setupSignalHandling(s tcell.Screen) {
 func initializeCursor(s tcell.Screen) {
 	width, height := s.Size()
 	cursor = Cursor{
-		x:         width / 4,
+		x:         width / 2,
 		y:         height / 2,
 		visible:   true,
 		blinkOn:   true,
@@ -423,17 +444,16 @@ func requestAndDisplayScreenshot(s tcell.Screen) error {
 
 	// Update the display
 	width, height := s.Size()
-	halfWidth := width / 2
 
-	// Clear the left half
+	// Clear the drawing aread
 	for y := 0; y < height-1; y++ {
-		for x := 0; x < halfWidth; x++ {
+		for x := 0; x < width; x++ {
 			s.SetContent(x, y, ' ', nil, tcell.StyleDefault)
 		}
 	}
 
 	// Display the new image
-	if err := displayImageBuffer(s, halfWidth, height); err != nil {
+	if err := displayImageBuffer(s, width, height); err != nil {
 		Debug(fmt.Sprintf("Error displaying image buffer: %v", err), ERROR)
 		return err
 	}
@@ -484,11 +504,7 @@ func handleMouseEvent(s tcell.Screen, ev *tcell.EventMouse) {
 	currentMouse.PixelX = x * charSize.Width
 	currentMouse.PixelY = y * charSize.Height
 
-	// Only update if the mouse is in the left half of the screen
-	width, _ := s.Size()
-	if x < width/2 {
-		displayMouseInfo(s)
-	}
+	displayMouseInfo(s)
 
 	// Handle mouse click
 	button := ev.Buttons()
@@ -509,7 +525,6 @@ func sendMouseClick(x, y int) {
 // Handle keyboard within the browser context
 func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 	width, height := s.Size()
-	halfWidth := width / 2
 
 	oldX, oldY := cursor.x, cursor.y
 
@@ -565,7 +580,7 @@ func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 				cursor.x--
 			}
 		case tcell.KeyRight:
-			if cursor.x < halfWidth-1 {
+			if cursor.x < width-1 {
 				cursor.x++
 			}
 		default:
@@ -816,31 +831,52 @@ func displayBottomPanel(s tcell.Screen) error {
 	width, height := s.Size()
 	bottomPanelHeight := 5
 	topPanelHeight := height - bottomPanelHeight
-	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
+	baseStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
+
+	// First clear the entire bottom panel
+	for y := 0; y < bottomPanelHeight-1; y++ {
+		for x := 1; x < width-1; x++ {
+			s.SetContent(x, topPanelHeight+1+y, ' ', nil, baseStyle)
+		}
+	}
 
 	logBuffer.mutex.Lock()
 	defer logBuffer.mutex.Unlock()
 
-	startIndex := 0
-	if len(logBuffer.messages) > bottomPanelHeight-2 { // -2 to account for borders
-		startIndex = len(logBuffer.messages) - (bottomPanelHeight - 2)
+	// Calculate how many messages we can display
+	displayLines := bottomPanelHeight - 2 // -2 for borders
+	startIdx := 0
+	if len(logBuffer.messages) > displayLines {
+		startIdx = len(logBuffer.messages) - displayLines
 	}
 
-	for y := 0; y < bottomPanelHeight-2; y++ {
-		// Fill entire line with navy background
-		for x := 1; x < width-1; x++ {
-			s.SetContent(x, topPanelHeight+1+y, ' ', nil, style)
+	// Display messages
+	for i := 0; i < displayLines && startIdx+i < len(logBuffer.messages); i++ {
+		if startIdx+i >= len(logBuffer.messages) {
+			break
 		}
 
-		if y < len(logBuffer.messages)-startIndex {
-			message := logBuffer.messages[startIndex+y]
-			for x, ch := range message {
-				if x < width-2 { // -2 to account for borders
-					s.SetContent(x+1, topPanelHeight+1+y, ch, nil, style)
-				}
+		message := logBuffer.messages[startIdx+i]
+
+		// Truncate message if it's too long
+		if len(message) > width-2 {
+			message = message[:width-5] + "..."
+		}
+
+		// Write the message
+		y := topPanelHeight + 1 + i
+		for x, ch := range message {
+			if x >= width-2 {
+				break
 			}
+			// Skip any control characters
+			if ch < 32 || ch == 127 {
+				continue
+			}
+			s.SetContent(x+1, y, ch, nil, baseStyle)
 		}
 	}
+
 	return nil
 }
 
@@ -885,15 +921,15 @@ func displayInstructions(s tcell.Screen, width, height int) {
 	}
 }
 
+// Displays a cool graphic as a splash screen
 func showSplashScreen(s tcell.Screen, splashPath string) error {
-	// Load the splash image
+	// Load and decode the splash image
 	file, err := os.Open(splashPath)
 	if err != nil {
 		return fmt.Errorf("failed to open splash image: %v", err)
 	}
 	defer file.Close()
 
-	// Decode the JPEG image
 	img, err := jpeg.Decode(file)
 	if err != nil {
 		return fmt.Errorf("failed to decode splash image: %v", err)
@@ -905,21 +941,16 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 	draw.Draw(imageBuffer, bounds, img, bounds.Min, draw.Src)
 	imageBounds = imageBuffer.Bounds()
 
-	// Get screen dimensions
 	width, height := s.Size()
-	halfWidth := width / 2
 
-	// Display the image
-	if err := displayImageBuffer(s, halfWidth, height); err != nil {
+	// Display initial image
+	if err := displayImageBuffer(s, width, height); err != nil {
 		return fmt.Errorf("failed to display splash image: %v", err)
 	}
 
-	// Show a prompt
-	style := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorBlack)
-	prompt := "Press any key to continue..."
-	for i, ch := range prompt {
-		s.SetContent(halfWidth+i, height-2, ch, nil, style)
-	}
+	// Add splash message to log buffer
+	logBuffer.Write([]byte("Press any key to continue..."))
+	displayBottomPanel(s)
 	s.Show()
 
 	// Event loop
@@ -933,21 +964,16 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 			case MenuExit:
 				return fmt.Errorf("user requested exit")
 			case MenuSelect, MenuContinue:
-				return nil // Continue to next screen
+				return nil
 			case MenuBack:
-				// Could handle differently in contexts where "back" is meaningful
 				return nil
 			}
 		case *tcell.EventResize:
-			// Handle resize while waiting
 			width, height = s.Size()
-			halfWidth = width / 2
-			if err := displayImageBuffer(s, halfWidth, height); err != nil {
+			if err := displayImageBuffer(s, width, height); err != nil {
 				return fmt.Errorf("failed to redisplay splash image after resize: %v", err)
 			}
-			for i, ch := range prompt {
-				s.SetContent(halfWidth+i, height-2, ch, nil, style)
-			}
+			displayBottomPanel(s)
 			s.Show()
 		}
 	}

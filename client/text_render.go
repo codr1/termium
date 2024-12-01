@@ -26,30 +26,25 @@ const (
 	QUADRANT_LOWER_RIGHT = '▗'
 )
 
-func displayWithTcell(s tcell.Screen, img *image.RGBA, maxWidth, maxHeight int) error {
-	termWidth, termHeight := s.Size()
-	availWidth := maxWidth - 2
-	availHeight := maxHeight - 2
-
-	srcBounds := img.Bounds()
-	srcWidth := srcBounds.Dx()
-	srcHeight := srcBounds.Dy()
+func displayWithTcell(s tcell.Screen, img *image.RGBA) error {
+	srcWidth := img.Bounds().Dx()
+	srcHeight := img.Bounds().Dy()
 
 	// Account for character cell aspect ratio
 	charAspect := float64(charSize.Height) / float64(charSize.Width)
 
 	// Calculate scaling while preserving image aspect ratio and accounting for character cells
 	scale := math.Min(
-		float64(availWidth)/float64(srcWidth),
-		float64(availHeight)*charAspect/float64(srcHeight),
+		float64(sDims.UsableWidth)/float64(srcWidth),
+		float64(sDims.UsableBrowserHeight)*charAspect/float64(srcHeight),
 	)
 
 	Debug(
 		fmt.Sprintf(
 			"Aspect %v\n Avail W: %v\n Avail H: %v\n srcWidth %v\n srcHeight %v\n Scale %v",
 			charAspect,
-			availWidth,
-			availHeight,
+			sDims.UsableWidth,
+			sDims.UsableBrowserHeight,
 			srcWidth,
 			srcHeight,
 			scale,
@@ -62,14 +57,15 @@ func displayWithTcell(s tcell.Screen, img *image.RGBA, maxWidth, maxHeight int) 
 
 	// Scale image
 	scaledImg := image.NewRGBA(image.Rect(0, 0, targetWidth, targetHeight))
-	draw.BiLinear.Scale(scaledImg, scaledImg.Bounds(), img, srcBounds, draw.Over, nil)
+	draw.BiLinear.Scale(scaledImg, scaledImg.Bounds(), img, img.Bounds(), draw.Over, nil)
 
 	// Enhance contrast and saturation
 	enhanceImage(scaledImg)
 
 	// Center the image
-	xOffset := 1 + (availWidth-targetWidth/2)/2
-	yOffset := 1 + (availHeight-targetHeight/2)/2
+	// Since we process 2x2 blocks, divide target dimensions by 2 to get character cell count
+	xOffset := H_BORDER_WIDTH + (sDims.UsableWidth-targetWidth/2)/2
+	yOffset := V_BORDER_WIDTH + (sDims.UsableBrowserHeight-targetHeight/2)/2
 
 	// Process image in 2x2 blocks
 	for y := 0; y < targetHeight-1; y += 2 {
@@ -77,7 +73,9 @@ func displayWithTcell(s tcell.Screen, img *image.RGBA, maxWidth, maxHeight int) 
 			screenX := xOffset + x/2
 			screenY := yOffset + y/2
 
-			if screenX < 1 || screenX >= termWidth-1 || screenY < 1 || screenY >= termHeight-1 {
+			if screenX < H_BORDER_WIDTH || screenX >= sDims.Width-H_BORDER_WIDTH ||
+				screenY < V_BORDER_WIDTH || screenY >= sDims.LogPanelY-V_BORDER_WIDTH {
+
 				continue
 			}
 

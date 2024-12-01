@@ -33,13 +33,15 @@ const (
 
 // ScreenDimensions holds the current screen dimensions and panel calculations
 type ScreenDimensions struct {
-	Width               int // Total screen width
-	Height              int // Total screen height
-	LogPanelHeight      int // Height of the log panel (constant: 5)
-	BrowserHeight       int // Height of the browser panel
-	LogPanelY           int // Y coordinate where log panel starts
-	UsableWidth         int // Width minus borders
-	UsableBrowserHeight int // Browser height minus borders
+	Width           int // Total screen width
+	Height          int // Total screen height
+	LogHeight       int // Height of the log panel (constant: 5)
+	LogPanelTop     int // Y coordinate where log panel starts
+	ViewHeight      int // Height of the browser panel
+	InnerWidth      int // Width minus borders
+	InnerViewHeight int // Browser height minus borders
+	InnerWidthPx    int // Usable width in pixels
+	InnerHeightPx   int // Usable browser height in pixels
 }
 
 var sDims ScreenDimensions
@@ -229,7 +231,7 @@ func main() {
 	s := initializeScreen()
 	defer finalizeScreen(s)
 
-	initializeCursor(s)
+	initializeCursor()
 
 	// Show splash screen and wait for user input
 	Debug(fmt.Sprintf("Loading splash screen from: %s", cfg.SplashPath), DEBUG)
@@ -281,18 +283,18 @@ func drawBorder(s tcell.Screen) {
 	// Draw outer frame
 	for x := 0; x < sDims.Width; x++ {
 		s.SetContent(x, 0, '─', nil, borderStyle)                           // Top edge
-		s.SetContent(x, sDims.LogPanelY, '─', nil, borderStyle)             // Middle divider
+		s.SetContent(x, sDims.LogPanelTop, '─', nil, borderStyle)           // Middle divider
 		s.SetContent(x, sDims.Height-V_BORDER_WIDTH, '─', nil, borderStyle) // Bottom edge
 	}
 
 	// Draw vertical borders for top panel
-	for y := V_BORDER_WIDTH; y < sDims.LogPanelY; y++ {
+	for y := V_BORDER_WIDTH; y < sDims.LogPanelTop; y++ {
 		s.SetContent(0, y, '│', nil, borderStyle)
 		s.SetContent(sDims.Width-V_BORDER_WIDTH, y, '│', nil, borderStyle)
 	}
 
 	// Draw vertical borders for bottom panel and fill with navy background
-	for y := sDims.LogPanelY + 1; y < sDims.Height-1; y++ {
+	for y := sDims.LogPanelTop + 1; y < sDims.Height-1; y++ {
 		s.SetContent(0, y, '│', nil, borderStyle)
 		s.SetContent(sDims.Width-1, y, '│', nil, borderStyle)
 		// Fill bottom panel with navy background
@@ -306,8 +308,8 @@ func drawBorder(s tcell.Screen) {
 	s.SetContent(sDims.Width-1, 0, '┐', nil, borderStyle)
 
 	// Draw corners for middle divider
-	s.SetContent(0, sDims.LogPanelY, '├', nil, borderStyle)
-	s.SetContent(sDims.Width-1, sDims.LogPanelY, '┤', nil, borderStyle)
+	s.SetContent(0, sDims.LogPanelTop, '├', nil, borderStyle)
+	s.SetContent(sDims.Width-1, sDims.LogPanelTop, '┤', nil, borderStyle)
 
 	// Draw corners for bottom panel
 	s.SetContent(0, sDims.Height-1, '└', nil, borderStyle)
@@ -359,7 +361,7 @@ func setupSignalHandling(s tcell.Screen) {
 }
 
 // initializeCursor sets up the initial cursor position
-func initializeCursor(s tcell.Screen) {
+func initializeCursor() {
 	cursor = Cursor{
 		x:         sDims.Width / 2,
 		y:         sDims.Height / 2,
@@ -396,6 +398,26 @@ func openNewTab() error {
 		return fmt.Errorf("failed to open new tab: %v", err)
 	}
 	Debug("Opened new tab on the browser", DEBUG)
+
+	// Set initial viewport size after connecting
+	if err := updateViewportSize(); err != nil {
+		Debug(fmt.Sprintf("Failed to set initial viewport size: %v", err), ERROR)
+	}
+
+	return nil
+}
+
+// updateViewportSize sends the current viewport dimensions to the server
+func updateViewportSize() error {
+	Debug(fmt.Sprintf("Updating viewport size to %dx%d pixels", sDims.InnerWidthPx, sDims.InnerHeightPx), DEBUG)
+	_, err := grpcClient.SetViewport(context.Background(), &pb.ViewportSize{
+		Width:  int32(sDims.InnerWidthPx),
+		Height: int32(sDims.InnerHeightPx),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to update viewport size: %v", err)
+	}
+	Debug("Successfully updated viewport size", DEBUG)
 	return nil
 }
 
@@ -423,7 +445,7 @@ func screenshotLoop(s tcell.Screen) {
 
 func clearDrawingArea(s tcell.Screen) {
 	// Clear the drawing area
-	for y := H_BORDER_WIDTH; y < sDims.LogPanelY; y++ {
+	for y := H_BORDER_WIDTH; y < sDims.LogPanelTop; y++ {
 		for x := H_BORDER_WIDTH; x < sDims.Width-H_BORDER_WIDTH; x++ {
 			s.SetContent(x, y, ' ', nil, tcell.StyleDefault)
 		}
@@ -513,13 +535,15 @@ func runMainLoop(s tcell.Screen) error {
 func updateScreenDimensions(s tcell.Screen) {
 	width, height := s.Size()
 	sDims = ScreenDimensions{
-		Width:               width,
-		Height:              height,
-		LogPanelHeight:      LOG_PANEL_HEIGHT,
-		BrowserHeight:       height - LOG_PANEL_HEIGHT,
-		LogPanelY:           height - LOG_PANEL_HEIGHT,
-		UsableWidth:         width - (2 * H_BORDER_WIDTH),
-		UsableBrowserHeight: height - LOG_PANEL_HEIGHT - (2 * V_BORDER_WIDTH),
+		Width:           width,
+		Height:          height,
+		LogHeight:       LOG_PANEL_HEIGHT,
+		ViewHeight:      height - LOG_PANEL_HEIGHT,
+		LogPanelTop:     height - LOG_PANEL_HEIGHT,
+		InnerWidth:      width - (2 * H_BORDER_WIDTH),
+		InnerViewHeight: height - LOG_PANEL_HEIGHT - (2 * V_BORDER_WIDTH),
+		InnerWidthPx:    (width - (2 * H_BORDER_WIDTH)) * charSize.Width,
+		InnerHeightPx:   (height - LOG_PANEL_HEIGHT - (2 * V_BORDER_WIDTH)) * charSize.Height,
 	}
 	Debug(fmt.Sprintf("Screen dimensions updated: %+v", sDims), DEBUG)
 }
@@ -529,6 +553,12 @@ func handleResize(s tcell.Screen) {
 	Debug("Resize event", DEBUG)
 	s.Clear()
 	updateScreenDimensions(s)
+
+	// Update server with new viewport size
+	if err := updateViewportSize(); err != nil {
+		Debug(fmt.Sprintf("Failed to update viewport size after resize: %v", err), ERROR)
+	}
+
 	drawBorder(s)
 	clearDrawingArea(s)
 	s.Sync()
@@ -546,8 +576,8 @@ func handleMouseEvent(s tcell.Screen, ev *tcell.EventMouse) {
 	x, y := ev.Position()
 	currentMouse.CharX = x
 	currentMouse.CharY = y
-	currentMouse.PixelX = x * charSize.Width
-	currentMouse.PixelY = y * charSize.Height
+	currentMouse.PixelX = (x - H_BORDER_WIDTH) * charSize.Width
+	currentMouse.PixelY = (y - V_BORDER_WIDTH) * charSize.Height
 
 	displayMouseInfo(s)
 
@@ -615,7 +645,7 @@ func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 				cursor.y--
 			}
 		case tcell.KeyDown:
-			if cursor.y < sDims.Height-(V_BORDER_WIDTH+sDims.LogPanelHeight) {
+			if cursor.y < sDims.Height-(V_BORDER_WIDTH+sDims.LogHeight) {
 				cursor.y++
 			}
 		case tcell.KeyLeft:
@@ -788,10 +818,7 @@ func displayImageBuffer(s tcell.Screen) error {
 	defer screenshotMutex.Unlock()
 
 	// Scale image to fit available space
-	widthPixels := sDims.Width * charSize.Width
-	heightPixels := sDims.UsableBrowserHeight * charSize.Height
-
-	scaledImage := scaleImage(imageBuffer, widthPixels, heightPixels)
+	scaledImage := scaleImage(imageBuffer, sDims.InnerWidthPx, sDims.InnerHeightPx)
 
 	if cfg.UseTCell {
 		// Fallback to character-based rendering for terminals without sixel
@@ -799,13 +826,19 @@ func displayImageBuffer(s tcell.Screen) error {
 	}
 
 	// Use sixel rendering while respecting tcell boundaries
-	return displayWithSixel(s, scaledImage)
+	return displayWithSixel(scaledImage)
 }
 
 // Scales image efficiently using shared logic
 func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 	srcWidth := src.Bounds().Dx()
 	srcHeight := src.Bounds().Dy()
+
+	// If image is already the right size, return it as-is
+	if srcWidth == targetWidth && srcHeight == targetHeight {
+		Debug("Image already at target size, skipping scale", DEBUG)
+		return src
+	}
 
 	scaleX := float64(targetWidth) / float64(srcWidth)
 	scaleY := float64(targetHeight) / float64(srcHeight)
@@ -825,31 +858,24 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 }
 
 // Displays sixel graphics while respecting tcell's window boundaries and panels
-func displayWithSixel(s tcell.Screen, img *image.RGBA) error {
-	// Position image at left border
-	imgWidth := img.Bounds().Dx()
-	imgHeight := img.Bounds().Dy()
-	xOffset := H_BORDER_WIDTH // start right after left border
-	yOffset := V_BORDER_WIDTH // start right after top border
+func displayWithSixel(img *image.RGBA) error {
+	// Verify image dimensions match our viewport
+	if img.Bounds().Dx() > sDims.InnerWidthPx || img.Bounds().Dy() > sDims.InnerHeightPx {
+		Debug(fmt.Sprintf("Image dimensions %dx%d exceed viewport %dx%d",
+			img.Bounds().Dx(), img.Bounds().Dy(),
+			sDims.InnerWidthPx, sDims.InnerHeightPx), WARN)
+	}
 
-	// Position cursor for sixel output using calculated offsets
-	// First move to top-left of usable area (after top border)
+	// Position cursor at the top-left of the usable area (after borders)
 	fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
-
-	// Then add the centering offsets
-	if yOffset > V_BORDER_WIDTH {
-		fmt.Printf("\033[%dB", yOffset-V_BORDER_WIDTH)
-	}
-	if xOffset > H_BORDER_WIDTH {
-		fmt.Printf("\033[%dC", xOffset-H_BORDER_WIDTH)
-	}
-
-	enc := sixel.NewEncoder(os.Stdout)
-	enc.Width = imgWidth
-	enc.Height = imgHeight
 
 	// Save cursor position before sixel output
 	fmt.Print("\033[s")
+
+	// Configure and encode the sixel output
+	enc := sixel.NewEncoder(os.Stdout)
+	enc.Width = img.Bounds().Dx()
+	enc.Height = img.Bounds().Dy()
 
 	if err := enc.Encode(img); err != nil {
 		Debug(fmt.Sprintf("Sixel encoding error: %v", err), ERROR)
@@ -859,8 +885,10 @@ func displayWithSixel(s tcell.Screen, img *image.RGBA) error {
 	// Restore cursor position
 	fmt.Print("\033[u")
 
-	Debug(fmt.Sprintf("Displayed sixel image at offset (%d,%d) with size %dx%d in window %dx%d",
-		xOffset, yOffset, imgWidth, imgHeight, sDims.Width, sDims.Height), DEBUG)
+	Debug(fmt.Sprintf("Displayed sixel image at (%d,%d) with size %dx%d in viewport %dx%d",
+		H_BORDER_WIDTH, V_BORDER_WIDTH,
+		img.Bounds().Dx(), img.Bounds().Dy(),
+		sDims.InnerWidthPx, sDims.InnerHeightPx), DEBUG)
 
 	return nil
 }
@@ -870,9 +898,9 @@ func displayBottomPanel(s tcell.Screen) error {
 	baseStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
 
 	// First clear the entire bottom panel
-	for y := 0; y < sDims.LogPanelHeight; y++ {
+	for y := 0; y < sDims.LogHeight; y++ {
 		for x := H_BORDER_WIDTH; x < sDims.Width-H_BORDER_WIDTH; x++ {
-			s.SetContent(x, sDims.LogPanelY+INTER_PANEL_BORDER+y, ' ', nil, baseStyle)
+			s.SetContent(x, sDims.LogPanelTop+INTER_PANEL_BORDER+y, ' ', nil, baseStyle)
 		}
 	}
 
@@ -880,7 +908,7 @@ func displayBottomPanel(s tcell.Screen) error {
 	defer logBuffer.mutex.Unlock()
 
 	// Calculate how many messages we can display
-	displayLines := sDims.LogPanelHeight - V_BORDER_WIDTH - INTER_PANEL_BORDER
+	displayLines := sDims.LogHeight - V_BORDER_WIDTH - INTER_PANEL_BORDER
 	startIdx := 0
 	if len(logBuffer.messages) > displayLines {
 		startIdx = len(logBuffer.messages) - displayLines
@@ -891,14 +919,14 @@ func displayBottomPanel(s tcell.Screen) error {
 		message := logBuffer.messages[startIdx+i]
 
 		// Truncate message if it's too long
-		if len(message) > sDims.UsableWidth {
-			message = message[:sDims.UsableWidth-3] + "..."
+		if len(message) > sDims.InnerWidth {
+			message = message[:sDims.InnerWidth-3] + "..."
 		}
 
 		// Write the message
-		y := sDims.LogPanelY + INTER_PANEL_BORDER + i
+		y := sDims.LogPanelTop + INTER_PANEL_BORDER + i
 		for x, ch := range message {
-			if x >= sDims.UsableWidth {
+			if x >= sDims.InnerWidth {
 				break
 			}
 			// Skip any control characters

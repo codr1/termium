@@ -35,16 +35,16 @@ func displayWithTcell(s tcell.Screen, img *image.RGBA) error {
 
 	// Calculate scaling while preserving image aspect ratio and accounting for character cells
 	scale := math.Min(
-		float64(sDims.UsableWidth)/float64(srcWidth),
-		float64(sDims.UsableBrowserHeight)*charAspect/float64(srcHeight),
+		float64(sDims.InnerWidth)/float64(srcWidth),
+		float64(sDims.InnerViewHeight)*charAspect/float64(srcHeight),
 	)
 
 	Debug(
 		fmt.Sprintf(
 			"Aspect %v\n Avail W: %v\n Avail H: %v\n srcWidth %v\n srcHeight %v\n Scale %v",
 			charAspect,
-			sDims.UsableWidth,
-			sDims.UsableBrowserHeight,
+			sDims.InnerWidth,
+			sDims.InnerViewHeight,
 			srcWidth,
 			srcHeight,
 			scale,
@@ -64,8 +64,8 @@ func displayWithTcell(s tcell.Screen, img *image.RGBA) error {
 
 	// Center the image
 	// Since we process 2x2 blocks, divide target dimensions by 2 to get character cell count
-	xOffset := H_BORDER_WIDTH + (sDims.UsableWidth-targetWidth/2)/2
-	yOffset := V_BORDER_WIDTH + (sDims.UsableBrowserHeight-targetHeight/2)/2
+	xOffset := H_BORDER_WIDTH + (sDims.InnerWidth-targetWidth/2)/2
+	yOffset := V_BORDER_WIDTH + (sDims.InnerViewHeight-targetHeight/2)/2
 
 	// Process image in 2x2 blocks
 	for y := 0; y < targetHeight-1; y += 2 {
@@ -74,7 +74,7 @@ func displayWithTcell(s tcell.Screen, img *image.RGBA) error {
 			screenY := yOffset + y/2
 
 			if screenX < H_BORDER_WIDTH || screenX >= sDims.Width-H_BORDER_WIDTH ||
-				screenY < V_BORDER_WIDTH || screenY >= sDims.LogPanelY-V_BORDER_WIDTH {
+				screenY < V_BORDER_WIDTH || screenY >= sDims.LogPanelTop-V_BORDER_WIDTH {
 
 				continue
 			}

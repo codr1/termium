@@ -1,4 +1,4 @@
-# Terminum
+# Termium
 ### Use your Chrome browser from inside your terminal.
 
 Terminum allows you to run Chromium inside any terminal that supports sixel graphics. The project consists of a TypeScript server running a headless Chromium instance, and a Go client providing a text-based UI for interaction.

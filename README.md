@@ -16,6 +16,7 @@ Terminum allows you to run Chromium inside any terminal that supports sixel grap
 - Go (v1.23 or higher)
 - npm
 - A terminal that supports sixel graphics (Currently using Windows Terminal Preview for development)
+  - This is a list of terminals with their sixel support.  https://www.arewesixelyet.com/.  Windows Terminal Preview is not updated yet
 
 ### Setup
 1. Clone the repository:

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"image"
@@ -423,7 +424,7 @@ func updateViewportSize() error {
 
 // screenshotLoop requests screenshots from the server every 200ms
 func screenshotLoop(s tcell.Screen) {
-	ticker := time.NewTicker(2000 * time.Millisecond)
+	ticker := time.NewTicker(1000 * time.Millisecond)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -444,12 +445,12 @@ func screenshotLoop(s tcell.Screen) {
 }
 
 func clearDrawingArea(s tcell.Screen) {
-	// Clear the drawing area
-	for y := H_BORDER_WIDTH; y < sDims.LogPanelTop; y++ {
-		for x := H_BORDER_WIDTH; x < sDims.Width-H_BORDER_WIDTH; x++ {
+	// Clear the drawing area (viewport area between borders)
+	/*	for y := V_BORDER_WIDTH; y < sDims.LogPanelTop; y++ {
+		for x := H_BORDER_WIDTH; x < sDims.InnerWidth+H_BORDER_WIDTH; x++ {
 			s.SetContent(x, y, ' ', nil, tcell.StyleDefault)
 		}
-	}
+	}*/
 }
 
 // requestAndDisplayScreenshot requests a screenshot and updates the display
@@ -817,8 +818,14 @@ func displayImageBuffer(s tcell.Screen) error {
 	screenshotMutex.Lock()
 	defer screenshotMutex.Unlock()
 
+	// Calculate the maximum available space for the image, respecting borders
+	maxWidth := sDims.Width - (2 * H_BORDER_WIDTH)
+	maxHeight := sDims.LogPanelTop - (2 * V_BORDER_WIDTH)
+	maxWidthPx := maxWidth * charSize.Width
+	maxHeightPx := maxHeight * charSize.Height
+
 	// Scale image to fit available space
-	scaledImage := scaleImage(imageBuffer, sDims.InnerWidthPx, sDims.InnerHeightPx)
+	scaledImage := scaleImage(imageBuffer, maxWidthPx, maxHeightPx)
 
 	if cfg.UseTCell {
 		// Fallback to character-based rendering for terminals without sixel
@@ -834,9 +841,9 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 	srcWidth := src.Bounds().Dx()
 	srcHeight := src.Bounds().Dy()
 
-	// If image is already the right size, return it as-is
-	if srcWidth == targetWidth && srcHeight == targetHeight {
-		Debug("Image already at target size, skipping scale", DEBUG)
+	// Only scale if the image is larger than target dimensions
+	if srcWidth <= targetWidth && srcHeight <= targetHeight {
+		Debug("Image fits within target dimensions, no scaling needed", DEBUG)
 		return src
 	}
 
@@ -847,10 +854,16 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 		scale = scaleY
 	}
 
+	// Only scale down, never up
+	if scale >= 1.0 {
+		Debug("Scale factor >= 1.0, no scaling needed", DEBUG)
+		return src
+	}
+
 	newWidth := int(float64(srcWidth) * scale)
 	newHeight := int(float64(srcHeight) * scale)
 
-	Debug(fmt.Sprintf("Scaling image to: %dx%d", newWidth, newHeight), DEBUG)
+	Debug(fmt.Sprintf("Scaling image down to: %dx%d", newWidth, newHeight), DEBUG)
 	scaled := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
 	draw.ApproxBiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Over, nil)
 
@@ -859,14 +872,18 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 
 // Displays sixel graphics while respecting tcell's window boundaries and panels
 func displayWithSixel(img *image.RGBA) error {
-	// Verify image dimensions match our viewport
-	if img.Bounds().Dx() > sDims.InnerWidthPx || img.Bounds().Dy() > sDims.InnerHeightPx {
-		Debug(fmt.Sprintf("Image dimensions %dx%d exceed viewport %dx%d",
-			img.Bounds().Dx(), img.Bounds().Dy(),
+	buf := bufio.NewWriter(os.Stdout)
+	defer buf.Flush() // Ensures all data is written before function returns
+
+	bounds := img.Bounds()
+	if bounds.Dx() > sDims.InnerWidthPx || bounds.Dy() > sDims.InnerHeightPx {
+		Debug(fmt.Sprintf("Image dimensions %dx%d exceed available space %dx%d",
+			bounds.Dx(), bounds.Dy(),
 			sDims.InnerWidthPx, sDims.InnerHeightPx), WARN)
 	}
 
 	// Position cursor at the top-left of the usable area (after borders)
+	// Add 1 to border width because terminal coordinates are 1-based
 	fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
 
 	// Save cursor position before sixel output
@@ -876,6 +893,7 @@ func displayWithSixel(img *image.RGBA) error {
 	enc := sixel.NewEncoder(os.Stdout)
 	enc.Width = img.Bounds().Dx()
 	enc.Height = img.Bounds().Dy()
+	enc.Dither = true
 
 	if err := enc.Encode(img); err != nil {
 		Debug(fmt.Sprintf("Sixel encoding error: %v", err), ERROR)
@@ -897,18 +915,18 @@ func displayWithSixel(img *image.RGBA) error {
 func displayBottomPanel(s tcell.Screen) error {
 	baseStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
 
-	// First clear the entire bottom panel
-	for y := 0; y < sDims.LogHeight; y++ {
+	// First clear the entire bottom panel (respect borders)
+	for y := sDims.LogPanelTop + 1; y < sDims.Height-1; y++ {
 		for x := H_BORDER_WIDTH; x < sDims.Width-H_BORDER_WIDTH; x++ {
-			s.SetContent(x, sDims.LogPanelTop+INTER_PANEL_BORDER+y, ' ', nil, baseStyle)
+			s.SetContent(x, y, ' ', nil, baseStyle)
 		}
 	}
 
 	logBuffer.mutex.Lock()
 	defer logBuffer.mutex.Unlock()
 
-	// Calculate how many messages we can display
-	displayLines := sDims.LogHeight - V_BORDER_WIDTH - INTER_PANEL_BORDER
+	// Calculate how many messages we can display (account for top and bottom borders)
+	displayLines := sDims.LogHeight - 2 // Subtract 2 for top and bottom borders
 	startIdx := 0
 	if len(logBuffer.messages) > displayLines {
 		startIdx = len(logBuffer.messages) - displayLines
@@ -924,7 +942,7 @@ func displayBottomPanel(s tcell.Screen) error {
 		}
 
 		// Write the message
-		y := sDims.LogPanelTop + INTER_PANEL_BORDER + i
+		y := sDims.LogPanelTop + 1 + i // Add 1 to start after the top border
 		for x, ch := range message {
 			if x >= sDims.InnerWidth {
 				break
@@ -991,16 +1009,34 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 		return fmt.Errorf("failed to decode splash image: %v", err)
 	}
 
-	// Convert to RGBA and store in our imageBuffer
+	// Convert the image to RGBA format
 	bounds := img.Bounds()
-	imageBuffer = image.NewRGBA(bounds)
-	draw.Draw(imageBuffer, bounds, img, bounds.Min, draw.Src)
-	imageBounds = imageBuffer.Bounds()
+	Debug(fmt.Sprintf("Original image dimensions: %dx%d", bounds.Dx(), bounds.Dy()), DEBUG)
 
+	// Explore RGBA64 at some point and see if we can improve the image quality
+	allocStart := time.Now()
+	rgbaImg := image.NewRGBA(bounds)
+	Debug(fmt.Sprintf("RGBA allocation took: %v", time.Since(allocStart)), DEBUG)
+
+	drawStart := time.Now()
+	draw.Draw(rgbaImg, bounds, img, bounds.Min, draw.Src)
+	drawTime := time.Since(drawStart)
+	Debug(fmt.Sprintf("draw.Draw() operation took: %v", drawTime), DEBUG)
+
+	// Set the global imageBuffer
+	screenshotMutex.Lock()
+	imageBuffer = rgbaImg
+	imageBounds = imageBuffer.Bounds()
+	screenshotMutex.Unlock()
+
+	// Clear the viewport area first
+	clearDrawingArea(s)
+	// TODO: Uncomment this.:
 	// Display initial image
 	if err := displayImageBuffer(s); err != nil {
 		return fmt.Errorf("failed to display splash image: %v", err)
 	}
+
 	logBuffer.Write([]byte("Press any key to continue..."))
 	displayBottomPanel(s)
 	s.Show()
@@ -1025,6 +1061,7 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 			if err := displayImageBuffer(s); err != nil {
 				return fmt.Errorf("failed to redisplay splash image after resize: %v", err)
 			}
+			Debug(fmt.Sprintf("Displayed imge %v by %v", imageBuffer.Bounds().Size().X, imageBuffer.Bounds().Size().Y), INFO)
 			displayBottomPanel(s)
 			s.Show()
 		}

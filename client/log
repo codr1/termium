@@ -1,0 +1,56 @@
+2024-12-09 19:30:07.272 [INFO] Log file initialized
+2024-12-09 19:30:07.272 [INFO] Starting application
+2024-12-09 19:30:07.272 [DEBUG] Debug mode enabled
+2024-12-09 19:30:07.272 [DEBUG] Terminal type: xterm-256color
+2024-12-09 19:30:07.272 [DEBUG] xterm-compatible terminal detected. Attempting to calibrate.
+2024-12-09 19:30:07.272 [DEBUG] Starting terminal calibration
+2024-12-09 19:30:07.273 [DEBUG] Raw character response: "\x1b[8;59;271t"
+2024-12-09 19:30:07.274 [DEBUG] Raw pixel response: "\x1b[4;1180;2710t"
+2024-12-09 19:30:07.274 [DEBUG] Parsed character dimensions - Rows: 59, Cols: 271
+2024-12-09 19:30:07.274 [DEBUG] Parsed pixel dimensions - Height: 1180, Width: 2710
+2024-12-09 19:30:07.274 [INFO] Calibrated character size: 10x20 pixels
+2024-12-09 19:30:07.276 [DEBUG] Screen dimensions updated: {Width:271 Height:59 LogHeight:5 LogPanelTop:54 ViewHeight:54 InnerWidth:269 InnerViewHeight:52 InnerWidthPx:2690 InnerHeightPx:1040}
+2024-12-09 19:30:07.277 [DEBUG] Screen initialized with border
+2024-12-09 19:30:07.277 [DEBUG] Loading splash screen from: ./ship.jpg
+2024-12-09 19:30:07.294 [DEBUG] Original image dimensions: 1024x1024
+2024-12-09 19:30:07.294 [DEBUG] RGBA allocation took: 201.782µs
+2024-12-09 19:30:07.299 [DEBUG] draw.Draw() operation took: 4.935942ms
+2024-12-09 19:30:07.299 [DEBUG] Memory used for RGBA: 4194304 bytes
+2024-12-09 19:30:07.299 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:08.841 [DEBUG] Displayed sixel image at (1,1) with size 1024x1024 in viewport 2690x1040
+2024-12-09 19:30:08.841 [INFO] Total displayImageBuffer time: 1.541933047s
+2024-12-09 19:30:08.842 [DEBUG] Screen dimensions updated: {Width:271 Height:59 LogHeight:5 LogPanelTop:54 ViewHeight:54 InnerWidth:269 InnerViewHeight:52 InnerWidthPx:2690 InnerHeightPx:1040}
+2024-12-09 19:30:08.842 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:10.405 [DEBUG] Displayed sixel image at (1,1) with size 1024x1024 in viewport 2690x1040
+2024-12-09 19:30:10.405 [INFO] Total displayImageBuffer time: 1.563149179s
+2024-12-09 19:30:10.405 [INFO] Displayed imge 1024 by 1024
+2024-12-09 19:30:10.405 [DEBUG] Splash screen received key event: 13
+2024-12-09 19:30:10.405 [DEBUG] Setting up signal handlers
+2024-12-09 19:30:10.405 [DEBUG] Initializing signal handling
+2024-12-09 19:30:10.405 [DEBUG] Signal handlers established
+2024-12-09 19:30:10.405 [INFO] Connecting to server at localhost:50051
+2024-12-09 19:30:10.405 [DEBUG] Connecting to gRPC server at localhost:50051
+2024-12-09 19:30:10.406 [INFO] Successfully connected to gRPC server
+2024-12-09 19:30:10.456 [DEBUG] Opened new tab on the browser
+2024-12-09 19:30:10.456 [DEBUG] Updating viewport size to 2690x1040 pixels
+2024-12-09 19:30:10.458 [DEBUG] Successfully updated viewport size
+2024-12-09 19:30:10.555 [INFO] Successfully opened homepage
+2024-12-09 19:30:10.555 [DEBUG] Entering main event loop
+2024-12-09 19:30:10.555 [DEBUG] Sending keyboard input: 
+2024-12-09 19:30:11.511 [DEBUG] Sending keyboard input: 
+2024-12-09 19:30:11.817 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:12.211 [DEBUG] Sending keyboard input: 
+2024-12-09 19:30:12.435 [DEBUG] Sending keyboard input: 
+2024-12-09 19:30:12.677 [DEBUG] Displayed sixel image at (1,1) with size 2690x1040 in viewport 2690x1040
+2024-12-09 19:30:12.677 [INFO] Total displayImageBuffer time: 859.971071ms
+2024-12-09 19:30:12.948 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:13.792 [DEBUG] Displayed sixel image at (1,1) with size 2690x1040 in viewport 2690x1040
+2024-12-09 19:30:13.792 [INFO] Total displayImageBuffer time: 844.010884ms
+2024-12-09 19:30:14.062 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:14.855 [DEBUG] Displayed sixel image at (1,1) with size 2690x1040 in viewport 2690x1040
+2024-12-09 19:30:14.855 [INFO] Total displayImageBuffer time: 792.481333ms
+2024-12-09 19:30:15.107 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:15.898 [DEBUG] Displayed sixel image at (1,1) with size 2690x1040 in viewport 2690x1040
+2024-12-09 19:30:15.898 [INFO] Total displayImageBuffer time: 791.056398ms
+2024-12-09 19:30:16.140 [DEBUG] Image fits within target dimensions, no scaling needed
+2024-12-09 19:30:16.173 [DEBUG] Exit key pressed

@@ -3,7 +3,6 @@ module termium
 go 1.23.1
 
 require (
-	github.com/fatih/color v1.16.0
 	github.com/gdamore/tcell/v2 v2.7.4
 	github.com/mattn/go-sixel v0.0.5
 	golang.org/x/image v0.20.0
@@ -15,8 +14,6 @@ require (
 require (
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/soniakeys/quant v1.0.0 // indirect
@@ -25,3 +22,5 @@ require (
 	golang.org/x/text v0.18.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 )
+
+replace github.com/mattn/go-sixel => ./third_party/go-sixel

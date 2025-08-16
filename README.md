@@ -66,12 +66,44 @@ This will launch the headless Chromium instance and expose the necessary endpoin
 
 #### Terminal 2 
 ```
-npm run start:client
+npm run start:client [options]
 ```
 
 This will launch the Go client (text-based UI):
 This will start the terminal UI that interacts with the TypeScript server.
- 
+
+### Client Options
+
+- `-u, --url <url>`: Initial URL to navigate to (default: https://www.google.com)
+- `-s, --server <address>`: Server address for TCP connection (default: uses Unix socket at /tmp/termium.sock)
+- `--tcp`: Force TCP connection to localhost:50051
+- `-p, --palette <type>`: Color palette for sixel rendering
+  - `adaptive`: Good quality with accurate colors, but slower performance due to per-frame color quantization (default)
+  - `websafe`: Web-safe 216 color palette - looks worse but significantly faster performance with cached palette
+- `-t, --timings`: Show performance timing information and cache statistics
+- `-h, --help`: Show help message
+
+### Keyboard Controls
+
+Once the application is running:
+
+**Splash Screen:**
+- `Enter`: Continue to browser
+
+**Browser Navigation:**
+- `Arrow Keys`: Scroll the page (Up/Down/Left/Right)
+- `Page Up/Page Down`: Scroll by page
+- `Home/End`: Go to top/bottom of page
+- `Backspace`: Go back in browser history
+- `Shift+Backspace`: Go forward in browser history
+- `Tab`: Move focus to next element
+- `Shift+Tab`: Move focus to previous element
+- `Enter`: Click on focused element or submit form
+- `Space`: Click on focused element or scroll down
+- `u`: Focus URL bar for entering a new address
+- `r`: Reload the current page
+- `Escape`: Quit the application
+
 ### Development 
 To rebuild everything 
 ```
@@ -97,3 +129,14 @@ The .env file is used to configure environment-specific settings for both the se
 
 TODO: 
 - Add a real home page navigation option
+
+### Technical Notes
+
+#### Dirty Rectangle Detection
+The current implementation uses JPEG-compressed images for change detection. This approach leverages JPEG's 8x8 DCT block structure as a natural quantization mechanism - small pixel-level changes that don't survive JPEG compression at 60% quality are likely not perceptually significant. The blockiness acts as a built-in spatial clustering and noise suppression filter, making change detection more robust against minor variations like anti-aliasing and gradient shifts.
+
+TODO: Explore alternative approaches:
+- Uncompressed frame differencing for pixel-perfect detection
+- Browser-side DOM mutation observers for event-driven updates  
+- Perceptual hashing for semantic change detection
+- Motion vectors from video encoding techniques

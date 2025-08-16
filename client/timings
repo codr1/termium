@@ -1,0 +1,1753 @@
+CPU profiling enabled, writing to websafe.prof
+Cache stats: hits=494798 misses=197426 (71.5% hit rate)
+  Sixel encode time: 198.886866ms (rendered size: 832x832 pixels)
+Cache stats: hits=692224 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.752633ms (rendered size: 832x832 pixels)
+Cache stats: hits=1018224 misses=20112 (98.1% hit rate)
+  Sixel encode time: 69.564721ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.536778ms Decode=5.816059ms Display=78.378188ms Show=945.191µs | Stats: Received=2 Displayed=1 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.200511ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.53304ms Decode=6.401126ms Display=58.213194ms Show=347.64µs | Stats: Received=2 Displayed=2 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.442169ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.52513ms Decode=6.230359ms Display=56.199647ms Show=295.275µs | Stats: Received=3 Displayed=3 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 48.718721ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.410357ms Decode=6.605557ms Display=53.389658ms Show=284.891µs | Stats: Received=4 Displayed=4 Dropped=0
+Cache stats: hits=1037937 misses=399 (100.0% hit rate)
+  Sixel encode time: 48.518017ms (rendered size: 1248x832 pixels)
+Frame timings: Total=62.897759ms Decode=6.579856ms Display=52.434457ms Show=293.696µs | Stats: Received=5 Displayed=5 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 49.918131ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.354722ms Decode=5.739561ms Display=53.895694ms Show=394.572µs | Stats: Received=6 Displayed=6 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.069079ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.379422ms Decode=5.637359ms Display=56.568187ms Show=269.869µs | Stats: Received=7 Displayed=7 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.662001ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.500551ms Decode=6.12295ms Display=58.209ms Show=423.566µs | Stats: Received=8 Displayed=8 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.065158ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.127534ms Decode=6.329646ms Display=54.413311ms Show=399.984µs | Stats: Received=9 Displayed=9 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 47.178765ms (rendered size: 1248x832 pixels)
+Frame timings: Total=61.28795ms Decode=6.168845ms Display=50.963075ms Show=413.292µs | Stats: Received=10 Displayed=10 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 49.566038ms (rendered size: 1248x832 pixels)
+Frame timings: Total=63.393319ms Decode=5.520834ms Display=53.095763ms Show=351.881µs | Stats: Received=11 Displayed=11 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 48.181941ms (rendered size: 1248x832 pixels)
+Frame timings: Total=61.287503ms Decode=5.644094ms Display=52.253595ms Show=481.244µs | Stats: Received=12 Displayed=12 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 49.064011ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.816187ms Decode=6.131999ms Display=53.36818ms Show=384.098µs | Stats: Received=13 Displayed=13 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.268189ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.474934ms Decode=6.108675ms Display=56.023327ms Show=362.182µs | Stats: Received=14 Displayed=14 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.136124ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.988027ms Decode=9.867532ms Display=57.913316ms Show=323.863µs | Stats: Received=15 Displayed=15 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.045183ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.713432ms Decode=6.364341ms Display=69.920385ms Show=785.151µs | Stats: Received=16 Displayed=16 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.130515ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.442777ms Decode=6.250301ms Display=56.572274ms Show=423.321µs | Stats: Received=17 Displayed=17 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.257532ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.419116ms Decode=6.345876ms Display=57.322288ms Show=370.32µs | Stats: Received=18 Displayed=18 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 47.387919ms (rendered size: 1248x832 pixels)
+Frame timings: Total=63.409291ms Decode=7.167256ms Display=51.456637ms Show=577.704µs | Stats: Received=19 Displayed=19 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.127995ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.311698ms Decode=6.178871ms Display=56.566881ms Show=336.049µs | Stats: Received=20 Displayed=20 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 47.251083ms (rendered size: 1248x832 pixels)
+Frame timings: Total=62.939422ms Decode=6.111169ms Display=52.414897ms Show=222.669µs | Stats: Received=21 Displayed=21 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.962618ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.679842ms Decode=6.886149ms Display=56.130581ms Show=451.11µs | Stats: Received=22 Displayed=22 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 49.914272ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.518091ms Decode=6.111668ms Display=54.631243ms Show=429.352µs | Stats: Received=23 Displayed=23 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.385482ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.259276ms Decode=6.670068ms Display=54.177325ms Show=463.783µs | Stats: Received=24 Displayed=24 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 49.932762ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.161816ms Decode=6.160174ms Display=53.58037ms Show=254.333µs | Stats: Received=25 Displayed=25 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 48.913323ms (rendered size: 1248x832 pixels)
+Frame timings: Total=62.658408ms Decode=6.643507ms Display=52.455656ms Show=257.715µs | Stats: Received=26 Displayed=26 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 49.527022ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.785905ms Decode=6.109224ms Display=54.020562ms Show=534.092µs | Stats: Received=27 Displayed=27 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.113472ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.892065ms Decode=6.160973ms Display=59.019292ms Show=397.989µs | Stats: Received=28 Displayed=28 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.588651ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.398711ms Decode=6.283836ms Display=54.080929ms Show=298.571µs | Stats: Received=29 Displayed=29 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.811407ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.769738ms Decode=6.190939ms Display=55.081821ms Show=253.916µs | Stats: Received=30 Displayed=30 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.124689ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.047667ms Decode=6.138644ms Display=54.594532ms Show=309.476µs | Stats: Received=31 Displayed=31 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.450994ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.27012ms Decode=6.42104ms Display=55.065389ms Show=290.397µs | Stats: Received=32 Displayed=32 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.318681ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.420378ms Decode=6.458525ms Display=55.413058ms Show=319.001µs | Stats: Received=33 Displayed=33 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 47.966936ms (rendered size: 1248x832 pixels)
+Frame timings: Total=62.036035ms Decode=5.616463ms Display=52.163263ms Show=1.004297ms | Stats: Received=34 Displayed=34 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 46.992749ms (rendered size: 1248x832 pixels)
+Frame timings: Total=61.458924ms Decode=6.024554ms Display=51.084425ms Show=257.525µs | Stats: Received=35 Displayed=35 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.059381ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.846483ms Decode=6.325604ms Display=54.698669ms Show=324.794µs | Stats: Received=36 Displayed=36 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.084231ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.907707ms Decode=6.76669ms Display=60.265768ms Show=392.188µs | Stats: Received=37 Displayed=37 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.284653ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.652659ms Decode=6.140063ms Display=56.009603ms Show=253.852µs | Stats: Received=38 Displayed=38 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 47.831554ms (rendered size: 1248x832 pixels)
+Frame timings: Total=62.578225ms Decode=6.457126ms Display=51.373613ms Show=508.721µs | Stats: Received=39 Displayed=39 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.098981ms (rendered size: 1248x832 pixels)
+Frame timings: Total=64.18967ms Decode=6.338695ms Display=54.218663ms Show=440.792µs | Stats: Received=40 Displayed=40 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.838144ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.791801ms Decode=6.183123ms Display=55.192225ms Show=359.566µs | Stats: Received=41 Displayed=41 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.964568ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.639735ms Decode=6.309744ms Display=55.854263ms Show=240.207µs | Stats: Received=42 Displayed=42 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.171737ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.415935ms Decode=6.241427ms Display=54.29483ms Show=304.534µs | Stats: Received=43 Displayed=43 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.856628ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.072444ms Decode=5.780061ms Display=58.731888ms Show=272.397µs | Stats: Received=44 Displayed=44 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.294221ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.955116ms Decode=6.96749ms Display=58.472665ms Show=264.613µs | Stats: Received=45 Displayed=45 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.855889ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.655266ms Decode=6.45482ms Display=55.30371ms Show=472.227µs | Stats: Received=46 Displayed=46 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.683991ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.040812ms Decode=6.221472ms Display=57.412687ms Show=312.078µs | Stats: Received=47 Displayed=47 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.420002ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.321125ms Decode=6.319783ms Display=56.32695ms Show=267.947µs | Stats: Received=48 Displayed=48 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.18523ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.778209ms Decode=6.408741ms Display=58.322252ms Show=305.32µs | Stats: Received=49 Displayed=49 Dropped=0
+Cache stats: hits=1036727 misses=1609 (99.8% hit rate)
+  Sixel encode time: 52.122447ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.425791ms Decode=6.175689ms Display=56.528469ms Show=423.071µs | Stats: Received=50 Displayed=50 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.935102ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.375155ms Decode=6.351334ms Display=56.284545ms Show=547.346µs | Stats: Received=51 Displayed=51 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.7089ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.168867ms Decode=6.679191ms Display=56.874195ms Show=264.106µs | Stats: Received=52 Displayed=52 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.854547ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.556093ms Decode=6.202318ms Display=56.663472ms Show=266.212µs | Stats: Received=53 Displayed=53 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.758714ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.522128ms Decode=6.676986ms Display=57.198083ms Show=316.911µs | Stats: Received=54 Displayed=54 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.890575ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.290397ms Decode=6.445501ms Display=56.324579ms Show=319.342µs | Stats: Received=55 Displayed=55 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.996088ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.147475ms Decode=6.470966ms Display=65.203203ms Show=236.937µs | Stats: Received=56 Displayed=56 Dropped=0
+Cache stats: hits=1038215 misses=121 (100.0% hit rate)
+  Sixel encode time: 56.260474ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.471159ms Decode=8.923622ms Display=60.566229ms Show=525.203µs | Stats: Received=57 Displayed=57 Dropped=0
+Cache stats: hits=1038179 misses=157 (100.0% hit rate)
+  Sixel encode time: 58.887395ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.947186ms Decode=7.220124ms Display=63.810818ms Show=331.839µs | Stats: Received=58 Displayed=58 Dropped=0
+Cache stats: hits=1038197 misses=139 (100.0% hit rate)
+  Sixel encode time: 57.7527ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.494805ms Decode=6.778155ms Display=61.928697ms Show=548.921µs | Stats: Received=59 Displayed=59 Dropped=0
+Cache stats: hits=1038285 misses=51 (100.0% hit rate)
+  Sixel encode time: 56.959714ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.653616ms Decode=6.755535ms Display=61.297982ms Show=343.995µs | Stats: Received=60 Displayed=60 Dropped=0
+Cache stats: hits=1038302 misses=34 (100.0% hit rate)
+  Sixel encode time: 56.099089ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.797593ms Decode=6.342137ms Display=60.101871ms Show=586.259µs | Stats: Received=61 Displayed=61 Dropped=0
+Cache stats: hits=1038307 misses=29 (100.0% hit rate)
+  Sixel encode time: 58.947172ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.396113ms Decode=6.35742ms Display=63.962975ms Show=574.987µs | Stats: Received=62 Displayed=62 Dropped=0
+Cache stats: hits=1038296 misses=40 (100.0% hit rate)
+  Sixel encode time: 59.646902ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.276628ms Decode=10.176506ms Display=64.255843ms Show=473.983µs | Stats: Received=63 Displayed=63 Dropped=0
+Cache stats: hits=1038323 misses=13 (100.0% hit rate)
+  Sixel encode time: 60.739483ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.278049ms Decode=6.571257ms Display=64.737176ms Show=478.729µs | Stats: Received=64 Displayed=64 Dropped=0
+Cache stats: hits=1038323 misses=13 (100.0% hit rate)
+  Sixel encode time: 57.040411ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.264162ms Decode=7.914555ms Display=61.733549ms Show=320.196µs | Stats: Received=65 Displayed=65 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.820248ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.92397ms Decode=6.904105ms Display=64.81147ms Show=290.959µs | Stats: Received=66 Displayed=66 Dropped=0
+Cache stats: hits=1038321 misses=15 (100.0% hit rate)
+  Sixel encode time: 56.209887ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.356358ms Decode=6.146371ms Display=59.488787ms Show=411.07µs | Stats: Received=67 Displayed=67 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.735849ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.903077ms Decode=7.205102ms Display=63.83016ms Show=297.537µs | Stats: Received=68 Displayed=68 Dropped=0
+Cache stats: hits=1038310 misses=26 (100.0% hit rate)
+  Sixel encode time: 60.1732ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.356753ms Decode=6.69039ms Display=66.057294ms Show=580.237µs | Stats: Received=69 Displayed=69 Dropped=0
+Cache stats: hits=1038328 misses=8 (100.0% hit rate)
+  Sixel encode time: 64.896009ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.228997ms Decode=6.436203ms Display=69.268296ms Show=476.103µs | Stats: Received=70 Displayed=70 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.825494ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.250869ms Decode=7.206343ms Display=64.106612ms Show=598.456µs | Stats: Received=71 Displayed=71 Dropped=0
+Cache stats: hits=1038199 misses=137 (100.0% hit rate)
+  Sixel encode time: 67.410874ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.276819ms Decode=6.425493ms Display=72.609968ms Show=500.894µs | Stats: Received=72 Displayed=72 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.561117ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.551038ms Decode=7.000863ms Display=67.149899ms Show=300.446µs | Stats: Received=73 Displayed=73 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.455891ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.370095ms Decode=6.054656ms Display=65.962135ms Show=331.496µs | Stats: Received=74 Displayed=74 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.584216ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.21435ms Decode=5.919465ms Display=60.586402ms Show=642.127µs | Stats: Received=75 Displayed=75 Dropped=0
+Cache stats: hits=1038300 misses=36 (100.0% hit rate)
+  Sixel encode time: 57.072354ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.611076ms Decode=6.610619ms Display=61.127849ms Show=434.161µs | Stats: Received=76 Displayed=76 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.208856ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.859579ms Decode=7.027428ms Display=62.576614ms Show=749.233µs | Stats: Received=77 Displayed=77 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.195697ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.790537ms Decode=6.639558ms Display=69.94264ms Show=431.325µs | Stats: Received=78 Displayed=78 Dropped=0
+Cache stats: hits=1038326 misses=10 (100.0% hit rate)
+  Sixel encode time: 57.44883ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.834848ms Decode=7.033702ms Display=65.561414ms Show=306.431µs | Stats: Received=79 Displayed=79 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.548395ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.847186ms Decode=6.803686ms Display=70.786327ms Show=603.048µs | Stats: Received=80 Displayed=80 Dropped=0
+Cache stats: hits=1038329 misses=7 (100.0% hit rate)
+  Sixel encode time: 57.52212ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.285726ms Decode=6.753979ms Display=61.779305ms Show=280.7µs | Stats: Received=81 Displayed=81 Dropped=0
+Cache stats: hits=1038314 misses=22 (100.0% hit rate)
+  Sixel encode time: 60.113781ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.199009ms Decode=6.514121ms Display=64.484729ms Show=452.259µs | Stats: Received=82 Displayed=82 Dropped=0
+Cache stats: hits=1038308 misses=28 (100.0% hit rate)
+  Sixel encode time: 60.834275ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.844085ms Decode=7.221985ms Display=64.243076ms Show=270.288µs | Stats: Received=83 Displayed=83 Dropped=0
+Cache stats: hits=1038293 misses=43 (100.0% hit rate)
+  Sixel encode time: 65.422394ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.393282ms Decode=6.246106ms Display=69.97439ms Show=385.618µs | Stats: Received=84 Displayed=84 Dropped=0
+Cache stats: hits=1038322 misses=14 (100.0% hit rate)
+  Sixel encode time: 58.618471ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.738152ms Decode=6.519098ms Display=62.448338ms Show=278.907µs | Stats: Received=85 Displayed=85 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.283847ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.860134ms Decode=6.981341ms Display=64.905563ms Show=484.018µs | Stats: Received=86 Displayed=86 Dropped=0
+Cache stats: hits=1038309 misses=27 (100.0% hit rate)
+  Sixel encode time: 63.18233ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.433837ms Decode=6.406523ms Display=66.936015ms Show=422.854µs | Stats: Received=87 Displayed=87 Dropped=0
+Cache stats: hits=1038318 misses=18 (100.0% hit rate)
+  Sixel encode time: 55.655957ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.025195ms Decode=6.323423ms Display=58.799551ms Show=250.782µs | Stats: Received=88 Displayed=88 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.81007ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.513764ms Decode=6.109934ms Display=57.582128ms Show=256.048µs | Stats: Received=89 Displayed=89 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.560772ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.977964ms Decode=7.082777ms Display=59.9553ms Show=277.721µs | Stats: Received=90 Displayed=90 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.773479ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.315947ms Decode=6.452378ms Display=56.781716ms Show=298.114µs | Stats: Received=91 Displayed=91 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.423348ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.042304ms Decode=6.439306ms Display=58.482042ms Show=380.62µs | Stats: Received=92 Displayed=92 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.432534ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.170472ms Decode=6.375393ms Display=55.616017ms Show=415.801µs | Stats: Received=93 Displayed=93 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.635233ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.438807ms Decode=6.233205ms Display=58.867958ms Show=429.646µs | Stats: Received=94 Displayed=94 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.780922ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.210575ms Decode=6.288872ms Display=55.516795ms Show=419.082µs | Stats: Received=95 Displayed=95 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.467511ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.511376ms Decode=6.662764ms Display=58.644022ms Show=326.994µs | Stats: Received=96 Displayed=96 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.344101ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.812185ms Decode=6.238564ms Display=55.601231ms Show=412.352µs | Stats: Received=97 Displayed=97 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.160879ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.657263ms Decode=6.158908ms Display=60.680241ms Show=227.154µs | Stats: Received=98 Displayed=98 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.07228ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.823261ms Decode=6.625222ms Display=58.697874ms Show=590.245µs | Stats: Received=99 Displayed=99 Dropped=0
+Cache stats: hits=1024482 misses=13854 (98.7% hit rate)
+  Sixel encode time: 66.645999ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.94678ms Decode=6.506408ms Display=70.691859ms Show=289.944µs | Stats: Received=100 Displayed=100 Dropped=0
+Cache stats: hits=1038301 misses=35 (100.0% hit rate)
+  Sixel encode time: 53.53024ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.055229ms Decode=7.266919ms Display=57.180647ms Show=290.357µs | Stats: Received=101 Displayed=101 Dropped=0
+Cache stats: hits=1038308 misses=28 (100.0% hit rate)
+  Sixel encode time: 54.086642ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.808789ms Decode=8.35531ms Display=57.538002ms Show=333.722µs | Stats: Received=102 Displayed=102 Dropped=0
+Cache stats: hits=1038308 misses=28 (100.0% hit rate)
+  Sixel encode time: 52.993358ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.029658ms Decode=5.988971ms Display=56.328148ms Show=255.626µs | Stats: Received=103 Displayed=103 Dropped=0
+Cache stats: hits=1038334 misses=2 (100.0% hit rate)
+  Sixel encode time: 51.988429ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.000785ms Decode=6.578378ms Display=55.403631ms Show=277.147µs | Stats: Received=104 Displayed=104 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.116981ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.368046ms Decode=6.621002ms Display=56.681232ms Show=444.148µs | Stats: Received=105 Displayed=105 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.618002ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.230513ms Decode=6.453029ms Display=60.123335ms Show=694.494µs | Stats: Received=106 Displayed=106 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.179091ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.576247ms Decode=6.657209ms Display=59.089852ms Show=242.172µs | Stats: Received=107 Displayed=107 Dropped=0
+Cache stats: hits=1038284 misses=52 (100.0% hit rate)
+  Sixel encode time: 55.89415ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.127859ms Decode=7.437581ms Display=61.02514ms Show=651.855µs | Stats: Received=108 Displayed=108 Dropped=0
+Cache stats: hits=1038294 misses=42 (100.0% hit rate)
+  Sixel encode time: 57.602059ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.950828ms Decode=6.342982ms Display=61.336999ms Show=288.51µs | Stats: Received=109 Displayed=109 Dropped=0
+Cache stats: hits=1038283 misses=53 (100.0% hit rate)
+  Sixel encode time: 60.534088ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.722704ms Decode=6.143307ms Display=64.146107ms Show=279.2µs | Stats: Received=110 Displayed=110 Dropped=0
+Cache stats: hits=1038283 misses=53 (100.0% hit rate)
+  Sixel encode time: 59.251786ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.55513ms Decode=8.206896ms Display=64.006847ms Show=587.428µs | Stats: Received=111 Displayed=111 Dropped=0
+Cache stats: hits=1038278 misses=58 (100.0% hit rate)
+  Sixel encode time: 55.394768ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.503516ms Decode=6.368596ms Display=59.511413ms Show=276.929µs | Stats: Received=112 Displayed=112 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.328855ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.300385ms Decode=7.536105ms Display=55.182458ms Show=416.252µs | Stats: Received=113 Displayed=113 Dropped=0
+Cache stats: hits=1038318 misses=18 (100.0% hit rate)
+  Sixel encode time: 53.422769ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.996999ms Decode=6.789999ms Display=56.95165ms Show=319.152µs | Stats: Received=114 Displayed=114 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.337661ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.418816ms Decode=5.950375ms Display=57.214207ms Show=453.395µs | Stats: Received=115 Displayed=115 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.539165ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.767915ms Decode=6.268482ms Display=56.657268ms Show=253.494µs | Stats: Received=116 Displayed=116 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.991823ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.517741ms Decode=5.78791ms Display=59.752603ms Show=283.925µs | Stats: Received=117 Displayed=117 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.98964ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.432527ms Decode=6.338913ms Display=59.883921ms Show=226.845µs | Stats: Received=118 Displayed=118 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.623734ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.137328ms Decode=6.674476ms Display=58.532005ms Show=411.695µs | Stats: Received=119 Displayed=119 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.867893ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.297793ms Decode=6.241671ms Display=58.712322ms Show=353.088µs | Stats: Received=120 Displayed=120 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.212672ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.009412ms Decode=6.104489ms Display=59.990169ms Show=418.339µs | Stats: Received=121 Displayed=121 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.451896ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.831627ms Decode=6.430933ms Display=58.808773ms Show=406.77µs | Stats: Received=122 Displayed=122 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.418969ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.859207ms Decode=5.993429ms Display=61.740824ms Show=428.959µs | Stats: Received=123 Displayed=123 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.273783ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.67938ms Decode=5.988561ms Display=59.05901ms Show=394.656µs | Stats: Received=124 Displayed=124 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.852674ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.515741ms Decode=6.501156ms Display=56.735831ms Show=255.409µs | Stats: Received=125 Displayed=125 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.379584ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.586437ms Decode=6.302915ms Display=58.562047ms Show=387.943µs | Stats: Received=126 Displayed=126 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.09272ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.683716ms Decode=5.702565ms Display=54.92856ms Show=419.768µs | Stats: Received=127 Displayed=127 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 50.975416ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.199033ms Decode=5.437141ms Display=55.24208ms Show=453.997µs | Stats: Received=128 Displayed=128 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.204848ms (rendered size: 1248x832 pixels)
+Frame timings: Total=65.930462ms Decode=5.945808ms Display=55.9932ms Show=341.191µs | Stats: Received=129 Displayed=129 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.990521ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.943491ms Decode=5.773647ms Display=57.24233ms Show=219.02µs | Stats: Received=130 Displayed=130 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.653468ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.394623ms Decode=5.898939ms Display=56.749087ms Show=373.924µs | Stats: Received=131 Displayed=131 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.518882ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.596693ms Decode=5.879832ms Display=57.107639ms Show=439.774µs | Stats: Received=132 Displayed=132 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.983886ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.124602ms Decode=6.559538ms Display=58.751129ms Show=240.618µs | Stats: Received=133 Displayed=133 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.862087ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.093078ms Decode=5.986151ms Display=58.313207ms Show=420.335µs | Stats: Received=134 Displayed=134 Dropped=0
+Cache stats: hits=1038130 misses=206 (100.0% hit rate)
+  Sixel encode time: 55.027889ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.615963ms Decode=6.029308ms Display=58.379094ms Show=420.345µs | Stats: Received=135 Displayed=135 Dropped=0
+Cache stats: hits=1038143 misses=193 (100.0% hit rate)
+  Sixel encode time: 53.174314ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.341539ms Decode=5.932014ms Display=56.887964ms Show=243.143µs | Stats: Received=136 Displayed=136 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.295798ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.438586ms Decode=5.969836ms Display=56.849598ms Show=400.754µs | Stats: Received=137 Displayed=137 Dropped=0
+Cache stats: hits=1038054 misses=282 (100.0% hit rate)
+  Sixel encode time: 53.956916ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.25591ms Decode=6.446768ms Display=58.652578ms Show=425.434µs | Stats: Received=138 Displayed=138 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.913581ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.795056ms Decode=6.511067ms Display=59.236515ms Show=314.214µs | Stats: Received=139 Displayed=139 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.673474ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.67431ms Decode=6.496137ms Display=57.858663ms Show=278.883µs | Stats: Received=140 Displayed=140 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.720099ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.588993ms Decode=6.157737ms Display=56.645781ms Show=280.067µs | Stats: Received=141 Displayed=141 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.937682ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.651558ms Decode=5.991268ms Display=61.23078ms Show=417.024µs | Stats: Received=142 Displayed=142 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.740479ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.243611ms Decode=7.893249ms Display=57.653885ms Show=367.866µs | Stats: Received=143 Displayed=143 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.277586ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.644118ms Decode=6.701238ms Display=58.370533ms Show=309.214µs | Stats: Received=144 Displayed=144 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.487271ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.39786ms Decode=6.104355ms Display=59.822394ms Show=590.533µs | Stats: Received=145 Displayed=145 Dropped=0
+Cache stats: hits=1037446 misses=890 (99.9% hit rate)
+  Sixel encode time: 59.413895ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.504202ms Decode=6.298359ms Display=64.263801ms Show=562.953µs | Stats: Received=146 Displayed=146 Dropped=0
+Cache stats: hits=1036453 misses=1883 (99.8% hit rate)
+  Sixel encode time: 64.569959ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.404923ms Decode=6.217656ms Display=70.781754ms Show=483.664µs | Stats: Received=147 Displayed=147 Dropped=0
+Cache stats: hits=1037027 misses=1309 (99.9% hit rate)
+  Sixel encode time: 60.037908ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.991637ms Decode=6.192017ms Display=64.068093ms Show=471.041µs | Stats: Received=148 Displayed=148 Dropped=0
+Cache stats: hits=1037457 misses=879 (99.9% hit rate)
+  Sixel encode time: 57.717388ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.001894ms Decode=5.824951ms Display=61.016808ms Show=410.829µs | Stats: Received=149 Displayed=149 Dropped=0
+Cache stats: hits=1037274 misses=1062 (99.9% hit rate)
+  Sixel encode time: 60.735017ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.356636ms Decode=5.881837ms Display=68.373981ms Show=262.816µs | Stats: Received=150 Displayed=150 Dropped=0
+Cache stats: hits=1037280 misses=1056 (99.9% hit rate)
+  Sixel encode time: 65.462666ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.849351ms Decode=7.071858ms Display=70.886021ms Show=640.217µs | Stats: Received=151 Displayed=151 Dropped=0
+Cache stats: hits=1036852 misses=1484 (99.9% hit rate)
+  Sixel encode time: 63.152708ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.57925ms Decode=6.373957ms Display=67.87106ms Show=534.343µs | Stats: Received=152 Displayed=152 Dropped=0
+Cache stats: hits=1037169 misses=1167 (99.9% hit rate)
+  Sixel encode time: 62.721906ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.533972ms Decode=6.809496ms Display=67.053402ms Show=468.811µs | Stats: Received=153 Displayed=153 Dropped=0
+Cache stats: hits=1037454 misses=882 (99.9% hit rate)
+  Sixel encode time: 66.953441ms (rendered size: 1248x832 pixels)
+Frame timings: Total=84.540525ms Decode=6.477272ms Display=72.686113ms Show=533.974µs | Stats: Received=154 Displayed=154 Dropped=0
+Cache stats: hits=1037954 misses=382 (100.0% hit rate)
+  Sixel encode time: 62.554131ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.133035ms Decode=7.39762ms Display=67.91116ms Show=524.535µs | Stats: Received=155 Displayed=155 Dropped=0
+Cache stats: hits=1037749 misses=587 (99.9% hit rate)
+  Sixel encode time: 62.455601ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.135375ms Decode=6.68575ms Display=67.034037ms Show=541µs | Stats: Received=156 Displayed=156 Dropped=0
+Cache stats: hits=1037618 misses=718 (99.9% hit rate)
+  Sixel encode time: 62.276116ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.766877ms Decode=7.312612ms Display=67.080139ms Show=450.843µs | Stats: Received=157 Displayed=157 Dropped=0
+Cache stats: hits=1037832 misses=504 (100.0% hit rate)
+  Sixel encode time: 59.249628ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.240095ms Decode=6.207029ms Display=63.74541ms Show=692.128µs | Stats: Received=158 Displayed=158 Dropped=0
+Cache stats: hits=1037826 misses=510 (100.0% hit rate)
+  Sixel encode time: 60.524786ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.534595ms Decode=7.981428ms Display=64.865949ms Show=679.876µs | Stats: Received=159 Displayed=159 Dropped=0
+Cache stats: hits=1037960 misses=376 (100.0% hit rate)
+  Sixel encode time: 60.333545ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.089688ms Decode=6.635284ms Display=64.535138ms Show=276.984µs | Stats: Received=160 Displayed=160 Dropped=0
+Cache stats: hits=1038040 misses=296 (100.0% hit rate)
+  Sixel encode time: 64.21657ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.946262ms Decode=6.128599ms Display=68.280634ms Show=542.933µs | Stats: Received=161 Displayed=161 Dropped=0
+Cache stats: hits=1037680 misses=656 (99.9% hit rate)
+  Sixel encode time: 69.302195ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.075634ms Decode=6.415128ms Display=73.976106ms Show=438.093µs | Stats: Received=162 Displayed=162 Dropped=0
+Cache stats: hits=1037443 misses=893 (99.9% hit rate)
+  Sixel encode time: 63.325016ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.350623ms Decode=6.247389ms Display=67.965995ms Show=468.835µs | Stats: Received=163 Displayed=163 Dropped=0
+Cache stats: hits=1037933 misses=403 (100.0% hit rate)
+  Sixel encode time: 63.023ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.429641ms Decode=7.777246ms Display=67.722145ms Show=499.018µs | Stats: Received=164 Displayed=164 Dropped=0
+Cache stats: hits=1038014 misses=322 (100.0% hit rate)
+  Sixel encode time: 67.223414ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.206394ms Decode=8.099671ms Display=72.451674ms Show=512.574µs | Stats: Received=165 Displayed=165 Dropped=0
+Cache stats: hits=1037840 misses=496 (100.0% hit rate)
+  Sixel encode time: 62.733706ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.201765ms Decode=7.591697ms Display=67.149401ms Show=307.868µs | Stats: Received=166 Displayed=166 Dropped=0
+Cache stats: hits=1038068 misses=268 (100.0% hit rate)
+  Sixel encode time: 64.927851ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.522366ms Decode=6.048277ms Display=68.744897ms Show=394.707µs | Stats: Received=167 Displayed=167 Dropped=0
+Cache stats: hits=1038198 misses=138 (100.0% hit rate)
+  Sixel encode time: 59.412222ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.197994ms Decode=8.009197ms Display=63.802682ms Show=545.867µs | Stats: Received=168 Displayed=168 Dropped=0
+Cache stats: hits=1038184 misses=152 (100.0% hit rate)
+  Sixel encode time: 63.105603ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.305709ms Decode=7.773694ms Display=68.039564ms Show=511.947µs | Stats: Received=169 Displayed=169 Dropped=0
+Cache stats: hits=1038057 misses=279 (100.0% hit rate)
+  Sixel encode time: 60.383631ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.199494ms Decode=6.662858ms Display=64.825721ms Show=503.266µs | Stats: Received=170 Displayed=170 Dropped=0
+Cache stats: hits=1038213 misses=123 (100.0% hit rate)
+  Sixel encode time: 61.343897ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.267319ms Decode=6.338556ms Display=65.583084ms Show=502.003µs | Stats: Received=171 Displayed=171 Dropped=0
+Cache stats: hits=1038019 misses=317 (100.0% hit rate)
+  Sixel encode time: 57.542265ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.149365ms Decode=6.467792ms Display=62.778627ms Show=537.277µs | Stats: Received=172 Displayed=172 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.790481ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.986057ms Decode=6.304992ms Display=60.9969ms Show=422.261µs | Stats: Received=173 Displayed=173 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.073762ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.411717ms Decode=6.21761ms Display=57.631681ms Show=257.929µs | Stats: Received=174 Displayed=174 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 51.705914ms (rendered size: 1248x832 pixels)
+Frame timings: Total=66.727327ms Decode=5.936631ms Display=56.687846ms Show=395.174µs | Stats: Received=175 Displayed=175 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.558402ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.408766ms Decode=6.825974ms Display=60.922214ms Show=296.956µs | Stats: Received=176 Displayed=176 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.394472ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.998006ms Decode=5.983512ms Display=63.748145ms Show=571.696µs | Stats: Received=177 Displayed=177 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.162648ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.428983ms Decode=6.021658ms Display=62.316075ms Show=425.37µs | Stats: Received=178 Displayed=178 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.151991ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.016221ms Decode=5.887338ms Display=60.978145ms Show=283.963µs | Stats: Received=179 Displayed=179 Dropped=0
+Cache stats: hits=1038259 misses=77 (100.0% hit rate)
+  Sixel encode time: 57.173704ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.091965ms Decode=6.016679ms Display=60.998445ms Show=396.886µs | Stats: Received=180 Displayed=180 Dropped=0
+Cache stats: hits=1038161 misses=175 (100.0% hit rate)
+  Sixel encode time: 56.395312ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.462443ms Decode=6.365935ms Display=60.194218ms Show=433.484µs | Stats: Received=181 Displayed=181 Dropped=0
+Cache stats: hits=1038159 misses=177 (100.0% hit rate)
+  Sixel encode time: 60.193265ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.024142ms Decode=6.270486ms Display=65.470524ms Show=379.651µs | Stats: Received=182 Displayed=182 Dropped=0
+Cache stats: hits=1038172 misses=164 (100.0% hit rate)
+  Sixel encode time: 65.615969ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.557377ms Decode=6.412809ms Display=69.822107ms Show=363.473µs | Stats: Received=183 Displayed=183 Dropped=0
+Cache stats: hits=1037931 misses=405 (100.0% hit rate)
+  Sixel encode time: 66.457651ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.866966ms Decode=6.262387ms Display=74.236843ms Show=478.193µs | Stats: Received=184 Displayed=184 Dropped=0
+Cache stats: hits=1037775 misses=561 (99.9% hit rate)
+  Sixel encode time: 65.845527ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.646368ms Decode=7.127921ms Display=69.709344ms Show=574.831µs | Stats: Received=185 Displayed=185 Dropped=0
+Cache stats: hits=1038118 misses=218 (100.0% hit rate)
+  Sixel encode time: 64.66925ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.474428ms Decode=8.101049ms Display=69.915881ms Show=522.921µs | Stats: Received=186 Displayed=186 Dropped=0
+Cache stats: hits=1038042 misses=294 (100.0% hit rate)
+  Sixel encode time: 64.399138ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.501244ms Decode=8.025849ms Display=69.293634ms Show=608.226µs | Stats: Received=187 Displayed=187 Dropped=0
+Cache stats: hits=1037895 misses=441 (100.0% hit rate)
+  Sixel encode time: 66.658973ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.747109ms Decode=6.202908ms Display=70.971962ms Show=527.564µs | Stats: Received=188 Displayed=188 Dropped=0
+Cache stats: hits=1037782 misses=554 (99.9% hit rate)
+  Sixel encode time: 59.022474ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.099389ms Decode=6.956726ms Display=62.923471ms Show=762.569µs | Stats: Received=189 Displayed=189 Dropped=0
+Cache stats: hits=1038003 misses=333 (100.0% hit rate)
+  Sixel encode time: 69.358537ms (rendered size: 1248x832 pixels)
+Frame timings: Total=84.886892ms Decode=6.542768ms Display=73.565241ms Show=320.585µs | Stats: Received=190 Displayed=190 Dropped=0
+Cache stats: hits=1037828 misses=508 (100.0% hit rate)
+  Sixel encode time: 64.367409ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.022699ms Decode=6.377888ms Display=69.770766ms Show=278.457µs | Stats: Received=191 Displayed=191 Dropped=0
+Cache stats: hits=1038118 misses=218 (100.0% hit rate)
+  Sixel encode time: 60.442384ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.98904ms Decode=7.316396ms Display=63.803689ms Show=416.517µs | Stats: Received=192 Displayed=192 Dropped=0
+Cache stats: hits=1038146 misses=190 (100.0% hit rate)
+  Sixel encode time: 69.973387ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.399444ms Decode=6.339694ms Display=73.500043ms Show=421.98µs | Stats: Received=193 Displayed=193 Dropped=0
+Cache stats: hits=1038168 misses=168 (100.0% hit rate)
+  Sixel encode time: 75.442045ms (rendered size: 1248x832 pixels)
+Frame timings: Total=93.421516ms Decode=6.116111ms Display=81.387365ms Show=285.31µs | Stats: Received=194 Displayed=194 Dropped=0
+Cache stats: hits=1038123 misses=213 (100.0% hit rate)
+  Sixel encode time: 62.108358ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.756672ms Decode=8.176017ms Display=66.162591ms Show=489.059µs | Stats: Received=195 Displayed=195 Dropped=0
+Cache stats: hits=1038067 misses=269 (100.0% hit rate)
+  Sixel encode time: 60.247847ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.183519ms Decode=7.01291ms Display=64.641738ms Show=443.863µs | Stats: Received=196 Displayed=196 Dropped=0
+Cache stats: hits=1038067 misses=269 (100.0% hit rate)
+  Sixel encode time: 61.550779ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.469612ms Decode=7.033852ms Display=65.247388ms Show=652.831µs | Stats: Received=197 Displayed=197 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.198077ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.476269ms Decode=6.099127ms Display=65.358847ms Show=142.122µs | Stats: Received=198 Displayed=198 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.736448ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.285477ms Decode=6.221551ms Display=65.12663ms Show=370.202µs | Stats: Received=199 Displayed=199 Dropped=0
+Cache stats: hits=1038205 misses=131 (100.0% hit rate)
+  Sixel encode time: 60.553697ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.940722ms Decode=6.32141ms Display=63.983829ms Show=277.944µs | Stats: Received=200 Displayed=200 Dropped=0
+Cache stats: hits=1038115 misses=221 (100.0% hit rate)
+  Sixel encode time: 59.809745ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.006455ms Decode=6.033119ms Display=63.273557ms Show=270.409µs | Stats: Received=201 Displayed=201 Dropped=0
+Cache stats: hits=1038100 misses=236 (100.0% hit rate)
+  Sixel encode time: 62.247754ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.124001ms Decode=6.094929ms Display=65.815236ms Show=386.745µs | Stats: Received=202 Displayed=202 Dropped=0
+Cache stats: hits=1038068 misses=268 (100.0% hit rate)
+  Sixel encode time: 60.521672ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.115238ms Decode=6.315088ms Display=63.792935ms Show=319.821µs | Stats: Received=203 Displayed=203 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.471356ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.79239ms Decode=6.308045ms Display=63.80479ms Show=294.836µs | Stats: Received=204 Displayed=204 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.874458ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.740657ms Decode=6.545405ms Display=61.410738ms Show=473.37µs | Stats: Received=205 Displayed=205 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.986075ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.537471ms Decode=6.162838ms Display=68.97355ms Show=886.933µs | Stats: Received=206 Displayed=206 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.834759ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.55844ms Decode=6.315067ms Display=63.960649ms Show=290.612µs | Stats: Received=207 Displayed=207 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.418078ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.376107ms Decode=6.332659ms Display=65.548304ms Show=447.837µs | Stats: Received=208 Displayed=208 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.543191ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.061296ms Decode=6.051143ms Display=66.078254ms Show=392.278µs | Stats: Received=209 Displayed=209 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.598273ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.774822ms Decode=5.979317ms Display=66.442943ms Show=425.466µs | Stats: Received=210 Displayed=210 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.717567ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.038808ms Decode=6.39365ms Display=64.214656ms Show=487.419µs | Stats: Received=211 Displayed=211 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 67.885408ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.634824ms Decode=6.331273ms Display=71.626231ms Show=483.851µs | Stats: Received=212 Displayed=212 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.630821ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.08332ms Decode=6.14654ms Display=64.574652ms Show=414.243µs | Stats: Received=213 Displayed=213 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.571112ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.282209ms Decode=6.350553ms Display=63.005855ms Show=275.672µs | Stats: Received=214 Displayed=214 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.991365ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.012727ms Decode=6.312605ms Display=66.532303ms Show=250.799µs | Stats: Received=215 Displayed=215 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.391055ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.78949ms Decode=6.072934ms Display=63.639708ms Show=265.307µs | Stats: Received=216 Displayed=216 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.511671ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.847503ms Decode=6.441046ms Display=66.03297ms Show=253.854µs | Stats: Received=217 Displayed=217 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.977032ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.667675ms Decode=6.204684ms Display=65.213233ms Show=301.391µs | Stats: Received=218 Displayed=218 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.580196ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.958981ms Decode=6.245609ms Display=64.414304ms Show=601.031µs | Stats: Received=219 Displayed=219 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.861653ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.142243ms Decode=6.84319ms Display=62.585899ms Show=455.761µs | Stats: Received=220 Displayed=220 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.924202ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.082831ms Decode=6.187123ms Display=65.60515ms Show=421.007µs | Stats: Received=221 Displayed=221 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 65.539563ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.781533ms Decode=6.242923ms Display=69.64241ms Show=265.793µs | Stats: Received=222 Displayed=222 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.736208ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.899836ms Decode=6.259879ms Display=65.655699ms Show=306.417µs | Stats: Received=223 Displayed=223 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.573302ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.201269ms Decode=5.965195ms Display=69.218436ms Show=280.22µs | Stats: Received=224 Displayed=224 Dropped=0
+Cache stats: hits=1038233 misses=103 (100.0% hit rate)
+  Sixel encode time: 62.561841ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.394719ms Decode=6.633525ms Display=66.839154ms Show=277.996µs | Stats: Received=225 Displayed=225 Dropped=0
+Cache stats: hits=1038169 misses=167 (100.0% hit rate)
+  Sixel encode time: 68.069767ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.874726ms Decode=8.117728ms Display=73.004825ms Show=280.79µs | Stats: Received=226 Displayed=226 Dropped=0
+Cache stats: hits=1038163 misses=173 (100.0% hit rate)
+  Sixel encode time: 69.482142ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.017772ms Decode=6.251618ms Display=74.50043ms Show=309.831µs | Stats: Received=227 Displayed=227 Dropped=0
+Cache stats: hits=1038033 misses=303 (100.0% hit rate)
+  Sixel encode time: 68.592212ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.144163ms Decode=6.33112ms Display=73.148493ms Show=467.748µs | Stats: Received=228 Displayed=228 Dropped=0
+Cache stats: hits=1038261 misses=75 (100.0% hit rate)
+  Sixel encode time: 74.660218ms (rendered size: 1248x832 pixels)
+Frame timings: Total=92.056502ms Decode=7.499706ms Display=78.889351ms Show=554.246µs | Stats: Received=230 Displayed=229 Dropped=0
+Cache stats: hits=1038094 misses=242 (100.0% hit rate)
+  Sixel encode time: 72.273301ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.058645ms Decode=6.967573ms Display=78.260763ms Show=576.19µs | Stats: Received=231 Displayed=230 Dropped=0
+Cache stats: hits=1038024 misses=312 (100.0% hit rate)
+  Sixel encode time: 72.850482ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.6712ms Decode=8.003777ms Display=78.060555ms Show=286.592µs | Stats: Received=231 Displayed=231 Dropped=0
+Cache stats: hits=1038179 misses=157 (100.0% hit rate)
+  Sixel encode time: 76.831736ms (rendered size: 1248x832 pixels)
+Frame timings: Total=94.620153ms Decode=8.76255ms Display=81.308678ms Show=521.371µs | Stats: Received=232 Displayed=232 Dropped=0
+Cache stats: hits=1037749 misses=587 (99.9% hit rate)
+  Sixel encode time: 73.974169ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.416209ms Decode=6.708828ms Display=78.943649ms Show=235.69µs | Stats: Received=233 Displayed=233 Dropped=0
+Cache stats: hits=1037997 misses=339 (100.0% hit rate)
+  Sixel encode time: 75.623169ms (rendered size: 1248x832 pixels)
+Frame timings: Total=98.239955ms Decode=7.247349ms Display=81.950557ms Show=541.876µs | Stats: Received=235 Displayed=234 Dropped=0
+Cache stats: hits=1038214 misses=122 (100.0% hit rate)
+  Sixel encode time: 75.1406ms (rendered size: 1248x832 pixels)
+Frame timings: Total=92.645614ms Decode=6.842853ms Display=80.293889ms Show=609.058µs | Stats: Received=235 Displayed=235 Dropped=0
+Cache stats: hits=1038112 misses=224 (100.0% hit rate)
+  Sixel encode time: 71.659278ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.678913ms Decode=7.795785ms Display=76.796467ms Show=683.07µs | Stats: Received=236 Displayed=236 Dropped=0
+Cache stats: hits=1038152 misses=184 (100.0% hit rate)
+  Sixel encode time: 63.160162ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.360689ms Decode=7.893339ms Display=67.791984ms Show=589.04µs | Stats: Received=238 Displayed=237 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 67.946524ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.127262ms Decode=6.089904ms Display=71.521895ms Show=418.48µs | Stats: Received=239 Displayed=238 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.059232ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.230769ms Decode=6.048874ms Display=70.028556ms Show=279.772µs | Stats: Received=239 Displayed=239 Dropped=0
+Cache stats: hits=1038116 misses=220 (100.0% hit rate)
+  Sixel encode time: 62.523296ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.16828ms Decode=6.214206ms Display=66.75535ms Show=443.943µs | Stats: Received=240 Displayed=240 Dropped=0
+Cache stats: hits=1038023 misses=313 (100.0% hit rate)
+  Sixel encode time: 64.730215ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.531761ms Decode=6.104152ms Display=68.900706ms Show=467.084µs | Stats: Received=241 Displayed=241 Dropped=0
+Cache stats: hits=1037964 misses=372 (100.0% hit rate)
+  Sixel encode time: 62.945568ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.908643ms Decode=6.46443ms Display=66.940525ms Show=433.29µs | Stats: Received=242 Displayed=242 Dropped=0
+Cache stats: hits=1037989 misses=347 (100.0% hit rate)
+  Sixel encode time: 69.516512ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.933336ms Decode=6.13292ms Display=78.254474ms Show=536.2µs | Stats: Received=243 Displayed=243 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.863226ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.95142ms Decode=6.468064ms Display=65.99689ms Show=516.391µs | Stats: Received=244 Displayed=244 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.806128ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.340864ms Decode=6.157711ms Display=65.100505ms Show=296.329µs | Stats: Received=245 Displayed=245 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.629096ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.642773ms Decode=6.380883ms Display=63.656483ms Show=417.268µs | Stats: Received=246 Displayed=246 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.964772ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.316665ms Decode=6.729142ms Display=67.287546ms Show=264.292µs | Stats: Received=247 Displayed=247 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.712156ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.521935ms Decode=6.668671ms Display=66.124384ms Show=396.846µs | Stats: Received=248 Displayed=248 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.81088ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.682931ms Decode=6.010872ms Display=66.805559ms Show=396.181µs | Stats: Received=249 Displayed=249 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 65.216589ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.019676ms Decode=6.423818ms Display=69.03789ms Show=770.003µs | Stats: Received=250 Displayed=250 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.68767ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.506423ms Decode=6.506595ms Display=65.711681ms Show=469.947µs | Stats: Received=251 Displayed=251 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.305671ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.870465ms Decode=6.069333ms Display=65.633974ms Show=256.656µs | Stats: Received=252 Displayed=252 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.869215ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.034259ms Decode=5.991926ms Display=67.332046ms Show=253.652µs | Stats: Received=253 Displayed=253 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.447835ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.547165ms Decode=6.453715ms Display=66.935825ms Show=427.763µs | Stats: Received=254 Displayed=254 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.604467ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.659778ms Decode=6.207516ms Display=67.899729ms Show=419.569µs | Stats: Received=255 Displayed=255 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.577769ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.648906ms Decode=6.250484ms Display=68.364926ms Show=438.166µs | Stats: Received=256 Displayed=256 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.601763ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.212345ms Decode=6.216047ms Display=71.362336ms Show=268.879µs | Stats: Received=257 Displayed=257 Dropped=0
+Cache stats: hits=1038083 misses=253 (100.0% hit rate)
+  Sixel encode time: 69.383134ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.036122ms Decode=6.920487ms Display=73.491141ms Show=617.082µs | Stats: Received=258 Displayed=258 Dropped=0
+Cache stats: hits=1037814 misses=522 (99.9% hit rate)
+  Sixel encode time: 66.895827ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.08861ms Decode=6.231373ms Display=70.602664ms Show=258.413µs | Stats: Received=259 Displayed=259 Dropped=0
+Cache stats: hits=1037956 misses=380 (100.0% hit rate)
+  Sixel encode time: 71.790468ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.531426ms Decode=6.235758ms Display=75.318865ms Show=452.865µs | Stats: Received=260 Displayed=260 Dropped=0
+Cache stats: hits=1038090 misses=246 (100.0% hit rate)
+  Sixel encode time: 66.413627ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.561258ms Decode=6.283383ms Display=70.771447ms Show=478.247µs | Stats: Received=261 Displayed=261 Dropped=0
+Cache stats: hits=1038146 misses=190 (100.0% hit rate)
+  Sixel encode time: 64.007124ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.967687ms Decode=7.111935ms Display=67.41011ms Show=456.865µs | Stats: Received=262 Displayed=262 Dropped=0
+Cache stats: hits=1038210 misses=126 (100.0% hit rate)
+  Sixel encode time: 63.791139ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.688091ms Decode=6.123822ms Display=67.514347ms Show=303.635µs | Stats: Received=263 Displayed=263 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 65.282315ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.321043ms Decode=6.110983ms Display=70.536718ms Show=770.975µs | Stats: Received=264 Displayed=264 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 65.747295ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.034999ms Decode=6.170368ms Display=68.760587ms Show=308.646µs | Stats: Received=265 Displayed=265 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.850225ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.801067ms Decode=8.57873ms Display=65.60907ms Show=466.341µs | Stats: Received=266 Displayed=266 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.336725ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.123546ms Decode=6.423828ms Display=65.475367ms Show=325.366µs | Stats: Received=267 Displayed=267 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.050625ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.432658ms Decode=6.082027ms Display=67.013773ms Show=599.579µs | Stats: Received=268 Displayed=268 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.574829ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.138324ms Decode=6.103888ms Display=64.420458ms Show=357.171µs | Stats: Received=269 Displayed=269 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.28029ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.216521ms Decode=6.216257ms Display=61.867388ms Show=217.08µs | Stats: Received=270 Displayed=270 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.294231ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.392771ms Decode=6.314432ms Display=61.800681ms Show=241.571µs | Stats: Received=271 Displayed=271 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.544393ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.566529ms Decode=6.201653ms Display=63.206967ms Show=388.325µs | Stats: Received=272 Displayed=272 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.873545ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.666787ms Decode=6.01352ms Display=61.350243ms Show=277.285µs | Stats: Received=273 Displayed=273 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.525919ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.455205ms Decode=6.792104ms Display=59.142599ms Show=380.225µs | Stats: Received=274 Displayed=274 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.372048ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.630717ms Decode=6.176393ms Display=62.443586ms Show=237.925µs | Stats: Received=275 Displayed=275 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.740119ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.635675ms Decode=6.034797ms Display=63.671646ms Show=237.171µs | Stats: Received=276 Displayed=276 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.133765ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.680008ms Decode=6.246958ms Display=59.445102ms Show=220.493µs | Stats: Received=277 Displayed=277 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.653234ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.831767ms Decode=6.192349ms Display=60.617635ms Show=247.814µs | Stats: Received=278 Displayed=278 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.97775ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.276029ms Decode=6.496312ms Display=61.500712ms Show=391.918µs | Stats: Received=279 Displayed=279 Dropped=0
+Cache stats: hits=1038301 misses=35 (100.0% hit rate)
+  Sixel encode time: 60.287761ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.096305ms Decode=5.955439ms Display=64.597995ms Show=396.286µs | Stats: Received=280 Displayed=280 Dropped=0
+Cache stats: hits=1038217 misses=119 (100.0% hit rate)
+  Sixel encode time: 63.811563ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.334562ms Decode=6.097338ms Display=67.989881ms Show=443.323µs | Stats: Received=281 Displayed=281 Dropped=0
+Cache stats: hits=1038234 misses=102 (100.0% hit rate)
+  Sixel encode time: 59.026571ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.504597ms Decode=6.025168ms Display=62.822826ms Show=381.827µs | Stats: Received=282 Displayed=282 Dropped=0
+Cache stats: hits=1038315 misses=21 (100.0% hit rate)
+  Sixel encode time: 58.391358ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.957801ms Decode=6.088189ms Display=62.319798ms Show=289.171µs | Stats: Received=283 Displayed=283 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.813895ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.974947ms Decode=6.291761ms Display=63.843003ms Show=445.002µs | Stats: Received=284 Displayed=284 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.984675ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.051866ms Decode=6.126462ms Display=62.915399ms Show=229.77µs | Stats: Received=285 Displayed=285 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.951498ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.894224ms Decode=6.101457ms Display=59.244828ms Show=389.811µs | Stats: Received=286 Displayed=286 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.261534ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.478672ms Decode=5.354706ms Display=59.162131ms Show=387.682µs | Stats: Received=287 Displayed=287 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.678894ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.777727ms Decode=5.960234ms Display=59.250596ms Show=222.842µs | Stats: Received=288 Displayed=288 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.656362ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.432454ms Decode=6.472206ms Display=60.539129ms Show=318.315µs | Stats: Received=289 Displayed=289 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.799473ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.44396ms Decode=6.023714ms Display=61.312725ms Show=408.423µs | Stats: Received=290 Displayed=290 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.299821ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.595627ms Decode=5.315768ms Display=59.012224ms Show=395.451µs | Stats: Received=291 Displayed=291 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.220678ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.508266ms Decode=5.479387ms Display=57.67106ms Show=260.248µs | Stats: Received=292 Displayed=292 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.491562ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.642385ms Decode=6.546947ms Display=62.361849ms Show=405.666µs | Stats: Received=293 Displayed=293 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.505952ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.308407ms Decode=5.425902ms Display=60.189106ms Show=374.96µs | Stats: Received=294 Displayed=294 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.354233ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.585622ms Decode=6.27183ms Display=60.807119ms Show=396.188µs | Stats: Received=295 Displayed=295 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.950614ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.442199ms Decode=5.304859ms Display=61.675942ms Show=218.538µs | Stats: Received=296 Displayed=296 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.684085ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.900354ms Decode=6.212534ms Display=61.255862ms Show=441.675µs | Stats: Received=297 Displayed=297 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.644126ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.017546ms Decode=6.158852ms Display=61.540344ms Show=334.671µs | Stats: Received=298 Displayed=298 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.604014ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.223238ms Decode=6.157289ms Display=62.704067ms Show=217.145µs | Stats: Received=299 Displayed=299 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.480088ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.150698ms Decode=6.215763ms Display=64.910743ms Show=252.307µs | Stats: Received=300 Displayed=300 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.841533ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.804305ms Decode=6.676898ms Display=65.357816ms Show=296.547µs | Stats: Received=301 Displayed=301 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.826706ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.381974ms Decode=6.699066ms Display=60.085941ms Show=411.88µs | Stats: Received=302 Displayed=302 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.021077ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.296006ms Decode=6.385026ms Display=63.441719ms Show=219.949µs | Stats: Received=303 Displayed=303 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.35552ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.5599ms Decode=6.110722ms Display=58.524991ms Show=260.801µs | Stats: Received=304 Displayed=304 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.798459ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.545194ms Decode=5.955548ms Display=64.358567ms Show=217.575µs | Stats: Received=305 Displayed=305 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.804721ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.467411ms Decode=6.098588ms Display=63.441438ms Show=214.332µs | Stats: Received=306 Displayed=306 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.293279ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.101807ms Decode=6.67652ms Display=60.591769ms Show=261.437µs | Stats: Received=307 Displayed=307 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.730642ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.28972ms Decode=6.881071ms Display=60.132681ms Show=416.607µs | Stats: Received=308 Displayed=308 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.931044ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.166292ms Decode=6.054926ms Display=61.58271ms Show=374.113µs | Stats: Received=309 Displayed=309 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.369113ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.034917ms Decode=6.025218ms Display=62.42809ms Show=534.38µs | Stats: Received=310 Displayed=310 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.188825ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.797686ms Decode=6.154507ms Display=61.630332ms Show=243.446µs | Stats: Received=311 Displayed=311 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.386749ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.965407ms Decode=6.203138ms Display=61.831617ms Show=396.489µs | Stats: Received=312 Displayed=312 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.553216ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.276288ms Decode=6.406744ms Display=60.901082ms Show=320.332µs | Stats: Received=313 Displayed=313 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.26642ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.012521ms Decode=6.100305ms Display=61.719532ms Show=237.655µs | Stats: Received=314 Displayed=314 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.82671ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.376996ms Decode=6.44677ms Display=68.292603ms Show=280.763µs | Stats: Received=315 Displayed=315 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.084486ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.082279ms Decode=6.093175ms Display=64.185682ms Show=399.134µs | Stats: Received=316 Displayed=316 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.661964ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.345513ms Decode=5.754851ms Display=59.420165ms Show=381.124µs | Stats: Received=317 Displayed=317 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.155176ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.094829ms Decode=6.13311ms Display=61.409328ms Show=388.31µs | Stats: Received=318 Displayed=318 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.001734ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.395881ms Decode=5.158077ms Display=68.755247ms Show=419.65µs | Stats: Received=319 Displayed=319 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.165106ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.292686ms Decode=6.353268ms Display=67.213067ms Show=491.004µs | Stats: Received=320 Displayed=320 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.048973ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.262408ms Decode=6.790674ms Display=64.290812ms Show=593.765µs | Stats: Received=321 Displayed=321 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.918992ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.064676ms Decode=6.113682ms Display=63.677047ms Show=471.119µs | Stats: Received=322 Displayed=322 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.366115ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.29418ms Decode=6.239521ms Display=64.980025ms Show=266.398µs | Stats: Received=323 Displayed=323 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.593792ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.285311ms Decode=6.163301ms Display=60.752732ms Show=220.891µs | Stats: Received=324 Displayed=324 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.280617ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.060135ms Decode=6.002253ms Display=59.814182ms Show=277.009µs | Stats: Received=325 Displayed=325 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.746144ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.365466ms Decode=6.175217ms Display=60.900327ms Show=519.45µs | Stats: Received=326 Displayed=326 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.575076ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.870878ms Decode=6.192913ms Display=63.019972ms Show=360.334µs | Stats: Received=327 Displayed=327 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.32202ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.47944ms Decode=6.287517ms Display=62.734018ms Show=381.37µs | Stats: Received=328 Displayed=328 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.541484ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.02085ms Decode=6.259849ms Display=62.577806ms Show=402.099µs | Stats: Received=329 Displayed=329 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.524342ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.624082ms Decode=6.244174ms Display=58.034404ms Show=375.335µs | Stats: Received=330 Displayed=330 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.913098ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.021745ms Decode=6.367945ms Display=60.949735ms Show=399.761µs | Stats: Received=331 Displayed=331 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.705607ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.600312ms Decode=6.19136ms Display=58.3054ms Show=440.348µs | Stats: Received=332 Displayed=332 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.534768ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.377223ms Decode=6.155306ms Display=61.12428ms Show=292.326µs | Stats: Received=333 Displayed=333 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 53.880854ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.047988ms Decode=8.179862ms Display=56.99055ms Show=328.458µs | Stats: Received=334 Displayed=334 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.312754ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.51467ms Decode=6.227018ms Display=57.693236ms Show=259.208µs | Stats: Received=335 Displayed=335 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.775488ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.937234ms Decode=6.649149ms Display=65.049071ms Show=217.737µs | Stats: Received=336 Displayed=336 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.413251ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.601786ms Decode=6.224046ms Display=63.299203ms Show=388.068µs | Stats: Received=337 Displayed=337 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.105788ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.213048ms Decode=5.567351ms Display=62.754677ms Show=279.79µs | Stats: Received=338 Displayed=338 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.249968ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.029414ms Decode=6.551251ms Display=61.471879ms Show=223.248µs | Stats: Received=339 Displayed=339 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.321002ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.489455ms Decode=5.60404ms Display=58.890246ms Show=264.327µs | Stats: Received=340 Displayed=340 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 54.097668ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.570213ms Decode=6.558302ms Display=57.918483ms Show=387.232µs | Stats: Received=341 Displayed=341 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.330302ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.321342ms Decode=6.452094ms Display=61.257494ms Show=289.865µs | Stats: Received=342 Displayed=342 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 52.991325ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.488054ms Decode=6.285844ms Display=56.815976ms Show=365.765µs | Stats: Received=343 Displayed=343 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.902382ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.26682ms Decode=6.655177ms Display=63.118561ms Show=262.628µs | Stats: Received=344 Displayed=344 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.808197ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.040209ms Decode=6.265833ms Display=62.791621ms Show=232.803µs | Stats: Received=345 Displayed=345 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.450014ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.614394ms Decode=6.163353ms Display=62.198864ms Show=459.633µs | Stats: Received=346 Displayed=346 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.294551ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.49776ms Decode=6.423853ms Display=61.025545ms Show=216.002µs | Stats: Received=347 Displayed=347 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.155338ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.306245ms Decode=6.337368ms Display=64.732243ms Show=272.273µs | Stats: Received=348 Displayed=348 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.526096ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.787773ms Decode=6.108726ms Display=60.477006ms Show=417.413µs | Stats: Received=349 Displayed=349 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.001351ms (rendered size: 1248x832 pixels)
+Frame timings: Total=67.997663ms Decode=5.531476ms Display=58.460408ms Show=423.276µs | Stats: Received=350 Displayed=350 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.117638ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.594455ms Decode=5.186582ms Display=60.364232ms Show=377.247µs | Stats: Received=351 Displayed=351 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.276059ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.212531ms Decode=6.073186ms Display=63.949331ms Show=301.619µs | Stats: Received=352 Displayed=352 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.972285ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.309341ms Decode=6.162602ms Display=62.14411ms Show=224.157µs | Stats: Received=353 Displayed=353 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.323914ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.682156ms Decode=6.148004ms Display=61.401176ms Show=385.978µs | Stats: Received=354 Displayed=354 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.36909ms (rendered size: 1248x832 pixels)
+Frame timings: Total=69.729204ms Decode=6.085747ms Display=59.653782ms Show=215.68µs | Stats: Received=355 Displayed=355 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.815364ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.723325ms Decode=6.019506ms Display=62.99108ms Show=587.89µs | Stats: Received=356 Displayed=356 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.211636ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.122253ms Decode=6.678364ms Display=61.256466ms Show=304.151µs | Stats: Received=357 Displayed=357 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.786339ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.606497ms Decode=6.215486ms Display=61.207481ms Show=384.719µs | Stats: Received=358 Displayed=358 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.887244ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.715353ms Decode=6.154063ms Display=62.938076ms Show=219.235µs | Stats: Received=359 Displayed=359 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.659451ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.029909ms Decode=6.187371ms Display=62.139885ms Show=442.833µs | Stats: Received=360 Displayed=360 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.011624ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.178503ms Decode=9.250886ms Display=60.641941ms Show=246.439µs | Stats: Received=361 Displayed=361 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 83.053465ms (rendered size: 1248x832 pixels)
+Frame timings: Total=107.465973ms Decode=10.76854ms Display=86.66856ms Show=408.967µs | Stats: Received=363 Displayed=362 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 69.268827ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.90897ms Decode=6.093859ms Display=73.776985ms Show=139.36µs | Stats: Received=364 Displayed=363 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.403449ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.830507ms Decode=6.89758ms Display=66.209572ms Show=439.091µs | Stats: Received=364 Displayed=364 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.870116ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.475121ms Decode=6.618041ms Display=67.672858ms Show=440.586µs | Stats: Received=365 Displayed=365 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.052117ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.383006ms Decode=5.948813ms Display=62.287286ms Show=384.999µs | Stats: Received=366 Displayed=366 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.916613ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.869562ms Decode=8.322939ms Display=64.296408ms Show=305.928µs | Stats: Received=367 Displayed=367 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.622425ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.857939ms Decode=6.378272ms Display=70.233032ms Show=327.619µs | Stats: Received=368 Displayed=368 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 69.76927ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.958673ms Decode=6.729225ms Display=76.982533ms Show=766.49µs | Stats: Received=369 Displayed=369 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 69.890846ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.635085ms Decode=6.415469ms Display=74.133949ms Show=503.702µs | Stats: Received=370 Displayed=370 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.632622ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.461442ms Decode=6.503849ms Display=66.785376ms Show=289.096µs | Stats: Received=371 Displayed=371 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.110525ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.682988ms Decode=6.726952ms Display=67.387066ms Show=339.838µs | Stats: Received=372 Displayed=372 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.337819ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.176826ms Decode=6.020792ms Display=70.545ms Show=589.337µs | Stats: Received=373 Displayed=373 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.191335ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.851248ms Decode=7.082592ms Display=65.458951ms Show=560.194µs | Stats: Received=374 Displayed=374 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.09359ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.972543ms Decode=6.059803ms Display=62.598977ms Show=189.772µs | Stats: Received=375 Displayed=375 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.153439ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.109679ms Decode=8.690775ms Display=65.488822ms Show=269.421µs | Stats: Received=376 Displayed=376 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.768758ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.8941ms Decode=6.169789ms Display=65.459394ms Show=426.27µs | Stats: Received=377 Displayed=377 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.601038ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.874392ms Decode=6.078762ms Display=64.310727ms Show=430.631µs | Stats: Received=378 Displayed=378 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.083385ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.351417ms Decode=6.432767ms Display=68.585778ms Show=278.548µs | Stats: Received=379 Displayed=379 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.461022ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.507488ms Decode=6.043474ms Display=62.772594ms Show=431.134µs | Stats: Received=380 Displayed=380 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.702618ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.733562ms Decode=6.140332ms Display=65.271555ms Show=436.053µs | Stats: Received=381 Displayed=381 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.910228ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.097226ms Decode=6.026152ms Display=65.501994ms Show=573.421µs | Stats: Received=382 Displayed=382 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.134982ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.664524ms Decode=6.050474ms Display=65.992042ms Show=422.961µs | Stats: Received=383 Displayed=383 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.183843ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.078646ms Decode=6.26846ms Display=59.919235ms Show=403.989µs | Stats: Received=384 Displayed=384 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.123752ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.984395ms Decode=5.255039ms Display=58.849569ms Show=343.191µs | Stats: Received=385 Displayed=385 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.095859ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.61169ms Decode=6.647646ms Display=67.171142ms Show=425.357µs | Stats: Received=386 Displayed=386 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.78239ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.746026ms Decode=6.734802ms Display=67.379497ms Show=419.072µs | Stats: Received=387 Displayed=387 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.959003ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.589277ms Decode=7.570181ms Display=67.262997ms Show=491.883µs | Stats: Received=388 Displayed=388 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.027339ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.434878ms Decode=6.051003ms Display=63.729192ms Show=286.742µs | Stats: Received=389 Displayed=389 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.320871ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.293695ms Decode=6.605448ms Display=62.668689ms Show=265.846µs | Stats: Received=390 Displayed=390 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.200945ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.867701ms Decode=6.0623ms Display=63.019472ms Show=427.759µs | Stats: Received=391 Displayed=391 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.136851ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.136777ms Decode=6.301583ms Display=66.076528ms Show=314.652µs | Stats: Received=392 Displayed=392 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.02798ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.354482ms Decode=6.09401ms Display=67.003977ms Show=265.968µs | Stats: Received=393 Displayed=393 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.576085ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.191699ms Decode=6.436667ms Display=66.407697ms Show=366.177µs | Stats: Received=394 Displayed=394 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.227318ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.209864ms Decode=6.068402ms Display=67.023986ms Show=305.097µs | Stats: Received=395 Displayed=395 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.813687ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.697581ms Decode=6.117008ms Display=62.575584ms Show=226.505µs | Stats: Received=396 Displayed=396 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.768924ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.791979ms Decode=6.076993ms Display=65.520968ms Show=434.575µs | Stats: Received=397 Displayed=397 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.844691ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.417979ms Decode=6.788264ms Display=67.273448ms Show=570.034µs | Stats: Received=398 Displayed=398 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.428363ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.636838ms Decode=6.514159ms Display=67.559847ms Show=563.972µs | Stats: Received=399 Displayed=399 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.225472ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.840955ms Decode=6.197352ms Display=66.831562ms Show=419.63µs | Stats: Received=400 Displayed=400 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.126292ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.14175ms Decode=6.251542ms Display=65.128248ms Show=392.583µs | Stats: Received=401 Displayed=401 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.193106ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.87214ms Decode=6.092818ms Display=63.278951ms Show=260.108µs | Stats: Received=402 Displayed=402 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.988454ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.09861ms Decode=6.172526ms Display=64.815559ms Show=181.686µs | Stats: Received=403 Displayed=403 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.316572ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.208892ms Decode=6.337806ms Display=67.154153ms Show=449.095µs | Stats: Received=404 Displayed=404 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.13031ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.188335ms Decode=6.910357ms Display=63.583073ms Show=280.992µs | Stats: Received=405 Displayed=405 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.154327ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.439784ms Decode=6.528198ms Display=67.472556ms Show=541.265µs | Stats: Received=406 Displayed=406 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.075724ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.837306ms Decode=6.229608ms Display=63.429869ms Show=453.063µs | Stats: Received=407 Displayed=407 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.614157ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.286933ms Decode=6.26838ms Display=66.479378ms Show=441.197µs | Stats: Received=408 Displayed=408 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.268933ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.05195ms Decode=6.263939ms Display=66.47735ms Show=413.95µs | Stats: Received=409 Displayed=409 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.868659ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.607291ms Decode=6.27709ms Display=66.277214ms Show=323.823µs | Stats: Received=410 Displayed=410 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.587316ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.407358ms Decode=6.573767ms Display=66.49045ms Show=267.898µs | Stats: Received=411 Displayed=411 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.989605ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.258706ms Decode=6.219139ms Display=64.83619ms Show=431.147µs | Stats: Received=412 Displayed=412 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.125042ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.674421ms Decode=6.304227ms Display=66.135058ms Show=415.504µs | Stats: Received=413 Displayed=413 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.073164ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.106768ms Decode=6.437746ms Display=64.331992ms Show=421.941µs | Stats: Received=414 Displayed=414 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.533629ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.351111ms Decode=6.353932ms Display=66.738794ms Show=411.885µs | Stats: Received=415 Displayed=415 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.20828ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.60228ms Decode=6.07084ms Display=63.532982ms Show=387.614µs | Stats: Received=416 Displayed=416 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.716048ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.904022ms Decode=6.797075ms Display=65.4435ms Show=626.081µs | Stats: Received=418 Displayed=417 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.511882ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.612914ms Decode=6.052396ms Display=69.40545ms Show=320.004µs | Stats: Received=418 Displayed=418 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.895268ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.802584ms Decode=6.801146ms Display=66.384204ms Show=220.375µs | Stats: Received=419 Displayed=419 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.143752ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.25036ms Decode=6.02873ms Display=63.646518ms Show=542.359µs | Stats: Received=420 Displayed=420 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.595113ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.208138ms Decode=5.542537ms Display=60.707308ms Show=444.414µs | Stats: Received=421 Displayed=421 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.768198ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.674469ms Decode=6.875603ms Display=65.728737ms Show=444.605µs | Stats: Received=422 Displayed=422 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.182091ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.096848ms Decode=6.064331ms Display=65.994271ms Show=706.395µs | Stats: Received=423 Displayed=423 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.905851ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.871705ms Decode=6.119886ms Display=68.716617ms Show=425.552µs | Stats: Received=424 Displayed=424 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.780371ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.480289ms Decode=6.463195ms Display=66.095005ms Show=267.643µs | Stats: Received=425 Displayed=425 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.159021ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.395111ms Decode=6.56249ms Display=62.321397ms Show=323.227µs | Stats: Received=426 Displayed=426 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.018503ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.13695ms Decode=6.844423ms Display=62.364211ms Show=283.178µs | Stats: Received=427 Displayed=427 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.851559ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.566358ms Decode=6.582294ms Display=64.97837ms Show=463.402µs | Stats: Received=428 Displayed=428 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.881239ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.336453ms Decode=6.553969ms Display=66.601932ms Show=369.373µs | Stats: Received=429 Displayed=429 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.978999ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.141145ms Decode=6.638532ms Display=66.754542ms Show=276.968µs | Stats: Received=430 Displayed=430 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.245611ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.697357ms Decode=6.125475ms Display=64.975567ms Show=282.572µs | Stats: Received=431 Displayed=431 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.220392ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.071963ms Decode=6.498184ms Display=66.535832ms Show=422.013µs | Stats: Received=432 Displayed=432 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.030369ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.421773ms Decode=6.442171ms Display=66.579157ms Show=418.242µs | Stats: Received=433 Displayed=433 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.202849ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.69418ms Decode=6.306644ms Display=68.461123ms Show=346.97µs | Stats: Received=434 Displayed=434 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.671655ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.183668ms Decode=6.609004ms Display=65.327506ms Show=423.676µs | Stats: Received=435 Displayed=435 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.7276ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.727453ms Decode=6.147642ms Display=64.386923ms Show=283.809µs | Stats: Received=436 Displayed=436 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.798523ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.677482ms Decode=6.349805ms Display=63.556487ms Show=328.553µs | Stats: Received=437 Displayed=437 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.965655ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.834843ms Decode=6.837226ms Display=67.751726ms Show=236.442µs | Stats: Received=438 Displayed=438 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.618546ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.131167ms Decode=9.343359ms Display=68.481245ms Show=266.842µs | Stats: Received=439 Displayed=439 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.138294ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.804095ms Decode=7.027587ms Display=63.677616ms Show=381.252µs | Stats: Received=440 Displayed=440 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.529532ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.829374ms Decode=6.626627ms Display=62.791656ms Show=452.181µs | Stats: Received=441 Displayed=441 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.76832ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.237841ms Decode=6.156112ms Display=66.951189ms Show=353.597µs | Stats: Received=442 Displayed=442 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.508605ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.227302ms Decode=6.469329ms Display=65.82518ms Show=268.978µs | Stats: Received=443 Displayed=443 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.027815ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.802792ms Decode=6.179687ms Display=68.054674ms Show=415.839µs | Stats: Received=444 Displayed=444 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.592515ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.47718ms Decode=6.004233ms Display=67.814274ms Show=369.233µs | Stats: Received=445 Displayed=445 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.71584ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.124898ms Decode=6.297773ms Display=68.444807ms Show=468.395µs | Stats: Received=446 Displayed=446 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.832022ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.803317ms Decode=6.64415ms Display=69.063799ms Show=289.082µs | Stats: Received=447 Displayed=447 Dropped=0
+Cache stats: hits=1038023 misses=313 (100.0% hit rate)
+  Sixel encode time: 61.421598ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.317638ms Decode=6.877314ms Display=64.556905ms Show=251.897µs | Stats: Received=448 Displayed=448 Dropped=0
+Cache stats: hits=1037967 misses=369 (100.0% hit rate)
+  Sixel encode time: 71.60252ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.24539ms Decode=7.111768ms Display=75.956484ms Show=253.984µs | Stats: Received=449 Displayed=449 Dropped=0
+Cache stats: hits=1038030 misses=306 (100.0% hit rate)
+  Sixel encode time: 71.885109ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.548507ms Decode=6.558517ms Display=77.399702ms Show=468.914µs | Stats: Received=450 Displayed=450 Dropped=0
+Cache stats: hits=1038265 misses=71 (100.0% hit rate)
+  Sixel encode time: 77.371757ms (rendered size: 1248x832 pixels)
+Frame timings: Total=96.173378ms Decode=7.1879ms Display=81.965152ms Show=615.946µs | Stats: Received=452 Displayed=451 Dropped=0
+Cache stats: hits=1037934 misses=402 (100.0% hit rate)
+  Sixel encode time: 70.661166ms (rendered size: 1248x832 pixels)
+Frame timings: Total=87.509301ms Decode=6.940248ms Display=75.078473ms Show=543.622µs | Stats: Received=452 Displayed=452 Dropped=0
+Cache stats: hits=1037975 misses=361 (100.0% hit rate)
+  Sixel encode time: 71.086564ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.624226ms Decode=6.863803ms Display=76.197039ms Show=484.291µs | Stats: Received=453 Displayed=453 Dropped=0
+Cache stats: hits=1038034 misses=302 (100.0% hit rate)
+  Sixel encode time: 72.538907ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.66213ms Decode=7.009594ms Display=78.214927ms Show=304.497µs | Stats: Received=454 Displayed=454 Dropped=0
+Cache stats: hits=1038294 misses=42 (100.0% hit rate)
+  Sixel encode time: 70.97776ms (rendered size: 1248x832 pixels)
+Frame timings: Total=87.660364ms Decode=7.072048ms Display=75.815455ms Show=796.839µs | Stats: Received=455 Displayed=455 Dropped=0
+Cache stats: hits=1038190 misses=146 (100.0% hit rate)
+  Sixel encode time: 75.413962ms (rendered size: 1248x832 pixels)
+Frame timings: Total=92.576611ms Decode=7.676583ms Display=79.934601ms Show=521.378µs | Stats: Received=457 Displayed=456 Dropped=0
+Cache stats: hits=1038146 misses=190 (100.0% hit rate)
+  Sixel encode time: 71.518902ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.167109ms Decode=7.264814ms Display=76.227585ms Show=309.648µs | Stats: Received=457 Displayed=457 Dropped=0
+Cache stats: hits=1038222 misses=114 (100.0% hit rate)
+  Sixel encode time: 73.137121ms (rendered size: 1248x832 pixels)
+Frame timings: Total=92.684645ms Decode=6.973179ms Display=79.617646ms Show=399.388µs | Stats: Received=458 Displayed=458 Dropped=0
+Cache stats: hits=1038005 misses=331 (100.0% hit rate)
+  Sixel encode time: 74.656123ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.212309ms Decode=6.931331ms Display=79.207998ms Show=419.085µs | Stats: Received=460 Displayed=459 Dropped=0
+Cache stats: hits=1038103 misses=233 (100.0% hit rate)
+  Sixel encode time: 74.402153ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.716006ms Decode=6.299755ms Display=78.513954ms Show=640.64µs | Stats: Received=460 Displayed=460 Dropped=0
+Cache stats: hits=1037903 misses=433 (100.0% hit rate)
+  Sixel encode time: 68.987509ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.34161ms Decode=7.102997ms Display=72.506991ms Show=437.611µs | Stats: Received=462 Displayed=461 Dropped=0
+Cache stats: hits=1037942 misses=394 (100.0% hit rate)
+  Sixel encode time: 71.828839ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.28939ms Decode=7.087745ms Display=76.58513ms Show=1.572093ms | Stats: Received=462 Displayed=462 Dropped=0
+Cache stats: hits=1038079 misses=257 (100.0% hit rate)
+  Sixel encode time: 71.110634ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.066237ms Decode=6.595424ms Display=76.501552ms Show=534.941µs | Stats: Received=463 Displayed=463 Dropped=0
+Cache stats: hits=1037981 misses=355 (100.0% hit rate)
+  Sixel encode time: 71.516151ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.385178ms Decode=6.928576ms Display=75.772856ms Show=519.961µs | Stats: Received=464 Displayed=464 Dropped=0
+Cache stats: hits=1037960 misses=376 (100.0% hit rate)
+  Sixel encode time: 68.801873ms (rendered size: 1248x832 pixels)
+Frame timings: Total=84.504259ms Decode=7.000738ms Display=72.926746ms Show=500.031µs | Stats: Received=465 Displayed=465 Dropped=0
+Cache stats: hits=1038206 misses=130 (100.0% hit rate)
+  Sixel encode time: 70.317238ms (rendered size: 1248x832 pixels)
+Frame timings: Total=87.135521ms Decode=6.586094ms Display=74.209217ms Show=403.352µs | Stats: Received=466 Displayed=466 Dropped=0
+Cache stats: hits=1038267 misses=69 (100.0% hit rate)
+  Sixel encode time: 73.839826ms (rendered size: 1248x832 pixels)
+Frame timings: Total=92.348055ms Decode=6.592046ms Display=80.052527ms Show=554.098µs | Stats: Received=468 Displayed=467 Dropped=0
+Cache stats: hits=1038325 misses=11 (100.0% hit rate)
+  Sixel encode time: 67.629284ms (rendered size: 1248x832 pixels)
+Frame timings: Total=84.749405ms Decode=7.708301ms Display=72.309577ms Show=510.176µs | Stats: Received=468 Displayed=468 Dropped=0
+Cache stats: hits=1038231 misses=105 (100.0% hit rate)
+  Sixel encode time: 70.059738ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.755988ms Decode=6.792837ms Display=74.175291ms Show=658.366µs | Stats: Received=469 Displayed=469 Dropped=0
+Cache stats: hits=1038156 misses=180 (100.0% hit rate)
+  Sixel encode time: 68.658816ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.396183ms Decode=6.194307ms Display=73.078816ms Show=249.675µs | Stats: Received=470 Displayed=470 Dropped=0
+Cache stats: hits=1038080 misses=256 (100.0% hit rate)
+  Sixel encode time: 72.939785ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.271592ms Decode=6.030834ms Display=76.502225ms Show=784.393µs | Stats: Received=472 Displayed=471 Dropped=0
+Cache stats: hits=1038180 misses=156 (100.0% hit rate)
+  Sixel encode time: 72.212677ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.747784ms Decode=7.621987ms Display=77.003626ms Show=236.677µs | Stats: Received=473 Displayed=472 Dropped=0
+Cache stats: hits=1038268 misses=68 (100.0% hit rate)
+  Sixel encode time: 64.965934ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.327326ms Decode=6.594089ms Display=68.480864ms Show=438.192µs | Stats: Received=473 Displayed=473 Dropped=0
+Cache stats: hits=1038241 misses=95 (100.0% hit rate)
+  Sixel encode time: 66.401467ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.062971ms Decode=6.294941ms Display=69.569023ms Show=303.741µs | Stats: Received=475 Displayed=474 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.812563ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.710312ms Decode=7.233862ms Display=71.074486ms Show=382.19µs | Stats: Received=476 Displayed=475 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.371478ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.780636ms Decode=6.373668ms Display=65.915066ms Show=253.163µs | Stats: Received=476 Displayed=476 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.124975ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.22781ms Decode=6.079729ms Display=65.562951ms Show=265.557µs | Stats: Received=477 Displayed=477 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.125187ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.669629ms Decode=6.767402ms Display=66.944358ms Show=464.382µs | Stats: Received=478 Displayed=478 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.511671ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.040139ms Decode=6.36768ms Display=67.186977ms Show=422.986µs | Stats: Received=479 Displayed=479 Dropped=0
+Cache stats: hits=1038163 misses=173 (100.0% hit rate)
+  Sixel encode time: 59.269507ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.235935ms Decode=6.715346ms Display=62.964067ms Show=414.1µs | Stats: Received=480 Displayed=480 Dropped=0
+Cache stats: hits=1038195 misses=141 (100.0% hit rate)
+  Sixel encode time: 61.959395ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.26726ms Decode=6.070689ms Display=65.474269ms Show=413.106µs | Stats: Received=481 Displayed=481 Dropped=0
+Cache stats: hits=1038286 misses=50 (100.0% hit rate)
+  Sixel encode time: 63.637884ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.733157ms Decode=6.179837ms Display=67.227455ms Show=467.865µs | Stats: Received=482 Displayed=482 Dropped=0
+Cache stats: hits=1038280 misses=56 (100.0% hit rate)
+  Sixel encode time: 63.03317ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.793618ms Decode=6.134014ms Display=66.568343ms Show=392.064µs | Stats: Received=483 Displayed=483 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.269782ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.721406ms Decode=6.102421ms Display=65.488673ms Show=228.044µs | Stats: Received=484 Displayed=484 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.195224ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.435385ms Decode=6.095884ms Display=65.539169ms Show=280.82µs | Stats: Received=485 Displayed=485 Dropped=0
+Cache stats: hits=1022574 misses=15762 (98.5% hit rate)
+  Sixel encode time: 72.641993ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.716368ms Decode=6.584699ms Display=76.78111ms Show=352.123µs | Stats: Received=486 Displayed=486 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.093409ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.046242ms Decode=5.84192ms Display=64.813016ms Show=401.756µs | Stats: Received=487 Displayed=487 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.221577ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.515962ms Decode=6.118914ms Display=61.748941ms Show=377.647µs | Stats: Received=488 Displayed=488 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.047823ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.418224ms Decode=6.001544ms Display=63.549218ms Show=422.845µs | Stats: Received=489 Displayed=489 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.579327ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.397704ms Decode=6.253613ms Display=66.456255ms Show=430.38µs | Stats: Received=490 Displayed=490 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.099901ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.960744ms Decode=5.916582ms Display=66.252749ms Show=154.075µs | Stats: Received=491 Displayed=491 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.885058ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.316815ms Decode=6.140339ms Display=65.963695ms Show=303.542µs | Stats: Received=492 Displayed=492 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.401645ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.254463ms Decode=6.15936ms Display=67.399926ms Show=538.874µs | Stats: Received=493 Displayed=493 Dropped=0
+Cache stats: hits=1036832 misses=1504 (99.9% hit rate)
+  Sixel encode time: 71.164278ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.938654ms Decode=7.294558ms Display=76.409622ms Show=278.651µs | Stats: Received=494 Displayed=494 Dropped=0
+Cache stats: hits=1036266 misses=2070 (99.8% hit rate)
+  Sixel encode time: 76.256778ms (rendered size: 1248x832 pixels)
+Frame timings: Total=93.072761ms Decode=7.731652ms Display=80.822645ms Show=417.94µs | Stats: Received=496 Displayed=495 Dropped=0
+Cache stats: hits=1036038 misses=2298 (99.8% hit rate)
+  Sixel encode time: 71.23564ms (rendered size: 1248x832 pixels)
+Frame timings: Total=88.302452ms Decode=6.479767ms Display=76.910328ms Show=479.276µs | Stats: Received=496 Displayed=496 Dropped=0
+Cache stats: hits=1037242 misses=1094 (99.9% hit rate)
+  Sixel encode time: 70.806161ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.682689ms Decode=6.494805ms Display=75.846858ms Show=624.74µs | Stats: Received=497 Displayed=497 Dropped=0
+Cache stats: hits=1037308 misses=1028 (99.9% hit rate)
+  Sixel encode time: 72.610211ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.547615ms Decode=6.329695ms Display=78.229408ms Show=447.876µs | Stats: Received=498 Displayed=498 Dropped=0
+Cache stats: hits=1037062 misses=1274 (99.9% hit rate)
+  Sixel encode time: 72.640817ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.388951ms Decode=6.626355ms Display=77.262985ms Show=298.409µs | Stats: Received=499 Displayed=499 Dropped=0
+Cache stats: hits=1037561 misses=775 (99.9% hit rate)
+  Sixel encode time: 67.856893ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.716994ms Decode=6.305989ms Display=72.243485ms Show=465.576µs | Stats: Received=500 Displayed=500 Dropped=0
+Cache stats: hits=1037576 misses=760 (99.9% hit rate)
+  Sixel encode time: 67.766585ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.367011ms Decode=6.259428ms Display=72.422817ms Show=346.11µs | Stats: Received=501 Displayed=501 Dropped=0
+Cache stats: hits=1037517 misses=819 (99.9% hit rate)
+  Sixel encode time: 69.805341ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.608388ms Decode=6.534309ms Display=73.756811ms Show=520.412µs | Stats: Received=502 Displayed=502 Dropped=0
+Cache stats: hits=1036895 misses=1441 (99.9% hit rate)
+  Sixel encode time: 75.629763ms (rendered size: 1248x832 pixels)
+Frame timings: Total=94.917061ms Decode=6.709074ms Display=81.305636ms Show=473.125µs | Stats: Received=503 Displayed=503 Dropped=0
+Cache stats: hits=1037572 misses=764 (99.9% hit rate)
+  Sixel encode time: 75.144429ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.700057ms Decode=6.559425ms Display=79.925401ms Show=542.451µs | Stats: Received=504 Displayed=504 Dropped=0
+Cache stats: hits=1037785 misses=551 (99.9% hit rate)
+  Sixel encode time: 73.655068ms (rendered size: 1248x832 pixels)
+Frame timings: Total=93.526537ms Decode=7.478365ms Display=80.389827ms Show=809.217µs | Stats: Received=505 Displayed=505 Dropped=0
+Cache stats: hits=1037619 misses=717 (99.9% hit rate)
+  Sixel encode time: 76.369204ms (rendered size: 1248x832 pixels)
+Frame timings: Total=97.921727ms Decode=7.606589ms Display=82.342516ms Show=643.881µs | Stats: Received=507 Displayed=506 Dropped=0
+Cache stats: hits=1038108 misses=228 (100.0% hit rate)
+  Sixel encode time: 68.453663ms (rendered size: 1248x832 pixels)
+Frame timings: Total=86.945836ms Decode=7.68673ms Display=74.2213ms Show=350.023µs | Stats: Received=507 Displayed=507 Dropped=0
+Cache stats: hits=1038302 misses=34 (100.0% hit rate)
+  Sixel encode time: 72.963595ms (rendered size: 1248x832 pixels)
+Frame timings: Total=89.576489ms Decode=6.212985ms Display=78.416961ms Show=285.378µs | Stats: Received=509 Displayed=508 Dropped=0
+Cache stats: hits=1037984 misses=352 (100.0% hit rate)
+  Sixel encode time: 78.625378ms (rendered size: 1248x832 pixels)
+Frame timings: Total=98.127704ms Decode=7.747719ms Display=83.670181ms Show=545.449µs | Stats: Received=509 Displayed=509 Dropped=0
+Cache stats: hits=1037208 misses=1128 (99.9% hit rate)
+  Sixel encode time: 81.009811ms (rendered size: 1248x832 pixels)
+Frame timings: Total=99.544484ms Decode=8.174999ms Display=86.784358ms Show=515.737µs | Stats: Received=511 Displayed=510 Dropped=0
+Cache stats: hits=1037865 misses=471 (100.0% hit rate)
+  Sixel encode time: 73.812992ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.346341ms Decode=6.337164ms Display=79.341465ms Show=573.574µs | Stats: Received=511 Displayed=511 Dropped=0
+Cache stats: hits=1037966 misses=370 (100.0% hit rate)
+  Sixel encode time: 72.837358ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.411045ms Decode=6.862235ms Display=77.463464ms Show=523.84µs | Stats: Received=512 Displayed=512 Dropped=0
+Cache stats: hits=1037951 misses=385 (100.0% hit rate)
+  Sixel encode time: 75.106517ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.119639ms Decode=6.702438ms Display=79.966456ms Show=506.875µs | Stats: Received=513 Displayed=513 Dropped=0
+Cache stats: hits=1038054 misses=282 (100.0% hit rate)
+  Sixel encode time: 72.031683ms (rendered size: 1248x832 pixels)
+Frame timings: Total=91.365241ms Decode=6.361339ms Display=78.673434ms Show=506.044µs | Stats: Received=514 Displayed=514 Dropped=0
+Cache stats: hits=1038033 misses=303 (100.0% hit rate)
+  Sixel encode time: 76.62489ms (rendered size: 1248x832 pixels)
+Frame timings: Total=93.001475ms Decode=6.459908ms Display=81.105103ms Show=484.247µs | Stats: Received=515 Displayed=515 Dropped=0
+Cache stats: hits=1037848 misses=488 (100.0% hit rate)
+  Sixel encode time: 73.251825ms (rendered size: 1248x832 pixels)
+Frame timings: Total=93.43804ms Decode=10.099191ms Display=77.222195ms Show=569.999µs | Stats: Received=516 Displayed=516 Dropped=0
+Cache stats: hits=1037430 misses=906 (99.9% hit rate)
+  Sixel encode time: 70.516106ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.373163ms Decode=6.911786ms Display=73.545374ms Show=268.916µs | Stats: Received=518 Displayed=517 Dropped=0
+Cache stats: hits=1037653 misses=683 (99.9% hit rate)
+  Sixel encode time: 65.329477ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.441434ms Decode=6.143979ms Display=68.825605ms Show=585.727µs | Stats: Received=518 Displayed=518 Dropped=0
+Cache stats: hits=1038130 misses=206 (100.0% hit rate)
+  Sixel encode time: 66.490208ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.700977ms Decode=6.220066ms Display=69.765832ms Show=423.228µs | Stats: Received=519 Displayed=519 Dropped=0
+Cache stats: hits=1038005 misses=331 (100.0% hit rate)
+  Sixel encode time: 69.157638ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.405081ms Decode=6.101533ms Display=72.635149ms Show=394.033µs | Stats: Received=520 Displayed=520 Dropped=0
+Cache stats: hits=1037974 misses=362 (100.0% hit rate)
+  Sixel encode time: 67.200006ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.153225ms Decode=5.97779ms Display=69.960702ms Show=275.067µs | Stats: Received=521 Displayed=521 Dropped=0
+Cache stats: hits=1037960 misses=376 (100.0% hit rate)
+  Sixel encode time: 67.18172ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.330548ms Decode=6.043639ms Display=70.796824ms Show=279.613µs | Stats: Received=522 Displayed=522 Dropped=0
+Cache stats: hits=1038089 misses=247 (100.0% hit rate)
+  Sixel encode time: 66.081963ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.628904ms Decode=6.502813ms Display=70.008563ms Show=439.75µs | Stats: Received=523 Displayed=523 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.192748ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.541289ms Decode=5.819106ms Display=67.021173ms Show=685.691µs | Stats: Received=524 Displayed=524 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.693047ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.564555ms Decode=7.475525ms Display=66.59781ms Show=337.079µs | Stats: Received=525 Displayed=525 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.805189ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.328496ms Decode=8.222676ms Display=63.019246ms Show=490.744µs | Stats: Received=526 Displayed=526 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.519729ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.114299ms Decode=6.205975ms Display=66.838082ms Show=423.694µs | Stats: Received=527 Displayed=527 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.566813ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.12882ms Decode=6.251448ms Display=63.856446ms Show=406.193µs | Stats: Received=528 Displayed=528 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.169217ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.056788ms Decode=6.218242ms Display=62.855243ms Show=387.448µs | Stats: Received=529 Displayed=529 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.114982ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.715802ms Decode=6.854431ms Display=60.783151ms Show=387.421µs | Stats: Received=530 Displayed=530 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.824233ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.727721ms Decode=6.755787ms Display=63.086408ms Show=218.391µs | Stats: Received=531 Displayed=531 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.60267ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.388854ms Decode=6.2844ms Display=65.0031ms Show=381.862µs | Stats: Received=532 Displayed=532 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.662866ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.616919ms Decode=6.535178ms Display=60.983539ms Show=292.337µs | Stats: Received=533 Displayed=533 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.187523ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.290545ms Decode=6.25226ms Display=64.39312ms Show=382.241µs | Stats: Received=534 Displayed=534 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.224055ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.111523ms Decode=5.965269ms Display=65.503349ms Show=221.692µs | Stats: Received=535 Displayed=535 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.658983ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.3028ms Decode=5.96979ms Display=60.499557ms Show=366.016µs | Stats: Received=536 Displayed=536 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.891982ms (rendered size: 1248x832 pixels)
+Frame timings: Total=79.716726ms Decode=6.390231ms Display=68.326791ms Show=524.336µs | Stats: Received=537 Displayed=537 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.877159ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.689474ms Decode=6.046376ms Display=65.918614ms Show=438.776µs | Stats: Received=538 Displayed=538 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 63.114804ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.051491ms Decode=6.522073ms Display=66.97443ms Show=277.151µs | Stats: Received=539 Displayed=539 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 70.562562ms (rendered size: 1248x832 pixels)
+Frame timings: Total=90.460527ms Decode=7.64846ms Display=77.952395ms Show=519.148µs | Stats: Received=540 Displayed=540 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.680868ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.837501ms Decode=6.690516ms Display=71.802172ms Show=537.073µs | Stats: Received=541 Displayed=541 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.269978ms (rendered size: 1248x832 pixels)
+Frame timings: Total=80.91531ms Decode=6.63789ms Display=68.936056ms Show=441.354µs | Stats: Received=542 Displayed=542 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.570655ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.333422ms Decode=6.075819ms Display=63.599369ms Show=234.203µs | Stats: Received=543 Displayed=543 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.386167ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.301953ms Decode=6.34424ms Display=64.376528ms Show=231.471µs | Stats: Received=544 Displayed=544 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.043761ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.783908ms Decode=6.096277ms Display=64.746278ms Show=389.974µs | Stats: Received=545 Displayed=545 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.403509ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.890006ms Decode=6.057581ms Display=66.09586ms Show=389.883µs | Stats: Received=546 Displayed=546 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 58.226055ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.7079ms Decode=5.799409ms Display=63.523002ms Show=241.826µs | Stats: Received=547 Displayed=547 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.539199ms (rendered size: 1248x832 pixels)
+Frame timings: Total=71.364546ms Decode=7.138677ms Display=60.103355ms Show=221.195µs | Stats: Received=548 Displayed=548 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 56.716929ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.0222ms Decode=6.07247ms Display=61.113274ms Show=399.094µs | Stats: Received=549 Displayed=549 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.750506ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.50924ms Decode=5.477083ms Display=66.681921ms Show=432.671µs | Stats: Received=550 Displayed=550 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.295388ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.562997ms Decode=6.539462ms Display=66.985676ms Show=259.014µs | Stats: Received=551 Displayed=551 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.966692ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.200131ms Decode=6.27163ms Display=62.202908ms Show=392.962µs | Stats: Received=552 Displayed=552 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.192511ms (rendered size: 1248x832 pixels)
+Frame timings: Total=70.848959ms Decode=5.370616ms Display=61.122217ms Show=283.002µs | Stats: Received=553 Displayed=553 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.031751ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.31467ms Decode=5.89793ms Display=66.422269ms Show=229.408µs | Stats: Received=554 Displayed=554 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.028679ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.639699ms Decode=6.769527ms Display=66.827547ms Show=401.835µs | Stats: Received=555 Displayed=555 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.943974ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.400467ms Decode=6.830377ms Display=66.421026ms Show=423.873µs | Stats: Received=556 Displayed=556 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.643025ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.420819ms Decode=6.055354ms Display=64.249251ms Show=510.413µs | Stats: Received=557 Displayed=557 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 55.227161ms (rendered size: 1248x832 pixels)
+Frame timings: Total=68.307898ms Decode=5.641255ms Display=58.592778ms Show=259.371µs | Stats: Received=558 Displayed=558 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.8525ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.851459ms Decode=6.414807ms Display=66.29668ms Show=405.393µs | Stats: Received=559 Displayed=559 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.308661ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.394103ms Decode=6.154852ms Display=66.231407ms Show=236.692µs | Stats: Received=560 Displayed=560 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.846211ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.552789ms Decode=5.928095ms Display=65.521102ms Show=396.53µs | Stats: Received=561 Displayed=561 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.165198ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.279616ms Decode=6.292029ms Display=61.180545ms Show=420.735µs | Stats: Received=562 Displayed=562 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 57.675954ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.591198ms Decode=6.353409ms Display=61.36732ms Show=385.76µs | Stats: Received=563 Displayed=563 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.652392ms (rendered size: 1248x832 pixels)
+Frame timings: Total=72.153149ms Decode=5.406362ms Display=63.099077ms Show=239.516µs | Stats: Received=564 Displayed=564 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.48805ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.423717ms Decode=6.109902ms Display=64.141102ms Show=289.135µs | Stats: Received=565 Displayed=565 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.17186ms (rendered size: 1248x832 pixels)
+Frame timings: Total=73.642047ms Decode=6.047177ms Display=63.169698ms Show=230.596µs | Stats: Received=566 Displayed=566 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.338422ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.725733ms Decode=6.161696ms Display=64.197081ms Show=330.818µs | Stats: Received=567 Displayed=567 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 60.781108ms (rendered size: 1248x832 pixels)
+Frame timings: Total=76.8652ms Decode=6.778596ms Display=64.832714ms Show=279.731µs | Stats: Received=568 Displayed=568 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.292142ms (rendered size: 1248x832 pixels)
+Frame timings: Total=75.860488ms Decode=6.256883ms Display=65.405726ms Show=243.267µs | Stats: Received=569 Displayed=569 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 59.488263ms (rendered size: 1248x832 pixels)
+Frame timings: Total=74.916518ms Decode=7.083948ms Display=62.686246ms Show=256.768µs | Stats: Received=570 Displayed=570 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.809184ms (rendered size: 1248x832 pixels)
+Frame timings: Total=81.823421ms Decode=6.365438ms Display=69.474241ms Show=234.151µs | Stats: Received=571 Displayed=571 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 65.617612ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.600989ms Decode=6.421333ms Display=72.691132ms Show=267.391µs | Stats: Received=572 Displayed=572 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 74.305079ms (rendered size: 1248x832 pixels)
+Frame timings: Total=94.024767ms Decode=10.133762ms Display=77.952544ms Show=259.829µs | Stats: Received=574 Displayed=573 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 77.605942ms (rendered size: 1248x832 pixels)
+Frame timings: Total=92.044888ms Decode=6.198043ms Display=80.871285ms Show=228.67µs | Stats: Received=575 Displayed=574 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 67.512969ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.808085ms Decode=6.702026ms Display=72.355399ms Show=322.079µs | Stats: Received=575 Displayed=575 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 68.113389ms (rendered size: 1248x832 pixels)
+Frame timings: Total=83.243673ms Decode=6.20171ms Display=71.849033ms Show=431.346µs | Stats: Received=576 Displayed=576 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 64.163455ms (rendered size: 1248x832 pixels)
+Frame timings: Total=78.285718ms Decode=6.123367ms Display=68.086453ms Show=379.115µs | Stats: Received=577 Displayed=577 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 66.275451ms (rendered size: 1248x832 pixels)
+Frame timings: Total=82.310121ms Decode=6.190995ms Display=70.45313ms Show=289.309µs | Stats: Received=578 Displayed=578 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 70.063036ms (rendered size: 1248x832 pixels)
+Frame timings: Total=85.418793ms Decode=6.296971ms Display=74.463191ms Show=561.745µs | Stats: Received=579 Displayed=579 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 78.586382ms (rendered size: 1248x832 pixels)
+Frame timings: Total=95.088501ms Decode=6.368214ms Display=82.558253ms Show=215.487µs | Stats: Received=580 Displayed=580 Dropped=0
+Cache stats: hits=1037773 misses=563 (99.9% hit rate)
+  Sixel encode time: 68.008781ms (rendered size: 1248x832 pixels)
+Frame timings: Total=84.712928ms Decode=6.723424ms Display=72.301058ms Show=375.624µs | Stats: Received=581 Displayed=581 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 61.764041ms (rendered size: 1248x832 pixels)
+Frame timings: Total=77.77601ms Decode=6.141765ms Display=66.490156ms Show=461.998µs | Stats: Received=582 Displayed=582 Dropped=0
+Cache stats: hits=1038336 misses=0 (100.0% hit rate)
+  Sixel encode time: 62.047367ms (rendered size: 1248x832 pixels)

@@ -10,7 +10,8 @@ service BrowserControl {
   rpc ClickMouse (Coordinate) returns (Message) {}
   rpc SendKeyboardInput (Text) returns (Message) {}
   rpc NavigateToUrl (Url) returns (Message) {}
-  rpc TakeScreenshot (Empty) returns (Screenshot) {}
+  // Streaming RPC for continuous screenshots
+  rpc StreamScreenshots (ScreenshotRequest) returns (stream Screenshot) {}
 }
 
 message Empty {}
@@ -39,4 +40,8 @@ message Url {
 
 message Screenshot {
   bytes data = 1;
+}
+
+message ScreenshotRequest {
+  int32 fps = 1;
 }

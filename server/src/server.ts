@@ -6,9 +6,9 @@ import * as path from 'path';
 import debugFactory from 'debug';
 
 // Update import paths
-import { ServerUnaryCall, sendUnaryData } from '@grpc/grpc-js';
+import { ServerUnaryCall, sendUnaryData, ServerWritableStream } from '@grpc/grpc-js';
 import { BrowserControlService, BrowserControlServer } from '../generated/bc';
-import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot } from '../generated/bc';
+import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, ScreenshotRequest } from '../generated/bc';
 
 const program = new Command();
 const logDebug = debugFactory('server:debug');
@@ -22,6 +22,7 @@ program
     .option('-b, --browser <ip:port>', 'Connect to an existing browser instance (ip:port)', '')
     .option('-d, --debug [filename]', 'Enable debug mode (log to stdout or optional file)', '')
     .option('--daemon', 'Run server as a daemon')
+    .option('--tcp <ip:port>', 'Use TCP socket instead of Unix domain socket', '')
     .option('-h, --help', 'Display help information')
     .description('gRPC server for browser control using Puppeteer');
 
@@ -145,20 +146,49 @@ const browserControlHandlers: BrowserControlServer = {
         }
     },
 
-    takeScreenshot: async (_call: ServerUnaryCall<Empty, Screenshot>, callback: sendUnaryData<Screenshot>) => {
-        try {
-            if (!page) throw new Error('No active page');
-            const screenshot = await page.screenshot({ type: 'png' });
-            const screenshotBuffer = Buffer.from(screenshot);
 
-            callback(null, { data: screenshotBuffer});
-        } catch (error) {
-            logDebug('Error in takeScreenshot:', (error as Error).message);
-            callback({
-                code: grpc.status.INTERNAL,
-                message: `Failed to take screenshot: ${(error as Error).message}`,
-            });
-        }
+    streamScreenshots: async (call: ServerWritableStream<ScreenshotRequest, Screenshot>) => {
+        const fps = call.request.fps || 10;
+        const interval = 1000 / fps;
+        logDebug(`Starting screenshot stream at ${fps} FPS`);
+
+        const intervalId = setInterval(async () => {
+            try {
+                if (!page) {
+                    logDebug('No active page, stopping stream');
+                    clearInterval(intervalId);
+                    call.end();
+                    return;
+                }
+
+                const screenshot = await page.screenshot({ 
+                    type: 'jpeg',
+                    quality: 60
+                });
+                const screenshotBuffer = Buffer.from(screenshot);
+
+                // Write to stream
+                const success = call.write({ data: screenshotBuffer });
+                if (!success) {
+                    logDebug('Stream backpressure detected');
+                }
+            } catch (error) {
+                logDebug('Error in streamScreenshots:', (error as Error).message);
+                clearInterval(intervalId);
+                call.destroy(error as Error);
+            }
+        }, interval);
+
+        // Handle stream cancellation
+        call.on('cancelled', () => {
+            logDebug('Stream cancelled by client');
+            clearInterval(intervalId);
+        });
+
+        call.on('error', (err) => {
+            logDebug('Stream error:', err.message);
+            clearInterval(intervalId);
+        });
     },
 };
 
@@ -167,12 +197,32 @@ function main() {
   const server = new grpc.Server();
   server.addService(BrowserControlService, browserControlHandlers);
 
-  server.bindAsync('0.0.0.0:50051', grpc.ServerCredentials.createInsecure(), (err, port) => {
+  // Determine binding address
+  let bindAddress: string;
+  if (options.tcp) {
+    bindAddress = options.tcp;
+    console.log(`Using TCP socket: ${bindAddress}`);
+  } else {
+    // Use Unix domain socket by default
+    bindAddress = 'unix:///tmp/termium.sock';
+    // Clean up any existing socket file
+    const socketPath = '/tmp/termium.sock';
+    if (fs.existsSync(socketPath)) {
+      fs.unlinkSync(socketPath);
+    }
+    console.log(`Using Unix domain socket: ${socketPath}`);
+  }
+
+  server.bindAsync(bindAddress, grpc.ServerCredentials.createInsecure(), (err, port) => {
     if (err) {
       console.error('Failed to bind server:', err);
       return;
     }
-    console.log(`Server running at http://0.0.0.0:${port}`);
+    if (options.tcp) {
+      console.log(`Server running at ${bindAddress}`);
+    } else {
+      console.log(`Server running on Unix domain socket: /tmp/termium.sock`);
+    }
   });
 
   // Handle shutdown gracefully

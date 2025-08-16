@@ -7,11 +7,16 @@ import (
 )
 
 type Config struct {
-	Debug      bool
-	ServerAddr string
-	SplashPath string
-	LogFile    string
-	UseTCell   bool
+	Debug           bool
+	ServerAddr      string
+	SplashPath      string
+	LogFile         string
+	UseTCell        bool
+	SaveScreenshots bool
+	CPUProfile      string
+	TraceProfile    string
+	ShowTimings     bool
+	Palette         string
 }
 
 func parseFlags() (*Config, error) {
@@ -19,14 +24,20 @@ func parseFlags() (*Config, error) {
 
 	// Define flags
 	flag.BoolVar(&cfg.Debug, "debug", false, "Enable debug output")
-	flag.StringVar(&cfg.ServerAddr, "server", "localhost:50051", "Server address (ip:port)")
-	flag.StringVar(&cfg.SplashPath, "splash", "./ship.jpg", "Path to splash screen image")
+	flag.StringVar(&cfg.ServerAddr, "tcp", "", "Use TCP connection (default: Unix socket at /tmp/termium.sock, with --tcp defaults to localhost:50051)")
+	flag.StringVar(&cfg.SplashPath, "splash", "", "Path to custom splash screen image or NONE to skip splash screen")
 	flag.StringVar(&cfg.LogFile, "logfile", "", "Path to log file (optional, if not specified logs only go to console)")
 	flag.BoolVar(&cfg.UseTCell, "tcell", false, "Use tcell renderer instead of sixel graphics")
+	flag.BoolVar(&cfg.SaveScreenshots, "save-screenshots", false, "Save debug screenshots to disk (impacts performance)")
+	flag.StringVar(&cfg.CPUProfile, "cpuprofile", "", "Write CPU profile to file")
+	flag.StringVar(&cfg.TraceProfile, "trace", "", "Write execution trace to file")
+	flag.BoolVar(&cfg.ShowTimings, "timings", false, "Show timing measurements for each frame")
+	flag.StringVar(&cfg.Palette, "palette", "adaptive", "Color palette: adaptive, websafe, plan9")
+	flag.StringVar(&cfg.Palette, "p", "adaptive", "Color palette: adaptive, websafe, plan9 (short form)")
 
 	// Handle both --flag and -flag formats
 	flag.BoolVar(&cfg.Debug, "d", false, "Enable debug output (shorthand)")
-	flag.StringVar(&cfg.ServerAddr, "s", "localhost:50051", "Server address (shorthand)")
+	flag.StringVar(&cfg.ServerAddr, "s", "", "Server address (shorthand, only works with --tcp)")
 	flag.StringVar(&cfg.LogFile, "l", "", "Path to log file (shorthand)")
 	flag.BoolVar(&cfg.UseTCell, "t", false, "Use tcell renderer (shorthand)")
 
@@ -52,9 +63,11 @@ func parseFlags() (*Config, error) {
 		// TODO: Add validation for ip:port format
 	}
 
-	// Check if splash image exists
-	if _, err := os.Stat(cfg.SplashPath); os.IsNotExist(err) {
-		return nil, fmt.Errorf("splash image not found: %s", cfg.SplashPath)
+	// Check if splash image exists (only if specified and not NONE)
+	if cfg.SplashPath != "" && cfg.SplashPath != "NONE" {
+		if _, err := os.Stat(cfg.SplashPath); os.IsNotExist(err) {
+			return nil, fmt.Errorf("splash image not found: %s", cfg.SplashPath)
+		}
 	}
 
 	return cfg, nil

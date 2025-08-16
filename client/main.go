@@ -2,13 +2,15 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"image"
 	"image/jpeg"
-	"image/png"
 	"os"
 	"os/signal"
+	"runtime/pprof"
+	"runtime/trace"
 	"strings"
 	"sync"
 	"syscall"
@@ -94,6 +96,13 @@ var screenshotMutex sync.Mutex
 var lastScreenshotTime time.Time
 
 var lastImageNumber int = 1
+
+// Cached sixel encoder - create once, reuse many times
+var sixelEncoder *sixel.Encoder
+var sixelEncoderMutex sync.Mutex
+
+// Channel to signal screenshot loop to stop
+var stopScreenshots = make(chan bool, 1)
 
 // MenuAction represents the result of a local key event
 type MenuAction int
@@ -211,6 +220,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Set up CPU profiling if requested
+	if cfg.CPUProfile != "" {
+		f, err := os.Create(cfg.CPUProfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create CPU profile: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to start CPU profile: %v\n", err)
+			os.Exit(1)
+		}
+		defer pprof.StopCPUProfile()
+		fmt.Fprintf(os.Stderr, "CPU profiling enabled, writing to %s\n", cfg.CPUProfile)
+	}
+
+	// Set up trace profiling if requested
+	if cfg.TraceProfile != "" {
+		f, err := os.Create(cfg.TraceProfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create trace file: %v\n", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		if err := trace.Start(f); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to start trace: %v\n", err)
+			os.Exit(1)
+		}
+		defer trace.Stop()
+		fmt.Fprintf(os.Stderr, "Trace profiling enabled, writing to %s\n", cfg.TraceProfile)
+	}
+
 	// Set up logging first
 	if cfg.LogFile != "" {
 		if err := SetLogFile(cfg.LogFile); err != nil {
@@ -234,12 +275,14 @@ func main() {
 
 	initializeCursor()
 
-	// Show splash screen and wait for user input
-	Debug(fmt.Sprintf("Loading splash screen from: %s", cfg.SplashPath), DEBUG)
-	if err := showSplashScreen(s, cfg.SplashPath); err != nil {
-		Debug(fmt.Sprintf("Error showing splash screen: %v", err), ERROR)
-		displayErrorMessage(s, fmt.Sprintf("Error showing splash screen: %v", err))
-		return
+	// Show splash screen and wait for user input (unless NONE)
+	if cfg.SplashPath != "NONE" {
+		Debug(fmt.Sprintf("Loading splash screen from: %s", cfg.SplashPath), DEBUG)
+		if err := showSplashScreen(s, cfg.SplashPath); err != nil {
+			Debug(fmt.Sprintf("Error showing splash screen: %v", err), ERROR)
+			displayErrorMessage(s, fmt.Sprintf("Error showing splash screen: %v", err))
+			return
+		}
 	}
 
 	// Display usage instructions after splash screen
@@ -249,8 +292,7 @@ func main() {
 	setupSignalHandling(s)
 
 	// Connect to gRPC server
-	Debug(fmt.Sprintf("Connecting to server at %s", cfg.ServerAddr), INFO)
-	if err := connectToGRPCServer(cfg.ServerAddr); err != nil {
+	if err := connectToGRPCServer(); err != nil {
 		Debug(fmt.Sprintf("Failed to connect to server: %v", err), ERROR)
 	}
 	defer grpcConn.Close()
@@ -373,14 +415,31 @@ func initializeCursor() {
 }
 
 // connectToGRPCServer connects to the gRPC server
-func connectToGRPCServer(serverAddr string) error {
-	Debug(fmt.Sprintf("Connecting to gRPC server at %s", serverAddr), DEBUG)
-	var err error
+func connectToGRPCServer() error {
+	var target string
+	
+	// Determine connection type
+	if cfg.ServerAddr != "" {
+		// TCP connection
+		if cfg.ServerAddr == "tcp" {
+			// Just --tcp flag without address, use default
+			target = "localhost:50051"
+		} else {
+			// --tcp with specific address
+			target = cfg.ServerAddr
+		}
+		Debug(fmt.Sprintf("Connecting to gRPC server via TCP at %s", target), DEBUG)
+	} else {
+		// Unix domain socket (default)
+		target = "unix:///tmp/termium.sock"
+		Debug("Connecting to gRPC server via Unix domain socket at /tmp/termium.sock", DEBUG)
+	}
 
-	// As of 1.63, the Dial() function family is depricated in favor of
+	var err error
+	// As of 1.63, the Dial() function family is deprecated in favor of
 	//   NewClient()
 	grpcConn, err = grpc.NewClient(
-		serverAddr,
+		target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -422,24 +481,60 @@ func updateViewportSize() error {
 	return nil
 }
 
-// screenshotLoop requests screenshots from the server every 200ms
+// screenshotLoop handles the screenshot stream from the server
 func screenshotLoop(s tcell.Screen) {
-	ticker := time.NewTicker(1000 * time.Millisecond)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		screenshotMutex.Lock()
-		// Ensure at least 200ms have passed since the last screenshot
-		if time.Since(lastScreenshotTime) < 200*time.Millisecond {
-			screenshotMutex.Unlock()
-			continue
+	// Start the streaming RPC
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	
+	stream, err := grpcClient.StreamScreenshots(ctx, &pb.ScreenshotRequest{
+		Fps: 10, // Request 10 FPS
+	})
+	if err != nil {
+		Debug(fmt.Sprintf("Failed to start screenshot stream: %v", err), ERROR)
+		return
+	}
+	
+	// Create frame buffer for triple buffering
+	frameBuffer := NewFrameBuffer()
+	
+	// Start receiver goroutine
+	go func() {
+		for {
+			resp, err := stream.Recv()
+			if err != nil {
+				Debug(fmt.Sprintf("Stream receive error: %v", err), ERROR)
+				return
+			}
+			
+			// Write to the current write frame
+			frame := frameBuffer.GetWriteFrame()
+			frame.Data = resp.Data
+			frame.Timestamp = time.Now()
+			
+			// Swap to make it ready for display
+			frameBuffer.SwapWriteFrame()
 		}
-		lastScreenshotTime = time.Now()
-		screenshotMutex.Unlock()
-
-		err := requestAndDisplayScreenshot(s)
-		if err != nil {
-			Debug(fmt.Sprintf("Error requesting screenshot: %v", err), ERROR)
+	}()
+	
+	// Display loop
+	for {
+		select {
+		case <-stopScreenshots:
+			Debug("Screenshot loop stopped", INFO)
+			cancel()
+			return
+		default:
+			// Try to get the latest frame (non-blocking)
+			frame := frameBuffer.GetDisplayFrame()
+			if frame != nil && len(frame.Data) > 0 {
+				if err := displayFrame(s, frame, frameBuffer); err != nil {
+					Debug(fmt.Sprintf("Error displaying frame: %v", err), ERROR)
+				}
+			} else {
+				// No new frame, wait a bit
+				time.Sleep(10 * time.Millisecond)
+			}
 		}
 	}
 }
@@ -453,42 +548,46 @@ func clearDrawingArea(s tcell.Screen) {
 	}*/
 }
 
-// requestAndDisplayScreenshot requests a screenshot and updates the display
-func requestAndDisplayScreenshot(s tcell.Screen) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := grpcClient.TakeScreenshot(ctx, &pb.Empty{})
-	if err != nil {
-		Debug(fmt.Sprintf("Error taking screenshot: %v", err), ERROR)
-		return err
-	}
-	// Save the raw bytes first
-	rawImageFile, err := os.Create(fmt.Sprintf("RawImage%03d.png", lastImageNumber))
-	if err != nil {
-		Debug(fmt.Sprintf("Error creating raw image file: %v", err), ERROR)
-	} else {
-		rawImageFile.Write([]byte(resp.Data))
-		rawImageFile.Close()
-	}
-
-	img, err := png.Decode(strings.NewReader(string(resp.Data)))
-	if err != nil {
-		Debug(fmt.Sprintf("Error decoding screenshot PNG: %v", err), ERROR)
-		return err
-	}
-
-	// Save the decoded image
-	outputFile, err := os.Create(fmt.Sprintf("Image%03d.png", lastImageNumber))
-	if err != nil {
-		Debug(fmt.Sprintf("Error creating output file: %v", err), ERROR)
-	} else {
-		if err := png.Encode(outputFile, img); err != nil {
-			Debug(fmt.Sprintf("Error encoding PNG: %v", err), ERROR)
+// displayFrame displays a frame from the buffer
+func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
+	frameStart := time.Now()
+	var decodeTime, displayTime, renderTime time.Duration
+	
+	// Only save debug screenshots if flag is enabled
+	if cfg.SaveScreenshots {
+		// Save the raw bytes first (JPEG now)
+		rawImageFile, err := os.Create(fmt.Sprintf("RawImage%03d.jpg", lastImageNumber))
+		if err != nil {
+			Debug(fmt.Sprintf("Error creating raw image file: %v", err), ERROR)
+		} else {
+			rawImageFile.Write(frame.Data)
+			rawImageFile.Close()
 		}
-		outputFile.Close()
 	}
-	lastImageNumber++
+
+	// Measure decode time
+	decodeStart := time.Now()
+	img, err := jpeg.Decode(bytes.NewReader(frame.Data))
+	if err != nil {
+		Debug(fmt.Sprintf("Error decoding screenshot JPEG: %v", err), ERROR)
+		return err
+	}
+	decodeTime = time.Since(decodeStart)
+
+	// Only save decoded image if flag is enabled
+	if cfg.SaveScreenshots {
+		// Save the decoded image as JPEG
+		outputFile, err := os.Create(fmt.Sprintf("Image%03d.jpg", lastImageNumber))
+		if err != nil {
+			Debug(fmt.Sprintf("Error creating output file: %v", err), ERROR)
+		} else {
+			if err := jpeg.Encode(outputFile, img, &jpeg.Options{Quality: 90}); err != nil {
+				Debug(fmt.Sprintf("Error encoding JPEG: %v", err), ERROR)
+			}
+			outputFile.Close()
+		}
+		lastImageNumber++
+	}
 
 	screenshotMutex.Lock()
 	imageBuffer = image.NewRGBA(img.Bounds())
@@ -503,13 +602,31 @@ func requestAndDisplayScreenshot(s tcell.Screen) error {
 	}
 	firstDraw = false
 
-	// Display the new image
+	// Measure display time
+	displayStart := time.Now()
 	if err := displayImageBuffer(s); err != nil {
 		Debug(fmt.Sprintf("Error displaying image buffer: %v", err), ERROR)
 		return err
 	}
+	displayTime = time.Since(displayStart)
 
+	// Measure render time (Show)
+	renderStart := time.Now()
 	s.Show()
+	renderTime = time.Since(renderStart)
+
+	// Print timing info if requested
+	if cfg.ShowTimings {
+		totalTime := time.Since(frameStart)
+		
+		// Get frame buffer stats
+		received, displayed, dropped := fb.GetStats()
+		
+		fmt.Fprintf(os.Stderr, "Frame timings: Total=%v Decode=%v Display=%v Show=%v | Stats: Received=%d Displayed=%d Dropped=%d\n",
+			totalTime, decodeTime, displayTime, renderTime, received, displayed, dropped)
+		os.Stderr.Sync() // Force flush stderr
+	}
+
 	return nil
 }
 
@@ -523,7 +640,10 @@ func runMainLoop(s tcell.Screen) error {
 			Debug("Screen resize event detected", DEBUG)
 			handleResize(s)
 		case *tcell.EventKey:
-			handleKeyEvent(s, ev)
+			if shouldExit := handleKeyEvent(s, ev); shouldExit {
+				Debug("Exiting main loop", DEBUG)
+				return nil
+			}
 		case *tcell.EventMouse:
 			handleMouseEvent(s, ev)
 		case *tcell.EventInterrupt:
@@ -598,8 +718,8 @@ func sendMouseClick(x, y int) {
 	}
 }
 
-// Handle keyboard within the browser context
-func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
+// Handle keyboard within the browser context - returns true if should exit
+func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) bool {
 	oldX, oldY := cursor.x, cursor.y
 
 	if ev.Modifiers()&tcell.ModCtrl != 0 {
@@ -639,8 +759,13 @@ func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 		switch ev.Key() {
 		case tcell.KeyEscape:
 			Debug("Exit key pressed", DEBUG)
+			// Stop the screenshot loop
+			select {
+			case stopScreenshots <- true:
+			default:
+			}
 			s.Fini()
-			os.Exit(0)
+			return true // Signal to exit
 		case tcell.KeyUp:
 			if cursor.y > V_BORDER_WIDTH {
 				cursor.y--
@@ -667,6 +792,8 @@ func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) {
 		redrawImageArea(s, oldX, oldY)
 		redrawImageArea(s, cursor.x, cursor.y)
 	}
+	
+	return false // Don't exit
 }
 
 func handleLocalKeyEvent(ev *tcell.EventKey) MenuAction {
@@ -870,8 +997,10 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 	return scaled
 }
 
-// Displays sixel graphics while respecting tcell's window boundaries and panels
+// displayWithSixel uses the Go sixel library
 func displayWithSixel(img *image.RGBA) error {
+	sixelStart := time.Now()
+	
 	buf := bufio.NewWriter(os.Stdout)
 	defer buf.Flush() // Ensures all data is written before function returns
 
@@ -889,27 +1018,66 @@ func displayWithSixel(img *image.RGBA) error {
 	// Save cursor position before sixel output
 	fmt.Print("\033[s")
 
-	// Configure and encode the sixel output
-	enc := sixel.NewEncoder(os.Stdout)
-	enc.Width = img.Bounds().Dx()
-	enc.Height = img.Bounds().Dy()
-	enc.Dither = true
+	// Initialize encoder once on first use
+	sixelEncoderMutex.Lock()
+	if sixelEncoder == nil {
+		sixelEncoder = sixel.NewEncoder(os.Stdout)
+		sixelEncoder.Dither = false  // Disable dithering for speed
+		
+		// Set palette based on config
+		switch cfg.Palette {
+		case "websafe":
+			sixelEncoder.Palette = sixel.PaletteWebSafe
+		case "plan9":
+			sixelEncoder.Palette = sixel.PalettePlan9
+		default: // "adaptive"
+			sixelEncoder.Palette = sixel.PaletteAdaptive
+		}
+		
+		// TODO: When adding support for other protocols (Kitty, iTerm2, etc),
+		// adjust color depth based on protocol capabilities:
+		// - Sixel: 256 colors max
+		// - Kitty: 24-bit true color support
+		// - iTerm2: 24-bit true color support
+		Debug("Created sixel encoder (one-time initialization)", INFO)
+	}
+	
+	// Update dimensions for this frame
+	sixelEncoder.Width = img.Bounds().Dx()
+	sixelEncoder.Height = img.Bounds().Dy()
+	sixelEncoderMutex.Unlock()
 
-	if err := enc.Encode(img); err != nil {
+	// Encode the image
+	encodeStart := time.Now()
+	if err := sixelEncoder.Encode(img); err != nil {
 		Debug(fmt.Sprintf("Sixel encoding error: %v", err), ERROR)
 		return fmt.Errorf("sixel encoding error: %v", err)
+	}
+	
+	if cfg.ShowTimings {
+		// Get cache stats if using fixed palette
+		hits, misses, hitRate := sixelEncoder.GetCacheStats()
+		if hits > 0 || misses > 0 {
+			fmt.Fprintf(os.Stderr, "Cache stats: hits=%d misses=%d (%.1f%% hit rate)\n", 
+				hits, misses, hitRate)
+		}
+		
+		fmt.Fprintf(os.Stderr, "  Sixel encode time: %v (rendered size: %dx%d pixels)\n", 
+			time.Since(encodeStart), img.Bounds().Dx(), img.Bounds().Dy())
+		os.Stderr.Sync() // Force flush stderr
 	}
 
 	// Restore cursor position
 	fmt.Print("\033[u")
 
-	Debug(fmt.Sprintf("Displayed sixel image at (%d,%d) with size %dx%d in viewport %dx%d",
+	Debug(fmt.Sprintf("Displayed sixel image at (%d,%d) with size %dx%d (took %v)",
 		H_BORDER_WIDTH, V_BORDER_WIDTH,
 		img.Bounds().Dx(), img.Bounds().Dy(),
-		sDims.InnerWidthPx, sDims.InnerHeightPx), DEBUG)
+		time.Since(sixelStart)), DEBUG)
 
 	return nil
 }
+
 
 // Displays log messages in the bottom panel with navy background
 func displayBottomPanel(s tcell.Screen) error {
@@ -997,16 +1165,28 @@ func displayInstructions(s tcell.Screen) {
 // Displays a cool graphic as a splash screen
 func showSplashScreen(s tcell.Screen, splashPath string) error {
 	// Load and decode the splash image
+	var img image.Image
+	var err error
 
-	file, err := os.Open(splashPath)
-	if err != nil {
-		return fmt.Errorf("failed to open splash image: %v", err)
-	}
-	defer file.Close()
+	if splashPath == "" {
+		// Use embedded image
+		reader := bytes.NewReader(embeddedSplashImage)
+		img, err = jpeg.Decode(reader)
+		if err != nil {
+			return fmt.Errorf("failed to decode embedded splash image: %v", err)
+		}
+	} else {
+		// Use specified file
+		file, err := os.Open(splashPath)
+		if err != nil {
+			return fmt.Errorf("failed to open splash image: %v", err)
+		}
+		defer file.Close()
 
-	img, err := jpeg.Decode(file)
-	if err != nil {
-		return fmt.Errorf("failed to decode splash image: %v", err)
+		img, err = jpeg.Decode(file)
+		if err != nil {
+			return fmt.Errorf("failed to decode splash image: %v", err)
+		}
 	}
 
 	// Convert the image to RGBA format
@@ -1037,7 +1217,7 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 		return fmt.Errorf("failed to display splash image: %v", err)
 	}
 
-	logBuffer.Write([]byte("Press any key to continue..."))
+	logBuffer.Write([]byte("Press Enter to continue..."))
 	displayBottomPanel(s)
 	s.Show()
 

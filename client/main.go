@@ -269,6 +269,15 @@ func main() {
 		Debug("Debug mode enabled", DEBUG)
 	}
 
+	// Initialize and start server manager
+	serverMgr := NewServerManager(cfg)
+	if err := serverMgr.StartServer(); err != nil {
+		Debug(fmt.Sprintf("Failed to start server: %v", err), ERROR)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	defer serverMgr.StopServer()
+
 	detectTerminalAndCalibrate()
 	s := initializeScreen()
 	defer finalizeScreen(s)
@@ -289,7 +298,7 @@ func main() {
 	displayInstructions(s)
 
 	Debug("Setting up signal handlers", DEBUG)
-	setupSignalHandling(s)
+	setupSignalHandling(s, serverMgr)
 
 	// Connect to gRPC server
 	if err := connectToGRPCServer(); err != nil {
@@ -389,7 +398,7 @@ func finalizeScreen(s tcell.Screen) {
 }
 
 // setupSignalHandling sets up handlers for system signals
-func setupSignalHandling(s tcell.Screen) {
+func setupSignalHandling(s tcell.Screen, serverMgr *ServerManager) {
 	Debug("Initializing signal handling", DEBUG)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
@@ -397,6 +406,9 @@ func setupSignalHandling(s tcell.Screen) {
 		sig := <-signalChan
 		Debug(fmt.Sprintf("Received signal: %v", sig), INFO)
 		finalizeScreen(s)
+		if serverMgr != nil {
+			serverMgr.StopServer()
+		}
 		fmt.Println("Terminal restored.")
 		os.Exit(0)
 	}()

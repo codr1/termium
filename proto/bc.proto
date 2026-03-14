@@ -10,8 +10,11 @@ service BrowserControl {
   rpc ClickMouse (Coordinate) returns (Message) {}
   rpc SendKeyboardInput (Text) returns (Message) {}
   rpc NavigateToUrl (Url) returns (Message) {}
+  rpc GetCurrentUrl (Empty) returns (Url) {}
   // Streaming RPC for continuous screenshots
   rpc StreamScreenshots (ScreenshotRequest) returns (stream Screenshot) {}
+  // Bidirectional streaming for dialog handling
+  rpc StreamDialogs (stream DialogResponse) returns (stream DialogEvent) {}
 }
 
 message Empty {}
@@ -44,4 +47,26 @@ message Screenshot {
 
 message ScreenshotRequest {
   int32 fps = 1;
+}
+
+// Dialog event sent from server to client
+message DialogEvent {
+  string id = 1;  // Unique dialog ID for response matching
+  DialogType type = 2;
+  string message = 3;
+  string default_value = 4;  // For prompt dialogs
+}
+
+enum DialogType {
+  ALERT = 0;
+  CONFIRM = 1;
+  PROMPT = 2;
+  BEFOREUNLOAD = 3;
+}
+
+// Dialog response from client to server
+message DialogResponse {
+  string id = 1;  // Match with DialogEvent.id
+  bool accepted = 2;
+  string input_text = 3;  // For prompt dialogs
 }

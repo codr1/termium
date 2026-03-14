@@ -11,9 +11,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Generated files
-generated/*
-!generated/.gitkeep
+# Generated protobuf files
+server/generated/
+client/pb/*.pb.go
+client/pb/*_grpc.pb.go
 
 # Editor-specific files
 .vscode/

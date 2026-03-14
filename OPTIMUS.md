@@ -243,6 +243,80 @@ Support multiple clients connecting to the same browser instance for collaborati
 - "Twitch Plays Pokemon" but for web browsing
 - Ultimate test of your website's UX (if 10 people can use it...)
 
+## Band-Level Cache Self-Healing (Future Enhancement)
+
+### Rolling Ground Truth Update
+Implement a self-healing mechanism to prevent cache drift and accumulated artifacts:
+
+```go
+// On each frame, force refresh one band based on frame number
+bandToRefresh := frameNumber % numBands
+sixelBands[bandToRefresh].ForceInvalidate()
+```
+
+### Benefits
+- **Gradual refresh**: Every band gets ground truth update every N frames
+- **No visible impact**: Only one band per frame (imperceptible)
+- **Self-correcting**: Fixes any cache corruption or drift
+- **Prevents accumulation**: JPEG artifacts don't build up over time
+
+### Implementation Notes
+- At 30 FPS with 139 bands: Full refresh every ~4.6 seconds
+- Could make interval configurable (every 30, 60, or 139 frames)
+- Consider skipping if band was already dirty (optimization)
+- Could use spatial pattern instead of sequential (less noticeable)
+
+**TODO**: Implement after band-level caching is working and tested.
+
+## Dialog Rendering Flicker Fix (Future Enhancement)
+
+### Problem
+When dialogs appear over the browser view, there's visible flicker because:
+1. Browser screenshot is drawn to screen
+2. Dialog is drawn on top
+3. Show() is called
+4. Next frame repeats, causing dialog to disappear/reappear
+
+### Option B: Proper Frame Compositing
+Restructure the rendering pipeline to composite all elements before display:
+
+**Current Architecture:**
+- Screenshot arrives → Decode → Draw to screen → Show()
+- Dialog event → Draw dialog over existing → Show() again
+- Multiple Show() calls per frame cause flicker
+
+**Proposed Architecture:**
+1. **Separate render from display**: 
+   - Maintain off-screen composition buffer
+   - Draw browser content to buffer
+   - Draw UI elements (borders, status) to buffer  
+   - Draw dialog (if active) to buffer
+   - Single Show() call per frame
+
+2. **Decouple update rates**:
+   - Screenshots arrive at 24 FPS
+   - Display refreshes at consistent rate (30-60 FPS)
+   - Interpolate or repeat frames as needed
+
+3. **Implementation Requirements**:
+   - Create composition manager
+   - Buffer all drawing operations
+   - Synchronize Show() calls to display rate
+   - Handle partial updates efficiently
+
+### Benefits
+- Zero flicker for dialogs and UI elements
+- Smoother overall rendering
+- Better control over frame timing
+- Foundation for future UI overlays
+
+### Complexity
+- Moderate refactoring of display pipeline
+- Need to manage additional buffers
+- Synchronization between screenshot and display threads
+
+**Feasibility**: YES - Current architecture can be adapted. Main work is decoupling the screenshot receive loop from the display loop and adding a composition layer.
+
 ## Notes
 
 - Windows Terminal Preview sixel may have hard FPS limits

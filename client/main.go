@@ -6,6 +6,8 @@ import (
 	"context"
 	"fmt"
 	"image"
+	"image/color"
+	"image/color/palette"
 	"image/jpeg"
 	"os"
 	"os/signal"
@@ -97,12 +99,37 @@ var lastScreenshotTime time.Time
 
 var lastImageNumber int = 1
 
+// Browser control state
+type BrowserMode int
+
+const (
+	ModeNormal BrowserMode = iota
+	ModeURL
+)
+
+// Global keyboard handler
+var keyboardHandler *KeyboardHandler
+
 // Cached sixel encoder - create once, reuse many times
 var sixelEncoder *sixel.Encoder
 var sixelEncoderMutex sync.Mutex
 
+// Band manager for efficient sixel updates
+var bandManager *BandManager
+
+// Pre-allocated RGBA buffers for zero-allocation frame comparison
+var (
+    currentRGBA  *image.RGBA
+    previousRGBA *image.RGBA
+    scaledBuffer *image.RGBA  // Reusable buffer for scaled images
+    rgbaLock     sync.Mutex
+)
+
 // Channel to signal screenshot loop to stop
 var stopScreenshots = make(chan bool, 1)
+
+// Wait group to ensure clean shutdown
+var shutdownWg sync.WaitGroup
 
 // MenuAction represents the result of a local key event
 type MenuAction int
@@ -271,7 +298,6 @@ func main() {
 
 	detectTerminalAndCalibrate()
 	s := initializeScreen()
-	defer finalizeScreen(s)
 
 	initializeCursor()
 
@@ -296,6 +322,10 @@ func main() {
 		Debug(fmt.Sprintf("Failed to connect to server: %v", err), ERROR)
 	}
 	defer grpcConn.Close()
+	
+	// Initialize keyboard handler with the gRPC client
+	keyboardHandler = NewKeyboardHandler(grpcClient)
+	
 	if err := openNewTab(); err != nil {
 		Debug(fmt.Sprintf("Failed to open new tab: %v", err), ERROR)
 	}
@@ -311,11 +341,15 @@ func main() {
 	Debug("Successfully opened homepage", INFO)
 
 	// Start the screenshot goroutine
+	shutdownWg.Add(1)
 	go screenshotLoop(s)
 
 	if err := runMainLoop(s); err != nil {
-		displayErrorMessage(s, fmt.Sprintf("Error in     main loop: %v", err))
+		displayErrorMessage(s, fmt.Sprintf("Error in main loop: %v", err))
 	}
+	
+	// Perform clean shutdown
+	cleanShutdown(s)
 }
 
 // Draws teal borders around both panels and sets the bottom panel background to navy
@@ -388,6 +422,44 @@ func finalizeScreen(s tcell.Screen) {
 	Debug("Screen finalized", DEBUG)
 }
 
+// cleanShutdown performs a clean shutdown of all components
+func cleanShutdown(s tcell.Screen) {
+	Debug("Starting clean shutdown", DEBUG)
+	
+	// Signal screenshot loop to stop
+	select {
+	case stopScreenshots <- true:
+		Debug("Sent stop signal to screenshot loop", DEBUG)
+	default:
+		Debug("Screenshot loop already stopping", DEBUG)
+	}
+	
+	// Wait for screenshot loop to finish with timeout
+	done := make(chan struct{})
+	go func() {
+		shutdownWg.Wait()
+		close(done)
+	}()
+	
+	select {
+	case <-done:
+		Debug("Screenshot loop stopped cleanly", DEBUG)
+	case <-time.After(2 * time.Second):
+		Debug("Timeout waiting for screenshot loop to stop", ERROR)
+	}
+	
+	// Close the screen
+	finalizeScreen(s)
+	
+	// Close gRPC connection if it exists
+	if grpcConn != nil {
+		grpcConn.Close()
+		Debug("gRPC connection closed", DEBUG)
+	}
+	
+	fmt.Println("Terminal restored.")
+}
+
 // setupSignalHandling sets up handlers for system signals
 func setupSignalHandling(s tcell.Screen) {
 	Debug("Initializing signal handling", DEBUG)
@@ -396,8 +468,7 @@ func setupSignalHandling(s tcell.Screen) {
 	go func() {
 		sig := <-signalChan
 		Debug(fmt.Sprintf("Received signal: %v", sig), INFO)
-		finalizeScreen(s)
-		fmt.Println("Terminal restored.")
+		cleanShutdown(s)
 		os.Exit(0)
 	}()
 	Debug("Signal handlers established", DEBUG)
@@ -483,12 +554,23 @@ func updateViewportSize() error {
 
 // screenshotLoop handles the screenshot stream from the server
 func screenshotLoop(s tcell.Screen) {
+	defer shutdownWg.Done()
+	
+	// Store screen reference for dialog system
+	dialogScreen = s
+	
+	// Start the dialog stream first
+	if err := startDialogStream(grpcClient); err != nil {
+		Debug(fmt.Sprintf("Failed to start dialog stream: %v", err), ERROR)
+		// Continue anyway - dialogs will just auto-accept on server
+	}
+	
 	// Start the streaming RPC
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	
 	stream, err := grpcClient.StreamScreenshots(ctx, &pb.ScreenshotRequest{
-		Fps: 10, // Request 10 FPS
+		Fps: 24, // Request 24 FPS
 	})
 	if err != nil {
 		Debug(fmt.Sprintf("Failed to start screenshot stream: %v", err), ERROR)
@@ -590,9 +672,13 @@ func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
 	}
 
 	screenshotMutex.Lock()
-	imageBuffer = image.NewRGBA(img.Bounds())
-	draw.Draw(imageBuffer, img.Bounds(), img, image.Point{0, 0}, draw.Src)
-	imageBounds = imageBuffer.Bounds()
+	// Reuse imageBuffer if dimensions haven't changed
+	newBounds := img.Bounds()
+	if imageBuffer == nil || imageBuffer.Bounds() != newBounds {
+		imageBuffer = image.NewRGBA(newBounds)
+	}
+	draw.Draw(imageBuffer, newBounds, img, image.Point{0, 0}, draw.Src)
+	imageBounds = newBounds
 	screenshotMutex.Unlock()
 
 	// Update the display
@@ -610,6 +696,13 @@ func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
 	}
 	displayTime = time.Since(displayStart)
 
+	// Draw dialog if active (on top of everything)
+	dialogLock.Lock()
+	if currentDialog != nil && currentDialog.Active {
+		currentDialog.Draw(s)
+	}
+	dialogLock.Unlock()
+	
 	// Measure render time (Show)
 	renderStart := time.Now()
 	s.Show()
@@ -635,18 +728,29 @@ func runMainLoop(s tcell.Screen) error {
 	Debug("Entering main event loop", DEBUG)
 	for {
 		ev := s.PollEvent()
+		
+		// Check if dialog is active and should handle this event
+		if handleDialogInput(ev) {
+			continue // Dialog consumed the event
+		}
+		
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
 			Debug("Screen resize event detected", DEBUG)
 			handleResize(s)
 		case *tcell.EventKey:
-			if shouldExit := handleKeyEvent(s, ev); shouldExit {
+			if shouldExit := keyboardHandler.HandleKeyEvent(s, ev); shouldExit {
 				Debug("Exiting main loop", DEBUG)
 				return nil
 			}
 		case *tcell.EventMouse:
 			handleMouseEvent(s, ev)
 		case *tcell.EventInterrupt:
+			// Check if exit was requested
+			if keyboardHandler.IsExitRequested() {
+				Debug("Exiting after user confirmation", INFO)
+				return nil
+			}
 			handleInterrupt(s)
 		}
 	}
@@ -681,6 +785,18 @@ func handleResize(s tcell.Screen) {
 	}
 
 	drawBorder(s)
+	
+	// Redraw the bottom panel (status bar)
+	displayBottomPanel(s)
+	
+	// Draw dialog if active
+	dialogLock.Lock()
+	if currentDialog != nil && currentDialog.Active {
+		currentDialog.Draw(s)
+	}
+	dialogLock.Unlock()
+	
+	s.Show()
 	clearDrawingArea(s)
 	s.Sync()
 	// No need to redisplay static content, as the screenshot will be updated by the goroutine
@@ -718,83 +834,6 @@ func sendMouseClick(x, y int) {
 	}
 }
 
-// Handle keyboard within the browser context - returns true if should exit
-func handleKeyEvent(s tcell.Screen, ev *tcell.EventKey) bool {
-	oldX, oldY := cursor.x, cursor.y
-
-	if ev.Modifiers()&tcell.ModCtrl != 0 {
-		// Ctrl+Key combinations
-		switch ev.Key() {
-		case tcell.KeyUp:
-			if ev.Modifiers()&tcell.ModCtrl != 0 {
-				// Handle Ctrl+Up
-				Debug("Ctrl+Up pressed", DEBUG)
-			} else {
-				// Handle regular Up key
-			}
-		case tcell.KeyDown:
-			if ev.Modifiers()&tcell.ModCtrl != 0 {
-				// Handle Ctrl+Down
-				Debug("Ctrl+Down pressed", DEBUG)
-			} else {
-				// Handle regular Down key
-			}
-		case tcell.KeyLeft:
-			if ev.Modifiers()&tcell.ModCtrl != 0 {
-				// Handle Ctrl+Left
-				Debug("Ctrl+Left pressed", DEBUG)
-			} else {
-				// Handle regular Left key
-			}
-		case tcell.KeyRight:
-			if ev.Modifiers()&tcell.ModCtrl != 0 {
-				// Handle Ctrl+Right
-				Debug("Ctrl+Right pressed", DEBUG)
-			} else {
-				// Handle regular Right key
-			}
-		}
-	} else {
-		// Regular keys
-		switch ev.Key() {
-		case tcell.KeyEscape:
-			Debug("Exit key pressed", DEBUG)
-			// Stop the screenshot loop
-			select {
-			case stopScreenshots <- true:
-			default:
-			}
-			s.Fini()
-			return true // Signal to exit
-		case tcell.KeyUp:
-			if cursor.y > V_BORDER_WIDTH {
-				cursor.y--
-			}
-		case tcell.KeyDown:
-			if cursor.y < sDims.Height-(V_BORDER_WIDTH+sDims.LogHeight) {
-				cursor.y++
-			}
-		case tcell.KeyLeft:
-			if cursor.x > H_BORDER_WIDTH {
-				cursor.x--
-			}
-		case tcell.KeyRight:
-			if cursor.x < sDims.Width-H_BORDER_WIDTH {
-				cursor.x++
-			}
-		default:
-			// Send keyboard input to server
-			go sendKeyboardInput(string(ev.Rune()))
-		}
-	}
-
-	if oldX != cursor.x || oldY != cursor.y {
-		redrawImageArea(s, oldX, oldY)
-		redrawImageArea(s, cursor.x, cursor.y)
-	}
-	
-	return false // Don't exit
-}
 
 func handleLocalKeyEvent(ev *tcell.EventKey) MenuAction {
 	// Check for Ctrl+Key combinations first
@@ -960,6 +999,10 @@ func displayImageBuffer(s tcell.Screen) error {
 	}
 
 	// Use sixel rendering while respecting tcell boundaries
+	// Use band-based optimization for websafe palette
+	if cfg.Palette == "websafe" {
+		return displayWithSixelBands(scaledImage)
+	}
 	return displayWithSixel(scaledImage)
 }
 
@@ -991,10 +1034,167 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 	newHeight := int(float64(srcHeight) * scale)
 
 	Debug(fmt.Sprintf("Scaling image down to: %dx%d", newWidth, newHeight), DEBUG)
-	scaled := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
-	draw.ApproxBiLinear.Scale(scaled, scaled.Bounds(), src, src.Bounds(), draw.Over, nil)
+	
+	// Reuse scaledBuffer if dimensions match, otherwise allocate new
+	newBounds := image.Rect(0, 0, newWidth, newHeight)
+	if scaledBuffer == nil || scaledBuffer.Bounds() != newBounds {
+		scaledBuffer = image.NewRGBA(newBounds)
+	}
+	
+	draw.ApproxBiLinear.Scale(scaledBuffer, scaledBuffer.Bounds(), src, src.Bounds(), draw.Over, nil)
 
-	return scaled
+	return scaledBuffer
+}
+
+// displayWithSixelBands uses band-level caching for optimized sixel encoding
+func displayWithSixelBands(img *image.RGBA) error {
+	sixelStart := time.Now()
+	
+	rgbaLock.Lock()
+	defer rgbaLock.Unlock()
+	
+	bounds := img.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+	
+	// Initialize or recreate if dimensions changed
+	if bandManager == nil || width != bandManager.Width || height != bandManager.Height {
+		bandManager = NewBandManager(width, height)
+		currentRGBA = image.NewRGBA(image.Rect(0, 0, width, height))
+		previousRGBA = image.NewRGBA(image.Rect(0, 0, width, height))
+		Debug(fmt.Sprintf("Initialized band manager and RGBA buffers (%dx%d)", width, height), INFO)
+	}
+	
+	// Copy image data to current buffer (reuses the allocated buffer)
+	draw.Draw(currentRGBA, currentRGBA.Bounds(), img, image.Point{}, draw.Src)
+	
+	// Detect dirty bands by comparing current frame with previous frame
+	// DetectDirtyBands compares the new frame against stored hashes
+	bandManager.DetectDirtyBands(currentRGBA)
+	
+	dirtyCount := bandManager.GetDirtyBandCount()
+	if cfg.ShowTimings {
+		fmt.Fprintf(os.Stderr, "Dirty bands: %d/%d (%.1f%%)\n", 
+			dirtyCount, bandManager.NumBands, 
+			float64(dirtyCount)*100.0/float64(bandManager.NumBands))
+	}
+	
+	// Only encode dirty bands and reuse cached bands
+	if dirtyCount > 0 {
+		encodeStart := time.Now()
+		
+		// Determine palette type from config
+		var paletteType sixel.PaletteType
+		switch cfg.Palette {
+		case "websafe":
+			paletteType = sixel.PaletteWebSafe
+		case "plan9":
+			paletteType = sixel.PalettePlan9
+		default:
+			paletteType = sixel.PaletteAdaptive
+		}
+		
+		// Create a band encoder
+		bandEncoder := NewBandEncoder(paletteType, bandManager.Width, bandManager.NumBands*6)
+		
+		// Process each band
+		bandStrings := make([]string, bandManager.NumBands)
+		for i := range bandManager.Bands {
+			band := &bandManager.Bands[i]
+			
+			if band.IsDirty {
+				// Encode this dirty band
+				encodedBand, err := bandEncoder.EncodeBand(currentRGBA, band.Y, band.Height)
+				if err != nil {
+					return err
+				}
+				
+				// Cache the encoded string
+				band.CachedRLE = encodedBand
+				band.IsDirty = false
+				// Update the hash for this band
+				band.Hash = HashBand(currentRGBA, band.Y, band.Height, bandManager.Width)
+			}
+			
+			// Use the cached string (either newly encoded or previously cached)
+			bandStrings[i] = band.CachedRLE
+		}
+		
+		// Compose the full sixel output from all bands
+		var pal color.Palette
+		switch paletteType {
+		case sixel.PaletteWebSafe:
+			pal = palette.WebSafe
+		case sixel.PalettePlan9:
+			pal = palette.Plan9
+		default:
+			pal = nil
+		}
+		
+		fullSixel := ComposeFullSixel(bandStrings, bandManager.Width, bandManager.NumBands*6, pal)
+		
+		// Position cursor at the top-left of the usable area (after borders)
+		fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
+		
+		// Save cursor position before sixel output
+		fmt.Print("\033[s")
+		
+		// Write the composed sixel to stdout
+		if _, err := os.Stdout.WriteString(fullSixel); err != nil {
+			return err
+		}
+		
+		// Restore cursor position after sixel output
+		fmt.Print("\033[u")
+		
+		if cfg.ShowTimings {
+			fmt.Fprintf(os.Stderr, "  Band encode time: %v (encoded %d dirty bands)\n", 
+				time.Since(encodeStart), dirtyCount)
+		}
+	} else {
+		// No dirty bands - recompose from all cached bands
+		bandStrings := make([]string, bandManager.NumBands)
+		for i := range bandManager.Bands {
+			bandStrings[i] = bandManager.Bands[i].CachedRLE
+		}
+		
+		// Determine palette type from config (same as above)
+		var pal color.Palette
+		switch cfg.Palette {
+		case "websafe":
+			pal = palette.WebSafe
+		case "plan9":
+			pal = palette.Plan9
+		default:
+			pal = nil
+		}
+		
+		fullSixel := ComposeFullSixel(bandStrings, bandManager.Width, bandManager.NumBands*6, pal)
+		
+		// Position cursor at the top-left of the usable area (after borders)
+		fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
+		
+		// Save cursor position before sixel output
+		fmt.Print("\033[s")
+		
+		// Write the composed sixel to stdout
+		if _, err := os.Stdout.WriteString(fullSixel); err != nil {
+			return err
+		}
+		
+		// Restore cursor position after sixel output
+		fmt.Print("\033[u")
+		
+		if cfg.ShowTimings {
+			fmt.Fprintf(os.Stderr, "  No encoding needed - all bands clean!\n")
+		}
+	}
+	
+	// Swap buffers for next frame (pointer swap, no copy)
+	currentRGBA, previousRGBA = previousRGBA, currentRGBA
+	
+	Debug(fmt.Sprintf("Band-based display took %v total", time.Since(sixelStart)), INFO)
+	return nil
 }
 
 // displayWithSixel uses the Go sixel library
@@ -1248,11 +1448,3 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 	}
 }
 
-// sendKeyboardInput sends keyboard input to the server
-func sendKeyboardInput(text string) {
-	Debug(fmt.Sprintf("Sending keyboard input: %s", text), DEBUG)
-	_, err := grpcClient.SendKeyboardInput(context.Background(), &pb.Text{Content: text})
-	if err != nil {
-		Debug(fmt.Sprintf("Failed to send keyboard input: %v", err), ERROR)
-	}
-}

@@ -12,10 +12,11 @@ import (
 
 // KeyboardHandler manages all keyboard input for the application
 type KeyboardHandler struct {
-	browserMode  BrowserMode
-	urlBuffer    string
-	urlCursorPos int
-	grpcClient   pb.BrowserControlClient
+	browserMode   BrowserMode
+	urlBuffer     string
+	urlCursorPos  int
+	grpcClient    pb.BrowserControlClient
+	exitRequested bool // Track if exit was requested
 }
 
 // NewKeyboardHandler creates a new keyboard handler
@@ -167,9 +168,10 @@ func (kh *KeyboardHandler) handleNormalModeKey(s tcell.Screen, ev *tcell.EventKe
 		// Regular keys
 		switch ev.Key() {
 		case tcell.KeyEscape:
-			Debug("Exit key pressed", DEBUG)
-			// Clean shutdown will be handled by main loop
-			return true // Signal to exit
+			Debug("Exit confirmation requested", DEBUG)
+			// Show exit confirmation dialog
+			kh.showExitConfirmation()
+			return false // Don't exit yet
 
 		case tcell.KeyUp:
 			if cursor.y > V_BORDER_WIDTH {
@@ -342,4 +344,26 @@ func (kh *KeyboardHandler) sendSpecialKey(key string) {
 	if err != nil {
 		Debug(fmt.Sprintf("Failed to send special key %s: %v", key, err), ERROR)
 	}
+}
+
+// showExitConfirmation shows the exit confirmation dialog
+func (kh *KeyboardHandler) showExitConfirmation() {
+	showLocalDialog(pb.DialogType_CONFIRM, "Exit Termium?", func(response *pb.DialogResponse) {
+		if response.Accepted {
+			Debug("Exit confirmed by user", INFO)
+			kh.exitRequested = true
+			// Force a screen event to trigger exit
+			if dialogScreen != nil {
+				dialogScreen.PostEvent(tcell.NewEventInterrupt(nil))
+			}
+		} else {
+			Debug("Exit cancelled by user", DEBUG)
+			kh.exitRequested = false
+		}
+	})
+}
+
+// IsExitRequested returns true if the user confirmed exit
+func (kh *KeyboardHandler) IsExitRequested() bool {
+	return kh.exitRequested
 }

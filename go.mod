@@ -23,4 +23,4 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
 )
 
-replace github.com/mattn/go-sixel => ./third_party/go-sixel
+replace github.com/mattn/go-sixel => github.com/codr1/go-sixel v0.0.0-20260314180759-bf66418a4746

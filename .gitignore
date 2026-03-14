@@ -58,3 +58,6 @@ yarn.lock
 client/termium
 client/termium
 client/hi
+
+# Local go-sixel checkout (now pulled via go mod from github.com/codr1/go-sixel)
+third_party/go-sixel

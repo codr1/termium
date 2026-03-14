@@ -1,3 +1,5 @@
+github.com/codr1/go-sixel v0.0.0-20260314180759-bf66418a4746 h1:lODzxeuR11tJ+qtRilt20g6PowsZo31Ww8z2ucQwZmc=
+github.com/codr1/go-sixel v0.0.0-20260314180759-bf66418a4746/go.mod h1:eAtk7f7Q3wavNo02c/ETUdXTWkg83ybuKLHVr5pj7ME=
 github.com/gdamore/encoding v1.0.0 h1:+7OoQ1Bc6eTm5niUzBa0Ctsh6JbMW6Ra+YNuAtDBdko=
 github.com/gdamore/encoding v1.0.0/go.mod h1:alR0ol34c49FCSBLjhosxzcPHQbf2trDkoo5dl+VrEg=
 github.com/gdamore/tcell/v2 v2.7.4 h1:sg6/UnTM9jGpZU+oFYAsDahfchWAFW8Xx2yFinNSAYU=

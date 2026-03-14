@@ -6,9 +6,11 @@
     "server"
   ],
   "scripts": {
-    "prepare": "mkdir -p proto client server/generated",
+    "prepare": "mkdir -p proto client/pb server/generated",
     "install:all": "npm install && cd server && npm install",
-    "build:proto": "cd server && npm run generate",
+    "build:proto:ts": "cd server && npm run generate",
+    "build:proto:go": "protoc --go_out=client/pb --go_opt=paths=source_relative --go-grpc_out=client/pb --go-grpc_opt=paths=source_relative -I proto proto/bc.proto",
+    "build:proto": "npm run build:proto:ts && npm run build:proto:go",
     "build:server": "cd server && npm run build",
     "build:client": "cd client && go build -o termium",
     "build": "npm run prepare && npm run build:proto && npm run build:server && npm run build:client",

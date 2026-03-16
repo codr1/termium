@@ -47,6 +47,7 @@ message Screenshot {
 
 message ScreenshotRequest {
   int32 fps = 1;
+  string format = 2;  // "jpeg" (default) or "png"
 }
 
 // Dialog event sent from server to client

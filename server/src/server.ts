@@ -358,8 +358,10 @@ const browserControlHandlers: BrowserControlServer = {
 
     streamScreenshots: async (call: ServerWritableStream<ScreenshotRequest, Screenshot>) => {
         const fps = call.request.fps || 10;
+        // TODO: Remove 'as any' once TS proto is regenerated with format field
+        const format = (call.request as any).format || 'jpeg';
         const interval = 1000 / fps;
-        logDebug(`Starting screenshot stream at ${fps} FPS`);
+        logDebug(`Starting screenshot stream at ${fps} FPS, format: ${format}`);
 
         let intervalId: NodeJS.Timeout | null = null;
         let isCancelled = false;
@@ -404,10 +406,10 @@ const browserControlHandlers: BrowserControlServer = {
                 const startTime = Date.now();
 
                 // Create a promise that times out after 1 second
-                const screenshotPromise = page.screenshot({ 
-                    type: 'jpeg',
-                    quality: 60
-                });
+                const screenshotOptions: any = format === 'png'
+                    ? { type: 'png' }
+                    : { type: 'jpeg', quality: 60 };
+                const screenshotPromise = page.screenshot(screenshotOptions);
                 
                 const timeoutPromise = new Promise<never>((_, reject) => {
                     setTimeout(() => reject(new Error('Screenshot timeout after 1 second')), 1000);

@@ -569,8 +569,18 @@ func screenshotLoop(s tcell.Screen) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	
+	// Kitty uses PNG passthrough — request PNG format and higher FPS
+	screenshotFps := int32(24)
+	screenshotFormat := ""
+	if cfg.Renderer == "kitty" {
+		screenshotFps = 30
+		screenshotFormat = "png"
+		Debug(fmt.Sprintf("Kitty renderer: requesting PNG at %d FPS", screenshotFps), INFO)
+	}
+
 	stream, err := grpcClient.StreamScreenshots(ctx, &pb.ScreenshotRequest{
-		Fps: 24, // Request 24 FPS
+		Fps:    screenshotFps,
+		Format: screenshotFormat,
 	})
 	if err != nil {
 		Debug(fmt.Sprintf("Failed to start screenshot stream: %v", err), ERROR)
@@ -635,6 +645,27 @@ func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
 	frameStart := time.Now()
 	var decodeTime, displayTime, renderTime time.Duration
 	
+	// Kitty PNG passthrough: skip all decode/encode, send PNG bytes directly
+	if cfg.Renderer == "kitty" {
+		displayStart := time.Now()
+		if err := displayWithKittyPNG(frame.Data); err != nil {
+			Debug(fmt.Sprintf("Error displaying Kitty frame: %v", err), ERROR)
+			return err
+		}
+		displayTime = time.Since(displayStart)
+
+		// Timing output is handled inside displayWithKittyPNG (per-frame detail)
+		// and here (frame-level stats) — same pattern as sixel path below.
+		if cfg.ShowTimings {
+			totalTime := time.Since(frameStart)
+			received, displayed, dropped := fb.GetStats()
+			fmt.Fprintf(os.Stderr, "Frame timings: Total=%v Display=%v | Received=%d Displayed=%d Dropped=%d\n",
+				totalTime, displayTime, received, displayed, dropped)
+			os.Stderr.Sync()
+		}
+		return nil
+	}
+
 	// Only save debug screenshots if flag is enabled
 	if cfg.SaveScreenshots {
 		// Save the raw bytes first (JPEG now)
@@ -993,17 +1024,18 @@ func displayImageBuffer(s tcell.Screen) error {
 	// Scale image to fit available space
 	scaledImage := scaleImage(imageBuffer, maxWidthPx, maxHeightPx)
 
-	if cfg.UseTCell {
-		// Fallback to character-based rendering for terminals without sixel
+	switch cfg.Renderer {
+	case "kitty":
+		return displayWithKittyRGBA(scaledImage)
+	case "tcell":
 		return displayWithTcell(s, scaledImage)
+	default: // "sixel"
+		// Use band-based optimization for websafe palette
+		if cfg.Palette == "websafe" {
+			return displayWithSixelBands(scaledImage)
+		}
+		return displayWithSixel(scaledImage)
 	}
-
-	// Use sixel rendering while respecting tcell boundaries
-	// Use band-based optimization for websafe palette
-	if cfg.Palette == "websafe" {
-		return displayWithSixelBands(scaledImage)
-	}
-	return displayWithSixel(scaledImage)
 }
 
 // Scales image efficiently using shared logic

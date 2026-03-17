@@ -1,91 +1,90 @@
 # Termium
 ### Use your Chrome browser from inside your terminal.
 
-Terminum allows you to run Chromium inside any terminal that supports sixel graphics. The project consists of a TypeScript server running a headless Chromium instance, and a Go client providing a text-based UI for interaction.
+Termium allows you to run Chromium inside any terminal that supports sixel or Kitty graphics. The project consists of a TypeScript server running a headless Chromium instance, and a Go client providing a text-based UI for interaction.
 
 ## Features
 - Run headless Chromium from the terminal.
 - Control the browser through a text-based UI.
-- Forward terminal interactions to the Chromium instance via a server-client architecture.
+- Supports sixel graphics (xterm, Windows Terminal Preview, etc.) and Kitty graphics protocol (Ghostty, Kitty).
+- Auto-launches the server — just run `./termium`.
 
-## Installation
+## Quick Start
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/codr1/termium/main/scripts/install.sh | bash
+termium
+```
+
+For Ghostty or Kitty terminals:
+```bash
+termium --renderer kitty
+```
+
+That's it. The client auto-launches the server. First run downloads Chromium (~300MB, one-time).
 
 ### Prerequisites
 
-- Node.js (v18 or higher)
-- Go (v1.23 or higher)
-- npm
-- A terminal that supports sixel graphics (Currently using Windows Terminal Preview for development)
-  - This is a list of terminals with their sixel support.  https://www.arewesixelyet.com/.  Windows Terminal Preview is not updated yet
+- Node.js (v18 or higher) — required for the server
+- A terminal that supports sixel or Kitty graphics
+  - Sixel: https://www.arewesixelyet.com/
+  - Kitty protocol: Ghostty, Kitty
 
-### Setup
-1. Clone the repository:
-```
-git clone https://github.com/yourusername/terminum.git
+### Building from Source
+
+If you prefer to build from source instead of using the installer:
+
+```bash
+git clone https://github.com/codr1/termium.git
 cd termium
+npm install
+npm run build
+cd client
+./termium
 ```
 
-2. Setup and Build   
+Building from source additionally requires: Go (v1.23+), protoc, protoc-gen-go, protoc-gen-go-grpc.
+
+## Usage
+
+Just run `termium`. The client automatically finds and starts the server.
+
+To run the server manually (optional):
 ```
-./build.sh
-```
-
-### Project Structure
-<pre>
-termium/
-├── proto/
-│   └── bc.proto
-├── client/          # Go client code
-│   ├── main.go
-│   └── ...
-├── server/          # TypeScript server code
-│   ├── src/
-│   │   ├── server.ts
-│   │   └── ...
-│   ├── dist/
-│   └── ...
-├── README.md
-├── build.sh 
-└── package.json
-</pre>
-
-### Description:
-The TypeScript server uses Puppeteer to run a headless Chromium instance and exposes various endpoints for interacting with the browser.
-The Go client provides a text-based UI for users to control the browser from within the terminal.
-
-
-### Usage - Starting the application in two separate terminals (temporarily)
-Once we are done with testing - this will be a single command. 
-
-#### Terminal 1 
-```
+# Terminal 1
 npm run start:server
-```
 
-This will launch the headless Chromium instance and expose the necessary endpoints.
-
-#### Terminal 2 
+# Terminal 2
+cd client
+./termium
 ```
-npm run start:client [options]
-```
-
-This will launch the Go client (text-based UI):
-This will start the terminal UI that interacts with the TypeScript server.
 
 ### Client Options
 
-- `-u, --url <url>`: Initial URL to navigate to (default: https://www.google.com)
-- `-s, --server <address>`: Server address for TCP connection (default: uses Unix socket at /tmp/termium.sock)
-- `--tcp`: Force TCP connection to localhost:50051
+- `--renderer <type>`: Rendering protocol (default: `sixel`)
+  - `sixel`: For terminals with sixel support
+  - `kitty`: For Ghostty, Kitty, and other terminals with Kitty graphics protocol
+  - `tcell`: Character-based fallback (no graphics required)
 - `-p, --palette <type>`: Color palette for sixel rendering
-  - `adaptive`: Good quality with accurate colors, but slower performance due to per-frame color quantization (default)
-  - `websafe`: Web-safe 216 color palette - looks worse but significantly faster performance with cached palette
-- `-t, --timings`: Show performance timing information and cache statistics
+  - `adaptive`: Best quality, slower (default)
+  - `websafe`: Faster with cached palette
+  - `plan9`: Plan9 color palette
+- `-s, --tcp <address>`: Use TCP connection instead of Unix socket
+- `--timings`: Show performance timing information
+- `--splash <path>`: Custom splash screen image (or `NONE` to skip)
+- `--debug`: Enable debug output
+- `--logfile <path>`: Write logs to file
+- `--cpuprofile <path>`: Write CPU profile
 - `-h, --help`: Show help message
 
-### Keyboard Controls
+### Environment Variables
 
-Once the application is running:
+- `TERMIUM_SERVER`: Path to `server.js` to override auto-discovery. The client searches for the server in this order:
+  1. `$TERMIUM_SERVER`
+  2. `../server/dist/src/server.js` relative to client binary (dev layout)
+  3. `~/.termium/server/server.js` (installed layout)
+
+### Keyboard Controls
 
 **Splash Screen:**
 - `Enter`: Continue to browser
@@ -101,51 +100,85 @@ Once the application is running:
 - `Backspace`: Delete character before cursor
 - `Delete`: Delete character at cursor
 - `Left/Right Arrow`: Move cursor within URL
-- `Home`: Move to beginning of URL
-- `End`: Move to end of URL
+- `Home`/`End`: Move to beginning/end of URL
 - `Ctrl+U`: Clear entire URL
 
 **Mouse Controls:**
 - Click on elements to interact with them
 
-**Note:** Regular typing in normal mode sends keystrokes to the webpage (for text input fields, etc.)
+Regular typing in normal mode sends keystrokes to the webpage.
 
-### Development 
-To rebuild everything 
+## Project Structure
+<pre>
+termium/
+├── proto/
+│   └── bc.proto           # gRPC service definitions
+├── client/                # Go client code
+│   ├── main.go
+│   ├── config.go
+│   ├── kitty_renderer.go  # Kitty graphics protocol renderer
+│   ├── sixel_band_encoder.go
+│   ├── sixel_bands.go
+│   ├── server_launcher.go # Auto-launch server from client
+│   ├── text_render.go     # tcell character-based fallback
+│   ├── keyboard.go
+│   ├── dialog.go
+│   ├── dialog_stream.go
+│   └── ...
+├── server/                # TypeScript server code
+│   ├── src/
+│   │   └── server.ts
+│   ├── dist/              # Compiled JS (generated)
+│   └── generated/         # Proto TS code (generated)
+├── README.md
+├── CLAUDE.md
+└── package.json
+</pre>
+
+## Architecture
+
+The TypeScript server uses Puppeteer to run a headless Chromium instance and streams screenshots to the client via gRPC. The Go client renders these frames in the terminal using one of three renderers:
+
+- **Sixel**: Palette-quantized sixel graphics with band-level dirty detection and caching
+- **Kitty**: PNG passthrough — server sends PNG, client base64-encodes and writes Kitty escape sequences. No image decoding or re-encoding on the client. Targets 30 FPS.
+- **tcell**: Character-based rendering using Unicode block elements (fallback)
+
+Communication uses Unix domain socket (`/tmp/termium.sock`) by default, with optional TCP.
+
+## Development
+
+Rebuild everything:
 ```
-npm run buid
+npm run build
 ```
 
-To clan everything and start fresh:
+Build just the client:
+```
+cd client
+go build -o termium
+```
+
+Clean and start fresh:
 ```
 npm run clean:all
-./build.sh
+npm install
+npm run build
 ```
 
+## Technical Notes
 
-### Contribution
-Feel free to open issues or submit pull requests if you find any bugs or have new features in mind.
+### Kitty Graphics Renderer
 
-License
-This project is currently using the CC BY-ND License.   
+The Kitty renderer uses PNG passthrough for maximum performance. The server captures screenshots as PNG, streams the raw bytes over gRPC, and the client sends them directly to the terminal via the Kitty graphics protocol (`f=100`). Client-side work per frame is just base64 encoding and chunked escape sequence writing — typically under 3ms. This is the recommended renderer for Ghostty and Kitty terminals.
 
-Additional Notes
-Ensure that your terminal supports sixel graphics for optimal display. You may need to configure your terminal settings.
-The .env file is used to configure environment-specific settings for both the server and client.
-
-TODO: 
-- Add a real home page navigation option
-
-### Technical Notes
-
-#### Band-Level Dirty Detection for Sixel Optimization
+### Band-Level Dirty Detection for Sixel Optimization
 
 The implementation uses a band-level caching strategy optimized for sixel graphics constraints. Instead of traditional dirty rectangles, we track changes at the sixel band level (6-pixel high horizontal strips).
 
 **Algorithm:**
 
 1. **Band Structure**: Divide the screen into horizontal bands of 6 pixels (sixel's atomic unit)
-2. **Change Detection**: 
+2. **Change Detection**:
    - Hash each band's pixel data for fast comparison
    - Compare new frame bands with cached bands
    - Mark bands as clean (unchanged) or dirty (changed)
@@ -162,7 +195,7 @@ The implementation uses a band-level caching strategy optimized for sixel graphi
 
 **Design Rationale:**
 - Sixel cannot update individual pixels - must redraw complete horizontal bands
-- Traditional quadtree/dirty rectangles don't align with sixel's constraints  
+- Traditional quadtree/dirty rectangles don't align with sixel's constraints
 - Band-level caching provides optimal granularity for sixel format
 - Trades ~2MB memory for 10-25x performance improvement on typical updates
 
@@ -170,5 +203,8 @@ The implementation uses a band-level caching strategy optimized for sixel graphi
 - Requires websafe palette for stable caching (adaptive palette changes invalidate cache)
 - Memory overhead increases with screen size (one cache entry per band)
 
-#### JPEG-Based Change Detection
+### JPEG-Based Change Detection
 The system leverages JPEG compression artifacts as features for change detection. JPEG's 8x8 DCT blocks provide natural spatial clustering and noise suppression, filtering out imperceptible changes. This approach treats compression "artifacts" as beneficial preprocessing for determining visually significant changes.
+
+## License
+This project is currently using the CC BY-ND License.

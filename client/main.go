@@ -28,6 +28,12 @@ import (
 	pb "termium/client/pb"
 )
 
+// Build-time version info (set by GoReleaser ldflags)
+var (
+	version = "dev"
+	commit  = "none"
+)
+
 // Screen geometry
 const (
 	LOG_PANEL_HEIGHT   = 5 // height
@@ -317,6 +323,13 @@ func main() {
 	Debug("Setting up signal handlers", DEBUG)
 	setupSignalHandling(s)
 
+	// Auto-launch server if not already running
+	if err := startServer(); err != nil {
+		Debug(fmt.Sprintf("Failed to auto-launch server: %v", err), ERROR)
+		displayErrorMessage(s, fmt.Sprintf("Server not available: %v", err))
+		// Continue anyway — user may start server manually
+	}
+
 	// Connect to gRPC server
 	if err := connectToGRPCServer(); err != nil {
 		Debug(fmt.Sprintf("Failed to connect to server: %v", err), ERROR)
@@ -456,7 +469,10 @@ func cleanShutdown(s tcell.Screen) {
 		grpcConn.Close()
 		Debug("gRPC connection closed", DEBUG)
 	}
-	
+
+	// Stop the server if we launched it
+	stopServer()
+
 	fmt.Println("Terminal restored.")
 }
 

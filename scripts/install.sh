@@ -54,22 +54,59 @@ check_prereqs() {
     if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
         die "curl or wget is required"
     fi
+
+    if ! command -v sha256sum &>/dev/null && ! command -v shasum &>/dev/null; then
+        warn "sha256sum/shasum not found — skipping checksum verification"
+    fi
 }
 
-# Download a file
+# Download a file (works with curl or wget)
 download() {
     local url="$1" dest="$2"
     if command -v curl &>/dev/null; then
         curl -fsSL "$url" -o "$dest"
-    else
+    elif command -v wget &>/dev/null; then
         wget -q "$url" -O "$dest"
+    else
+        die "Neither curl nor wget found"
+    fi
+}
+
+# Download a URL to stdout (for API calls)
+download_stdout() {
+    local url="$1"
+    if command -v curl &>/dev/null; then
+        curl -fsSL "$url"
+    elif command -v wget &>/dev/null; then
+        wget -q "$url" -O -
+    else
+        die "Neither curl nor wget found"
+    fi
+}
+
+# Verify SHA256 checksum
+verify_checksum() {
+    local file="$1" expected="$2"
+    local actual
+
+    if command -v sha256sum &>/dev/null; then
+        actual=$(sha256sum "$file" | cut -d' ' -f1)
+    elif command -v shasum &>/dev/null; then
+        actual=$(shasum -a 256 "$file" | cut -d' ' -f1)
+    else
+        warn "Skipping checksum verification (no sha256sum or shasum)"
+        return 0
+    fi
+
+    if [ "$actual" != "$expected" ]; then
+        die "Checksum mismatch for $(basename "$file"): expected $expected, got $actual"
     fi
 }
 
 # Get latest release version from GitHub
 get_latest_version() {
     local version
-    version=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//')
+    version=$(download_stdout "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name"' | sed 's/.*"tag_name": *"//;s/".*//')
     if [ -z "$version" ]; then
         die "Failed to determine latest version. Check https://github.com/${REPO}/releases"
     fi
@@ -88,38 +125,67 @@ main() {
 
     # Get version (from arg or latest release)
     version="${1:-$(get_latest_version)}"
-    # Strip leading 'v' for filenames
     local version_stripped="${version#v}"
     info "Version: ${version}"
 
     # Create install directories
     mkdir -p "$BIN_DIR" "$SERVER_DIR"
 
-    # Download client binary
-    local client_url="https://github.com/${REPO}/releases/download/${version}/termium-client-${version_stripped}-${platform}.tar.gz"
+    # Download checksums
+    local checksums_url="https://github.com/${REPO}/releases/download/${version}/checksums.txt"
+    local tmp_checksums
+    tmp_checksums=$(mktemp)
+    info "Downloading checksums..."
+    if ! download "$checksums_url" "$tmp_checksums" 2>/dev/null; then
+        warn "Checksums not available — skipping verification"
+        echo "" > "$tmp_checksums"
+    fi
+
+    # Download and verify client binary
+    local client_tarball="termium-client-${version_stripped}-${platform}.tar.gz"
+    local client_url="https://github.com/${REPO}/releases/download/${version}/${client_tarball}"
     info "Downloading client..."
     local tmp_client
     tmp_client=$(mktemp)
     download "$client_url" "$tmp_client"
-    tar xzf "$tmp_client" -C "$BIN_DIR" --strip-components=1
+
+    local expected_checksum
+    expected_checksum=$(grep "${client_tarball}" "$tmp_checksums" | cut -d' ' -f1)
+    if [ -n "$expected_checksum" ]; then
+        verify_checksum "$tmp_client" "$expected_checksum"
+        info "Client checksum verified"
+    fi
+
+    tar xzf "$tmp_client" -C "$BIN_DIR"
+    # GoReleaser puts the binary inside a directory; find and move it
+    find "$BIN_DIR" -name "termium" -type f -exec mv {} "$BIN_DIR/termium" \;
+    find "$BIN_DIR" -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
     chmod +x "${BIN_DIR}/termium"
     rm -f "$tmp_client"
     info "Client installed to ${BIN_DIR}/termium"
 
-    # Download server bundle
-    local server_url="https://github.com/${REPO}/releases/download/${version}/termium-server-${version_stripped}.tar.gz"
+    # Download and verify server bundle
+    local server_tarball="termium-server-${version_stripped}.tar.gz"
+    local server_url="https://github.com/${REPO}/releases/download/${version}/${server_tarball}"
     info "Downloading server..."
     local tmp_server
     tmp_server=$(mktemp)
     download "$server_url" "$tmp_server"
+
+    expected_checksum=$(grep "${server_tarball}" "$tmp_checksums" | cut -d' ' -f1)
+    if [ -n "$expected_checksum" ]; then
+        verify_checksum "$tmp_server" "$expected_checksum"
+        info "Server checksum verified"
+    fi
+
     rm -rf "$SERVER_DIR"
     mkdir -p "$SERVER_DIR"
     tar xzf "$tmp_server" -C "$SERVER_DIR" --strip-components=1
     rm -f "$tmp_server"
+    rm -f "$tmp_checksums"
     info "Server installed to ${SERVER_DIR}"
 
     # First run will trigger Puppeteer's Chromium download.
-    # We could do it now, but it's ~300MB and the user might want to know it's happening.
     warn "Note: First run will download Chromium (~300MB). This is a one-time download."
 
     # Check if BIN_DIR is in PATH
@@ -130,7 +196,6 @@ main() {
         echo "  export PATH=\"${BIN_DIR}:\$PATH\""
         echo
 
-        # Detect shell and suggest the right file
         local shell_rc
         case "$(basename "$SHELL")" in
             zsh)  shell_rc="$HOME/.zshrc" ;;

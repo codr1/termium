@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,50 +20,69 @@ const (
 // serverProcess holds the child process if we started the server
 var serverProcess *exec.Cmd
 
+// serverLocation holds the resolved server.js path and its working directory.
+type serverLocation struct {
+	scriptPath string // path to server.js
+	workDir    string // directory to run node from
+}
+
 // findServerBinary locates the server entry point (server.js).
 // Search order:
 //  1. $TERMIUM_SERVER env var (explicit override)
 //  2. Relative to client binary: ../server/dist/src/server.js (dev layout)
-//  3. ~/.termium/server/server.js (installed layout)
-func findServerBinary() (string, error) {
+//  3. ~/.termium/server/dist/src/server.js (installed layout)
+func findServerBinary() (*serverLocation, error) {
 	// 1. Explicit env var
 	if envPath := os.Getenv("TERMIUM_SERVER"); envPath != "" {
 		if _, err := os.Stat(envPath); err == nil {
-			return envPath, nil
+			return &serverLocation{envPath, filepath.Dir(envPath)}, nil
 		}
-		return "", fmt.Errorf("TERMIUM_SERVER=%q does not exist", envPath)
+		return nil, fmt.Errorf("TERMIUM_SERVER=%q does not exist", envPath)
 	}
 
-	// 2. Relative to client binary (dev layout)
+	// 2. Relative to client binary (dev layout: client/termium -> server/dist/src/server.js)
 	exe, err := os.Executable()
 	if err == nil {
 		exe, _ = filepath.EvalSymlinks(exe)
-		devPath := filepath.Join(filepath.Dir(exe), "..", "server", "dist", "src", "server.js")
+		serverDir := filepath.Join(filepath.Dir(exe), "..", "server")
+		devPath := filepath.Join(serverDir, "dist", "src", "server.js")
 		if _, err := os.Stat(devPath); err == nil {
-			return devPath, nil
+			return &serverLocation{devPath, serverDir}, nil
 		}
 	}
 
-	// 3. Installed layout
+	// 3. Installed layout (~/.termium/server/dist/src/server.js)
 	home, err := os.UserHomeDir()
 	if err == nil {
-		installPath := filepath.Join(home, ".termium", "server", "server.js")
+		serverDir := filepath.Join(home, ".termium", "server")
+		installPath := filepath.Join(serverDir, "dist", "src", "server.js")
 		if _, err := os.Stat(installPath); err == nil {
-			return installPath, nil
+			return &serverLocation{installPath, serverDir}, nil
 		}
 	}
 
-	return "", fmt.Errorf("server not found: set TERMIUM_SERVER or install to ~/.termium/server/")
+	return nil, fmt.Errorf("server not found: set TERMIUM_SERVER or install to ~/.termium/server/")
 }
 
-// isServerRunning checks if the server socket exists and is connectable.
+// isServerRunning checks if the server is actually accepting connections.
+// A stale socket file from a crashed server won't fool this.
 func isServerRunning() bool {
 	if cfg.ServerAddr != "" {
-		// TCP mode — we can't easily probe, assume not running
+		// TCP mode — try to connect
+		conn, err := net.DialTimeout("tcp", cfg.ServerAddr, 500*time.Millisecond)
+		if err != nil {
+			return false
+		}
+		conn.Close()
+		return true
+	}
+	// Unix socket — try to connect, not just stat the file
+	conn, err := net.DialTimeout("unix", defaultSocketPath, 500*time.Millisecond)
+	if err != nil {
 		return false
 	}
-	_, err := os.Stat(defaultSocketPath)
-	return err == nil
+	conn.Close()
+	return true
 }
 
 // startServer launches the server as a child process and waits for it to
@@ -73,12 +93,12 @@ func startServer() error {
 		return nil
 	}
 
-	serverPath, err := findServerBinary()
+	loc, err := findServerBinary()
 	if err != nil {
 		return err
 	}
 
-	Debug(fmt.Sprintf("Auto-launching server: node %s", serverPath), INFO)
+	Debug(fmt.Sprintf("Auto-launching server: node %s (workdir: %s)", loc.scriptPath, loc.workDir), INFO)
 
 	// Find node binary
 	nodePath, err := exec.LookPath("node")
@@ -86,8 +106,8 @@ func startServer() error {
 		return fmt.Errorf("node not found in PATH: %v", err)
 	}
 
-	serverProcess = exec.Command(nodePath, serverPath)
-	serverProcess.Dir = filepath.Dir(filepath.Dir(filepath.Dir(serverPath))) // server/ dir
+	serverProcess = exec.Command(nodePath, loc.scriptPath)
+	serverProcess.Dir = loc.workDir
 
 	// Capture stdout to watch for readiness sentinel
 	stdout, err := serverProcess.StdoutPipe()

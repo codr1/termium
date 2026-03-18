@@ -2,10 +2,6 @@ version: 2
 
 project_name: termium
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
   - id: termium
     dir: client

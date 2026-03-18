@@ -5,30 +5,28 @@ set -e
 # The bundle contains compiled JS + node_modules (no Chromium — Puppeteer downloads it on first run).
 # This is platform-independent since all deps are pure JS.
 
+# Prevent Puppeteer from downloading Chromium during any npm install in this script
+export PUPPETEER_SKIP_DOWNLOAD=true
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 VERSION="${1:-dev}"
 
 echo "Building server bundle v${VERSION}..."
 
-cd "$ROOT_DIR"
+cd "$ROOT_DIR/server"
 
-# Clean and build
-cd server
+# Clean previous build artifacts
 rm -rf dist generated
 
-# Install deps (production only for the bundle)
-npm install --omit=dev 2>/dev/null
+# Install all deps (need dev deps for proto generation and TypeScript compilation)
+npm install
 
-# Generate proto (needs dev deps, install them temporarily)
-npm install 2>/dev/null
-npm run generate 2>/dev/null
+# Generate proto
+npm run generate
 
 # Build TypeScript
 npm run build
-
-# Tell Puppeteer not to download Chrome during bundling
-export PUPPETEER_SKIP_DOWNLOAD=true
 
 # Create a clean bundle directory
 BUNDLE_DIR=$(mktemp -d)
@@ -42,9 +40,9 @@ cp -r dist "$DEST/"
 cp -r generated "$DEST/"
 cp package.json "$DEST/"
 
-# Install production deps into the bundle (clean, no dev deps)
+# Install production-only deps into the bundle (clean, no dev deps)
 cd "$DEST"
-PUPPETEER_SKIP_DOWNLOAD=true npm install --omit=dev 2>/dev/null
+npm install --omit=dev
 
 # Create the tarball
 cd "$BUNDLE_DIR"

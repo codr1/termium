@@ -602,6 +602,8 @@ function main() {
     } else {
       console.log(`Server running on Unix domain socket: /tmp/termium.sock`);
     }
+    // Readiness sentinel — client watches for this line to know server is accepting connections
+    console.log('TERMIUM_READY');
   });
 
   // Handle shutdown gracefully

@@ -23,6 +23,10 @@ type Config struct {
 func parseFlags() (*Config, error) {
 	cfg := &Config{}
 
+	showVersion := false
+	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
+	flag.BoolVar(&showVersion, "v", false, "Print version and exit (shorthand)")
+
 	// Define flags
 	flag.BoolVar(&cfg.Debug, "debug", false, "Enable debug output")
 	flag.StringVar(&cfg.ServerAddr, "tcp", "", "Use TCP connection (default: Unix socket at /tmp/termium.sock, with --tcp defaults to localhost:50051)")
@@ -60,6 +64,11 @@ func parseFlags() (*Config, error) {
 	}
 
 	flag.Parse()
+
+	if showVersion {
+		fmt.Printf("termium %s (%s)\n", version, commit)
+		os.Exit(0)
+	}
 
 	// Validate server address format
 	if cfg.ServerAddr != "" {

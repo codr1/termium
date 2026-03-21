@@ -179,7 +179,11 @@ func (kh *KeyboardHandler) handleNormalModeKey(s tcell.Screen, ev *tcell.EventKe
 			kh.lastEscTime = now
 			Debug(fmt.Sprintf("Escape pressed (%d/3)", kh.escCount), DEBUG)
 			if kh.escCount >= 3 {
-				return true // Exit after triple Escape
+				return true // Emergency exit — always works
+			}
+			// Single Escape — show confirmation dialog
+			if kh.escCount == 1 {
+				kh.showExitConfirmation()
 			}
 
 		case tcell.KeyUp:

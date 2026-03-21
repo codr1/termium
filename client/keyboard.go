@@ -17,6 +17,8 @@ type KeyboardHandler struct {
 	urlCursorPos  int
 	grpcClient    pb.BrowserControlClient
 	exitRequested bool // Track if exit was requested
+	escCount      int  // Consecutive Escape presses
+	lastEscTime   time.Time
 }
 
 // NewKeyboardHandler creates a new keyboard handler
@@ -168,8 +170,17 @@ func (kh *KeyboardHandler) handleNormalModeKey(s tcell.Screen, ev *tcell.EventKe
 		// Regular keys
 		switch ev.Key() {
 		case tcell.KeyEscape:
-			Debug("Exit key pressed", DEBUG)
-			return true // Exit immediately
+			now := time.Now()
+			// Reset counter if more than 1 second since last Escape
+			if now.Sub(kh.lastEscTime) > 1*time.Second {
+				kh.escCount = 0
+			}
+			kh.escCount++
+			kh.lastEscTime = now
+			Debug(fmt.Sprintf("Escape pressed (%d/3)", kh.escCount), DEBUG)
+			if kh.escCount >= 3 {
+				return true // Exit after triple Escape
+			}
 
 		case tcell.KeyUp:
 			if cursor.y > V_BORDER_WIDTH {

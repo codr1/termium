@@ -54,9 +54,9 @@ func displayWithKittyPNG(pngData []byte) error {
 	// Same positioning logic as displayWithSixel
 	fmt.Fprintf(kittyWriter, "\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
 
-	// Delete previous image to avoid stacking.
-	// d=I: delete image data and all placements for image id=1
-	kittyWriter.WriteString(kittyDelete)
+	// No explicit delete — transmitting with the same image ID (i=1) and
+	// placement ID (p=1) atomically replaces the previous image. Deleting
+	// first causes a black flash between frames.
 
 	// Base64 encode into reusable buffer
 	encodeStart := time.Now()

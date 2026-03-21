@@ -358,8 +358,7 @@ const browserControlHandlers: BrowserControlServer = {
 
     streamScreenshots: async (call: ServerWritableStream<ScreenshotRequest, Screenshot>) => {
         const fps = call.request.fps || 10;
-        // TODO: Remove 'as any' once TS proto is regenerated with format field
-        const format = (call.request as any).format || 'jpeg';
+        const format = call.request.format || 'jpeg';
         const interval = 1000 / fps;
         logDebug(`Starting screenshot stream at ${fps} FPS, format: ${format}`);
 
@@ -418,7 +417,7 @@ const browserControlHandlers: BrowserControlServer = {
                 // Race between screenshot and timeout
                 let screenshot: Buffer;
                 try {
-                    screenshot = await Promise.race([screenshotPromise, timeoutPromise]) as Buffer;
+                    screenshot = await Promise.race([screenshotPromise, timeoutPromise]) as unknown as Buffer;
                 } finally {
                     // ALWAYS clear the flag, even if we timeout
                     isScreenshotInProgress = false;

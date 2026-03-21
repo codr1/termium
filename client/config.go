@@ -39,8 +39,8 @@ func parseFlags() (*Config, error) {
 	flag.BoolVar(&cfg.ShowTimings, "timings", false, "Show timing measurements for each frame")
 	flag.StringVar(&cfg.Palette, "palette", "adaptive", "Color palette: adaptive, websafe, plan9")
 	flag.StringVar(&cfg.Palette, "p", "adaptive", "Color palette: adaptive, websafe, plan9 (short form)")
-	flag.StringVar(&cfg.Renderer, "renderer", "sixel", "Rendering protocol: sixel, kitty, tcell")
-	flag.StringVar(&cfg.Renderer, "r", "sixel", "Rendering protocol (short form)")
+	flag.StringVar(&cfg.Renderer, "renderer", "auto", "Rendering protocol: auto, sixel, kitty, tcell")
+	flag.StringVar(&cfg.Renderer, "r", "auto", "Rendering protocol (short form)")
 
 	// Handle both --flag and -flag formats
 	flag.BoolVar(&cfg.Debug, "d", false, "Enable debug output (shorthand)")
@@ -82,10 +82,10 @@ func parseFlags() (*Config, error) {
 
 	// Validate renderer
 	switch cfg.Renderer {
-	case "sixel", "kitty", "tcell":
+	case "auto", "sixel", "kitty", "tcell":
 		// valid
 	default:
-		return nil, fmt.Errorf("invalid renderer %q: must be sixel, kitty, or tcell", cfg.Renderer)
+		return nil, fmt.Errorf("invalid renderer %q: must be auto, sixel, kitty, or tcell", cfg.Renderer)
 	}
 
 	// Check if splash image exists (only if specified and not NONE)

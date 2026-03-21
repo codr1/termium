@@ -918,10 +918,17 @@ func handleLocalKeyEvent(ev *tcell.EventKey) MenuAction {
 	return MenuNone
 }
 
-// detectTerminalAndCalibrate detects the terminal type and calibrates the character size
+// detectTerminalAndCalibrate detects the terminal type, auto-detects the
+// renderer if needed, and calibrates the character size.
 func detectTerminalAndCalibrate() {
 	termType := os.Getenv("TERM")
 	Debug(fmt.Sprintf("Terminal type: %s", termType), DEBUG)
+
+	// Auto-detect renderer if not explicitly set
+	if cfg.Renderer == "auto" {
+		cfg.Renderer = detectRenderer()
+		Debug(fmt.Sprintf("Auto-detected renderer: %s", cfg.Renderer), INFO)
+	}
 
 	if strings.HasPrefix(termType, "xterm") || strings.Contains(termType, "256color") {
 		Debug("xterm-compatible terminal detected. Attempting to calibrate.", DEBUG)
@@ -934,6 +941,59 @@ func detectTerminalAndCalibrate() {
 		Debug("Non-xterm terminal detected, using defaults", DEBUG)
 		setDefaultCharSize()
 	}
+}
+
+// detectRenderer probes the terminal to determine the best graphics protocol.
+// Tries Kitty first (query with a 1x1 pixel image), falls back to sixel.
+func detectRenderer() string {
+	// Try Kitty graphics query: send a 1x1 transparent pixel and check for OK response
+	// \033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\
+	// If the terminal supports Kitty, it responds with \033_Gi=31;OK\033\\
+	kittyQuery := "\033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\"
+
+	response, err := queryTerminalWithTimeout(kittyQuery, 500)
+	if err != nil {
+		Debug(fmt.Sprintf("Kitty detection query failed: %v", err), DEBUG)
+		return "sixel"
+	}
+
+	Debug(fmt.Sprintf("Kitty detection response: %q", response), DEBUG)
+
+	if strings.Contains(response, "OK") {
+		Debug("Terminal supports Kitty graphics protocol", INFO)
+		return "kitty"
+	}
+
+	Debug("Terminal does not support Kitty, defaulting to sixel", DEBUG)
+	return "sixel"
+}
+
+// queryTerminalWithTimeout sends a query and reads the response with a timeout in ms.
+// Unlike queryTerminal, this won't block forever if the terminal doesn't respond.
+func queryTerminalWithTimeout(query string, timeoutMs int) (string, error) {
+	_, err := fmt.Fprint(os.Stdout, query)
+	if err != nil {
+		return "", err
+	}
+
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return "", err
+	}
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
+	// Set read deadline so we don't block forever if terminal doesn't respond
+	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	os.Stdin.SetReadDeadline(deadline)
+	defer os.Stdin.SetReadDeadline(time.Time{}) // clear deadline
+
+	response := make([]byte, 64)
+	n, err := os.Stdin.Read(response)
+	if err != nil {
+		return "", err
+	}
+
+	return string(response[:n]), nil
 }
 
 // calibrateXterm calibrates the character size for xterm-compatible terminals

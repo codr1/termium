@@ -18,8 +18,8 @@ func TestParseFlagsDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseFlags failed: %v", err)
 	}
-	if cfg.Renderer != "sixel" {
-		t.Errorf("expected default renderer 'sixel', got %q", cfg.Renderer)
+	if cfg.Renderer != "auto" {
+		t.Errorf("expected default renderer 'auto', got %q", cfg.Renderer)
 	}
 	if cfg.Palette != "adaptive" {
 		t.Errorf("expected default palette 'adaptive', got %q", cfg.Palette)

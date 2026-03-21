@@ -168,10 +168,8 @@ func (kh *KeyboardHandler) handleNormalModeKey(s tcell.Screen, ev *tcell.EventKe
 		// Regular keys
 		switch ev.Key() {
 		case tcell.KeyEscape:
-			Debug("Exit confirmation requested", DEBUG)
-			// Show exit confirmation dialog
-			kh.showExitConfirmation()
-			return false // Don't exit yet
+			Debug("Exit key pressed", DEBUG)
+			return true // Exit immediately
 
 		case tcell.KeyUp:
 			if cursor.y > V_BORDER_WIDTH {

@@ -31,6 +31,23 @@ func NewKeyboardHandler(client pb.BrowserControlClient) *KeyboardHandler {
 
 // HandleKeyEvent processes keyboard events and returns true if should exit
 func (kh *KeyboardHandler) HandleKeyEvent(s tcell.Screen, ev *tcell.EventKey) bool {
+	// Triple-Escape emergency exit works in any mode
+	if ev.Key() == tcell.KeyEscape {
+		now := time.Now()
+		if now.Sub(kh.lastEscTime) > 1*time.Second {
+			kh.escCount = 0
+		}
+		kh.escCount++
+		kh.lastEscTime = now
+		Debug(fmt.Sprintf("Escape pressed (%d/3)", kh.escCount), DEBUG)
+		if kh.escCount >= 3 {
+			return true // Emergency exit — always works
+		}
+	} else {
+		// Any non-Escape key resets the counter
+		kh.escCount = 0
+	}
+
 	// Handle URL input mode separately
 	if kh.browserMode == ModeURL {
 		return kh.handleURLModeKey(s, ev)
@@ -170,18 +187,8 @@ func (kh *KeyboardHandler) handleNormalModeKey(s tcell.Screen, ev *tcell.EventKe
 		// Regular keys
 		switch ev.Key() {
 		case tcell.KeyEscape:
-			now := time.Now()
-			// Reset counter if more than 1 second since last Escape
-			if now.Sub(kh.lastEscTime) > 1*time.Second {
-				kh.escCount = 0
-			}
-			kh.escCount++
-			kh.lastEscTime = now
-			Debug(fmt.Sprintf("Escape pressed (%d/3)", kh.escCount), DEBUG)
-			if kh.escCount >= 3 {
-				return true // Emergency exit — always works
-			}
-			// Single Escape — show confirmation dialog
+			// Triple-escape handled in HandleKeyEvent above.
+			// Single Escape in normal mode — show confirmation dialog.
 			if kh.escCount == 1 {
 				kh.showExitConfirmation()
 			}

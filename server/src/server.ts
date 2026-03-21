@@ -416,9 +416,9 @@ const browserControlHandlers: BrowserControlServer = {
                 });
 
                 // Race between screenshot and timeout
-                let screenshot: Uint8Array;
+                let screenshot: Buffer;
                 try {
-                    screenshot = await Promise.race([screenshotPromise, timeoutPromise]);
+                    screenshot = await Promise.race([screenshotPromise, timeoutPromise]) as Buffer;
                 } finally {
                     // ALWAYS clear the flag, even if we timeout
                     isScreenshotInProgress = false;

@@ -8,7 +8,7 @@ import debugFactory from 'debug';
 // Update import paths
 import { ServerUnaryCall, sendUnaryData, ServerWritableStream } from '@grpc/grpc-js';
 import { BrowserControlService, BrowserControlServer } from '../generated/bc';
-import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, ScreenshotRequest } from '../generated/bc';
+import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, ScreenshotRequest, DialogEvent, DialogResponse } from '../generated/bc';
 
 const program = new Command();
 const logDebug = debugFactory('server:debug');
@@ -16,14 +16,18 @@ const logDebug = debugFactory('server:debug');
 // Puppeteer browser and page instances
 let browser: puppeteer.Browser | null = null;
 let page: puppeteer.Page | null = null;
+let browserLaunch: Promise<void> | null = null;
+let shuttingDown = false;
+const browserAbort = new AbortController();
 
 // Dialog handling
 interface PendingDialog {
     dialog: puppeteer.Dialog;
-    resolver: (response: any) => void;
+    owner: grpc.ServerDuplexStream<DialogResponse, DialogEvent>;
+    resolver: () => void;
 }
-let dialogStream: any = null; // Will be set when client connects
-let pendingDialogs = new Map<string, PendingDialog>();
+let dialogStream: grpc.ServerDuplexStream<DialogResponse, DialogEvent> | null = null;
+const pendingDialogs = new Map<string, PendingDialog>();
 let dialogIdCounter = 0;
 
 // CLI setup with Commander
@@ -84,21 +88,18 @@ function setupDialogHandler(page: puppeteer.Page) {
             
             // Send dialog event to client
             try {
-                dialogStream.write({
-                    id: dialogId,
-                    type: protoType,
-                    message: message,
-                    defaultValue: defaultValue || ''
-                });
-                
-                // Wait for response from client
+                const owner = dialogStream;
                 await new Promise<void>((resolve) => {
-                    pendingDialogs.set(dialogId, {
-                        dialog: dialog,
-                        resolver: resolve
+                    pendingDialogs.set(dialogId, { dialog, owner, resolver: resolve });
+                    owner.write({
+                        id: dialogId,
+                        type: protoType,
+                        message,
+                        defaultValue: defaultValue || ''
                     });
                 });
             } catch (error) {
+                pendingDialogs.delete(dialogId);
                 logDebug(`Error sending dialog to client: ${(error as Error).message}`);
                 // Fallback to auto-accept if client communication fails
                 await dialog.accept(defaultValue || '');
@@ -114,6 +115,16 @@ function setupDialogHandler(page: puppeteer.Page) {
 
 // Function to launch or connect to the browser
 async function launchOrConnectToBrowser() {
+    if (shuttingDown) throw new Error('Server is shutting down');
+    if (browser) return;
+    // Concurrent RPCs must share one launch, including its cancellation.
+    if (!browserLaunch) {
+        browserLaunch = launchBrowser().finally(() => { browserLaunch = null; });
+    }
+    await browserLaunch;
+}
+
+async function launchBrowser() {
     if (options.browser) {
         // Connect to an existing browser instance using DevTools protocol
         logDebug('Connecting to existing browser instance at', options.browser);
@@ -122,7 +133,10 @@ async function launchOrConnectToBrowser() {
         // Launch a new headless browser if no browser address is provided
         logDebug('Launching a new headless browser');
         browser = await puppeteer.launch({ 
-            headless: 'new' as any,  // Use the new headless mode (less detectable) - cast to any for older types
+            handleSIGINT: false, // The server owns signal handling and process exit.
+            handleSIGTERM: false,
+            signal: browserAbort.signal,
+            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -300,43 +314,12 @@ const browserControlHandlers: BrowserControlServer = {
             // Log more details about the error
             logDebug(`Navigation error for '${url}': ${errorMessage}`);
             
-            // IMPORTANT: Check what URL we actually ended up on, even if navigation "failed"
-            let actualUrl = 'unknown';
-            let pageIsResponsive = false;
-            let previousUrl = '';
-            
-            try {
-                // Get the URL we were on before navigation attempt
-                previousUrl = page?.url() || '';
-            } catch (e) {
-                // Page might not be accessible
-            }
-            
-            try {
-                actualUrl = page?.url() || 'unknown';
-                pageIsResponsive = true;
-                logDebug(`Despite timeout, page is responsive and loaded URL: ${actualUrl}`);
-                
-                // If we're on a different URL than before, navigation partially succeeded
-                // Also check if we're on a redirect of the requested URL
-                const requestedDomain = new URL(url).hostname;
-                const actualDomain = actualUrl !== 'unknown' && actualUrl !== 'about:blank' ? new URL(actualUrl).hostname : '';
-                
-                if ((actualUrl !== previousUrl && actualUrl !== 'about:blank') || 
-                    (actualDomain && actualDomain.includes(requestedDomain.replace('www.', '').replace('.com', '')))) {
-                    logDebug(`Navigation succeeded (with timeout) - browser is now at: ${actualUrl}`);
-                    // Return success since we did navigate somewhere
-                    callback(null, { text: `Navigated to ${actualUrl}` });
-                    return;
-                }
-            } catch (e) {
-                logDebug(`Page is not responsive: ${(e as Error).message}`);
-            }
-            
-            // Only return error if we truly failed to navigate
+            // A responsive old page is not evidence that this navigation worked.
+            // Preserve real failures, including browser launch and network errors.
             callback({
-                code: grpc.status.DEADLINE_EXCEEDED,
-                message: `Navigation to '${url}' timed out. Current URL: ${actualUrl}`,
+                code: error instanceof puppeteer.TimeoutError
+                    ? grpc.status.DEADLINE_EXCEEDED : grpc.status.INTERNAL,
+                message: `Navigation to '${url}' failed: ${errorMessage}`,
             });
         }
     },
@@ -512,61 +495,54 @@ const browserControlHandlers: BrowserControlServer = {
         });
     },
 
-    streamDialogs: (call: any) => {
+    streamDialogs: (call) => {
         logDebug('Dialog stream connected');
+        if (dialogStream) {
+            call.emit('error', { code: grpc.status.RESOURCE_EXHAUSTED, message: 'A dialog stream is already connected' });
+            return;
+        }
         dialogStream = call;
+        // A client can wait for headers before triggering a page dialog.
+        call.sendMetadata(new grpc.Metadata());
         
-        // Handle incoming dialog responses from client
-        call.on('data', (response: any) => {
-            logDebug(`Received dialog response: id=${response.id}, accepted=${response.accepted}`);
-            
-            const pending = pendingDialogs.get(response.id);
-            if (pending) {
-                // Handle the dialog based on response
+        // Resolve once, and always consume Puppeteer's promise rejection.
+        const finish = async (id: string, pending: PendingDialog, response: Pick<DialogResponse, 'accepted' | 'inputText'>) => {
+            pendingDialogs.delete(id);
+            try {
                 if (response.accepted) {
-                    if (response.inputText !== undefined && response.inputText !== '') {
-                        // Prompt with text
-                        pending.dialog.accept(response.inputText).then(() => {
-                            logDebug(`Dialog ${response.id} accepted with text: ${response.inputText}`);
-                        });
-                    } else {
-                        // Regular accept
-                        pending.dialog.accept().then(() => {
-                            logDebug(`Dialog ${response.id} accepted`);
-                        });
-                    }
+                    await pending.dialog.accept(pending.dialog.type() === 'prompt' ? response.inputText : undefined);
                 } else {
-                    // Dismiss/cancel
-                    pending.dialog.dismiss().then(() => {
-                        logDebug(`Dialog ${response.id} dismissed`);
-                    });
+                    await pending.dialog.dismiss();
                 }
-                
-                // Resolve the promise and clean up
-                pending.resolver(response);
-                pendingDialogs.delete(response.id);
-            } else {
-                logDebug(`No pending dialog found for id: ${response.id}`);
+            } catch (error) {
+                logDebug(`Failed to resolve dialog ${id}: ${(error as Error).message}`);
+            } finally {
+                pending.resolver();
+            }
+        };
+
+        call.on('data', (response: DialogResponse) => {
+            const pending = pendingDialogs.get(response.id);
+            if (pending && pending.owner === call) {
+                void finish(response.id, pending, response);
             }
         });
-        
-        call.on('end', () => {
-            logDebug('Dialog stream disconnected');
-            dialogStream = null;
-            
-            // Auto-accept any pending dialogs since client disconnected
+
+        let disconnected = false;
+        const disconnect = () => {
+            if (disconnected) return;
+            disconnected = true;
+            if (dialogStream === call) dialogStream = null;
             for (const [id, pending] of pendingDialogs) {
-                logDebug(`Auto-accepting dialog ${id} due to stream disconnect`);
-                pending.dialog.accept();
-                pending.resolver(null);
+                if (pending.owner === call) {
+                    void finish(id, pending, { accepted: true, inputText: pending.dialog.defaultValue() });
+                }
             }
-            pendingDialogs.clear();
-        });
-        
-        call.on('error', (err: Error) => {
-            logDebug('Dialog stream error:', err.message);
-            dialogStream = null;
-        });
+            call.end();
+        };
+        call.on('end', disconnect);
+        call.on('cancelled', disconnect);
+        call.on('error', disconnect);
     },
 };
 
@@ -594,10 +570,13 @@ function main() {
   server.bindAsync(bindAddress, grpc.ServerCredentials.createInsecure(), (err, port) => {
     if (err) {
       console.error('Failed to bind server:', err);
+      process.exitCode = 1;
+      server.forceShutdown();
       return;
     }
     if (options.tcp) {
-      console.log(`Server running at ${bindAddress}`);
+      // Report the actual port when the OS assigns one (--tcp 127.0.0.1:0).
+      console.log(`Server running at ${bindAddress.replace(/:\d+$/, `:${port}`)}`);
     } else {
       console.log(`Server running on Unix domain socket: /tmp/termium.sock`);
     }
@@ -605,30 +584,36 @@ function main() {
     console.log('TERMIUM_READY');
   });
 
-  // Handle shutdown gracefully
-  const signals = ['SIGINT', 'SIGTERM'];
-  signals.forEach(signal => {
-    process.on(signal, async () => {
-      console.log(`Received ${signal}, shutting down...`);
-      
-      // Close browser if it exists
-      if (browser) {
-        try {
-          logDebug('Closing browser...');
-          await browser.close();
-          console.log('Browser closed successfully');
-        } catch (error) {
-          console.error('Error closing browser:', error);
-        }
-      }
-      
-      server.tryShutdown(() => {
-        console.log('Server shutdown complete');
-        process.exit(0);
-      });
-    });
-  });
-  
+  // Termination must not wait for clients to close long-lived streams. Abort
+  // any in-flight browser launch too; browser may not have been assigned yet.
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Received ${signal}, shutting down...`);
+    server.forceShutdown();
+    const forcedExit = setTimeout(() => {
+      console.error('Shutdown timed out');
+      browserAbort.abort();
+      process.exit(1);
+    }, 2000);
+    try {
+      if (!browser) browserAbort.abort();
+      await browserLaunch?.catch(() => {});
+      if (browser) await browser.close();
+      console.log('Server shutdown complete');
+      clearTimeout(forcedExit);
+      process.exit(0);
+    } catch (error) {
+      console.error('Error shutting down:', error);
+      browserAbort.abort();
+      clearTimeout(forcedExit);
+      process.exit(1);
+    }
+  };
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, () => { void shutdown(signal); });
+  }
+
   // Also handle uncaught exceptions and unhandled rejections
   process.on('uncaughtException', async (error) => {
     console.error('Uncaught exception:', error);

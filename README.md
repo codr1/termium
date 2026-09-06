@@ -43,7 +43,7 @@ The [installation plan](docs/plans/one-command-install.md) and [browser UI plan]
 
 ## Development
 
-See [development](docs/development.md) for building and testing, and [architecture](docs/architecture.md) for the rendering pipeline.
+See [development](docs/development.md) for building, [testing](docs/testing.md) for the `npm test` suite and CI coverage, and [architecture](docs/architecture.md) for the rendering pipeline.
 
 Found a bug? Follow the [reporting guide](docs/troubleshooting.md#report-a-problem) and [open an issue](https://github.com/codr1/termium/issues).
 

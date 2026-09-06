@@ -13,6 +13,7 @@ Start with [installation](installation.md), then [getting started](getting-start
 ## Contributor guides
 
 - [Development](development.md): build, test, and debug the project.
+- [Testing](testing.md): one-command automated checks, CI coverage, and remaining manual checks.
 - [Architecture](architecture.md): browser control and rendering.
 - [One-command installation plan](plans/one-command-install.md): installer responsibilities and acceptance criteria.
 - [Browser UI plan](plans/browser-ui.md): native Vimium-style commands, navigation controls, and keyboard routing.

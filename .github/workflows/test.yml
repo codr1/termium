@@ -1,0 +1,64 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-15-intel]
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use an isolated browser cache
+        run: echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/puppeteer" >> "$GITHUB_ENV"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install protoc (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Install protoc (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+      - name: Install protobuf generators
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+      - run: npm ci
+      - name: Install browser as the runner user
+        run: npm run test:browser:install
+      - name: Install browser system libraries (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          chrome_dependencies=$(node --input-type=module -e "import fs from 'node:fs'; import path from 'node:path'; import {executablePath} from 'puppeteer'; const chrome = await executablePath(); process.stdout.write(fs.readFileSync(path.join(path.dirname(chrome), 'deb.deps'), 'utf8').trim().split('\n').join(','))")
+          sudo apt-get satisfy -y --no-install-recommends "$chrome_dependencies"
+      - name: Build and run all automated tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee test-output.log
+      - name: Keep failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.os }}
+          path: test-output.log
+          if-no-files-found: ignore

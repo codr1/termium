@@ -43,11 +43,8 @@ func findServerBinary() (*serverLocation, error) {
 	// 2. Relative to client binary (dev layout: client/termium -> server/dist/src/server.js)
 	exe, err := os.Executable()
 	if err == nil {
-		exe, _ = filepath.EvalSymlinks(exe)
-		serverDir := filepath.Join(filepath.Dir(exe), "..", "server")
-		devPath := filepath.Join(serverDir, "dist", "src", "server.js")
-		if _, err := os.Stat(devPath); err == nil {
-			return &serverLocation{devPath, serverDir}, nil
+		if loc := findServerNextToExecutable(exe); loc != nil {
+			return loc, nil
 		}
 	}
 
@@ -64,20 +61,30 @@ func findServerBinary() (*serverLocation, error) {
 	return nil, fmt.Errorf("server not found: set TERMIUM_SERVER or install to ~/.termium/server/")
 }
 
+func findServerNextToExecutable(exe string) *serverLocation {
+	resolved, err := filepath.EvalSymlinks(exe)
+	if err != nil {
+		return nil
+	}
+	serverDir := filepath.Join(filepath.Dir(resolved), "..", "server")
+	script := filepath.Join(serverDir, "dist", "src", "server.js")
+	if info, err := os.Stat(script); err == nil && !info.IsDir() {
+		return &serverLocation{script, serverDir}
+	}
+	return nil
+}
+
 // isServerRunning checks if the server is actually accepting connections.
 // A stale socket file from a crashed server won't fool this.
 func isServerRunning() bool {
 	if cfg.ServerAddr != "" {
-		// TCP mode — try to connect
-		conn, err := net.DialTimeout("tcp", cfg.ServerAddr, 500*time.Millisecond)
-		if err != nil {
-			return false
-		}
-		conn.Close()
-		return true
+		return serverListening("tcp", cfg.ServerAddr)
 	}
-	// Unix socket — try to connect, not just stat the file
-	conn, err := net.DialTimeout("unix", defaultSocketPath, 500*time.Millisecond)
+	return serverListening("unix", defaultSocketPath)
+}
+
+func serverListening(network, address string) bool {
+	conn, err := net.DialTimeout(network, address, 500*time.Millisecond)
 	if err != nil {
 		return false
 	}

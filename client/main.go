@@ -249,7 +249,7 @@ func main() {
 	var err error
 	cfg, err = parseFlags()
 	if err != nil {
-		Debug(fmt.Sprintf("Failed to parse flags: %v", err), ERROR)
+		fmt.Fprintf(os.Stderr, "Failed to parse flags: %v\n", err)
 		os.Exit(1)
 	}
 

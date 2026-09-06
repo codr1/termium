@@ -22,11 +22,17 @@ Run Termium directly in a terminal while diagnosing display problems. SSH, tmux,
 
 ## Sixel performance
 
-The default palette is `adaptive`. For a potentially faster sixel display with a fixed color palette, try:
+Sixel defaults to the fixed `websafe` palette for speed. To request it explicitly:
 
 ```bash
 termium --renderer sixel --palette websafe
 ```
+
+Use `--palette adaptive` for image-specific color selection at a higher CPU cost, or `--palette plan9` for another fixed palette.
+
+Screenshots are prepared off the input loop. Unchanged images are not retransmitted, and editing the address or moving the keyboard pointer does not resend browser pixels. Capture slows to measured preparation/output throughput and pauses behind menus and dialogs. Terminal output remains serialized; a slow terminal or SSH connection can still stall a write.
+
+For profiling, `--timings` reports preparation time, capture/queue time, image-write time, and frame age on stderr. These are pipeline measurements, not keypress-to-paint measurements.
 
 The tradeoff is color fidelity. Performance depends on page content, window size, and the terminal; there is no guaranteed frame rate.
 

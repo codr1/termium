@@ -24,8 +24,8 @@ func TestParseFlagsDefaults(t *testing.T) {
 	if cfg.Renderer != "auto" {
 		t.Errorf("expected default renderer 'auto', got %q", cfg.Renderer)
 	}
-	if cfg.Palette != "adaptive" {
-		t.Errorf("expected default palette 'adaptive', got %q", cfg.Palette)
+	if cfg.Palette != "websafe" {
+		t.Errorf("expected default palette 'websafe', got %q", cfg.Palette)
 	}
 	if cfg.Debug {
 		t.Error("expected debug=false by default")

@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"image"
-	"image/color"
-	"image/color/palette"
 	"image/jpeg"
 	_ "image/png"
+	"io"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -20,12 +18,13 @@ import (
 	"time"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
 	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	pb "termium/client/pb"
 )
@@ -96,20 +95,8 @@ const (
 // Global keyboard handler
 var keyboardHandler *KeyboardHandler
 
-// Cached sixel encoder - create once, reuse many times
-var sixelEncoder *sixel.Encoder
-var sixelEncoderMutex sync.Mutex
-
-// Band manager for efficient sixel updates
-var bandManager *BandManager
-
-// Pre-allocated RGBA buffers for zero-allocation frame comparison
-var (
-	currentRGBA  *image.RGBA
-	previousRGBA *image.RGBA
-	scaledBuffer *image.RGBA // Reusable buffer for scaled images
-	rgbaLock     sync.Mutex
-)
+// Splash scaling runs before the background preparation worker starts.
+var scaledBuffer *image.RGBA
 
 // Channel to signal screenshot loop to stop
 
@@ -133,6 +120,16 @@ var latestFrame *Frame
 var lastSavedFrame *Frame
 var frames = NewFrameBuffer()
 var graphicsHidden bool
+
+type overlayState struct {
+	menu, help, quit bool
+	dialog           *Dialog
+}
+
+var lastOverlay overlayState
+var displayedFrame *Frame
+var pipeline = newFramePipeline()
+var graphicsOutput io.Writer = os.Stdout
 
 type quitEvent struct{}
 type frameEvent struct{}
@@ -283,6 +280,29 @@ func runInteractive() error {
 		}
 		keyboardHandler.navigate(pb.NavigationAction_NAVIGATE, address)
 	}
+	pipeline.paused.Store(true) // The first redraw releases capture after initial navigation.
+	preparer := &framePreparer{renderer: cfg.Renderer, palette: cfg.Palette}
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		pipeline.run(appCtx, func(raw *Frame) (*Frame, error) {
+			start := time.Now()
+			previous := preparer.last
+			frame, err := preparer.prepare(raw)
+			if cfg.ShowTimings && err == nil {
+				fmt.Fprintf(os.Stderr, "Frame prepare=%v capture_and_queue=%v reused=%t\n", time.Since(start), start.Sub(raw.Timestamp), frame == previous)
+			}
+			return frame, err
+		}, func(f *Frame, err error) {
+			if err != nil {
+				postUI(s, frameFailure{err})
+				return
+			}
+			if frames.Publish(f) {
+				_ = s.PostEvent(tcell.NewEventInterrupt(frameEvent{}))
+			}
+		})
+	}()
 	shutdownWg.Add(1)
 	go screenshotLoop(s)
 	return runMainLoop(s)
@@ -329,7 +349,7 @@ func initializeScreen() tcell.Screen {
 // finalizeScreen properly closes the tcell screen
 func finalizeScreen(s tcell.Screen) {
 	if cfg.Renderer == "kitty" {
-		fmt.Print(kittyDelete)
+		fmt.Fprint(graphicsOutput, kittyDelete)
 	}
 	s.Fini()
 	Debug("Screen finalized", DEBUG)
@@ -400,6 +420,7 @@ func connectToGRPCServer() error {
 	grpcConn, err = grpc.NewClient(
 		target,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxFrameBytes+1024)),
 	)
 	if err != nil {
 		Debug(fmt.Sprintf("gRPC connection failed: %v", err), ERROR)
@@ -447,35 +468,65 @@ func updateViewportSize() error {
 	return nil
 }
 
-// screenshotLoop handles the screenshot stream from the server
+type frameFailure struct{ err error }
+
+// Pull captures at the measured preparation/presentation rate. A unary request
+// bounds outstanding transport work; the pending preparation slot keeps newest.
 func screenshotLoop(s tcell.Screen) {
 	defer shutdownWg.Done()
-	format := ""
+	format := "jpeg"
 	if cfg.Renderer == "kitty" {
 		format = "png"
 	}
-	stream, err := grpcClient.StreamScreenshots(appCtx, &pb.ScreenshotRequest{Fps: 24, Format: format})
-	if err != nil {
-		postUI(s, stateUpdate{err: err})
-		return
-	}
-	for {
-		response, err := stream.Recv()
-		if err != nil {
-			if appCtx.Err() == nil {
-				postUI(s, stateUpdate{err: err})
+	for appCtx.Err() == nil {
+		start := time.Now()
+		if !pipeline.paused.Load() {
+			ctx, cancel := context.WithTimeout(appCtx, 10*time.Second)
+			response, err := grpcClient.CaptureScreenshot(ctx, &pb.ScreenshotRequest{Format: format})
+			cancel()
+			if err != nil {
+				if appCtx.Err() != nil {
+					return
+				}
+				if status.Code(err) == codes.Unavailable || status.Code(err) == codes.FailedPrecondition {
+					if !waitFrameDelay(appCtx, 50*time.Millisecond) {
+						return
+					}
+					continue
+				}
+				postUI(s, frameFailure{err})
+				if !waitFrameDelay(appCtx, time.Second) {
+					return
+				}
+				continue
 			}
+			if !pipeline.paused.Load() {
+				pipeline.offer(&Frame{Data: response.Data, Generation: response.Generation, Timestamp: start})
+			}
+		}
+		delay := max(time.Millisecond, pipeline.interval()-time.Since(start))
+		if pipeline.paused.Load() {
+			delay = 50 * time.Millisecond
+		}
+		if !waitFrameDelay(appCtx, delay) {
 			return
 		}
-		frames.Publish(&Frame{Data: response.Data, Generation: response.Generation, Timestamp: time.Now()})
-		// Dropping a wakeup is safe: the next frame or state poll also drains the slot.
-		_ = s.PostEvent(tcell.NewEventInterrupt(frameEvent{}))
+	}
+}
+func waitFrameDelay(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 
 func clearDrawingArea(s tcell.Screen) { fillRect(s, viewportRect(s.Size()), tcell.StyleDefault) }
 
-func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
+func displayFrame(s tcell.Screen, frame *Frame) error {
 	if frame == nil || viewportRect(s.Size()).Empty() {
 		clearDrawingArea(s)
 		return nil
@@ -495,25 +546,29 @@ func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
 		lastImageNumber++
 		lastSavedFrame = frame
 	}
-	dimensions, _, err := image.DecodeConfig(bytes.NewReader(frame.Data))
-	if err != nil {
-		return err
-	}
-	if dimensions.Width != sDims.InnerWidthPx || dimensions.Height != sDims.InnerHeightPx {
-		clearDrawingArea(s)
+	if frame.Width != sDims.InnerWidthPx || frame.Height != sDims.InnerHeightPx {
 		return nil
 	}
-	if cfg.Renderer == "kitty" {
+	switch cfg.Renderer {
+	case "kitty":
 		return displayWithKittyPNG(frame.Data)
+	case "tcell":
+		return displayWithTcell(s, frame.Image)
+	default:
+		return writeSixelFrame(graphicsOutput, frame.Sixel, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
-	img, _, err := image.Decode(bytes.NewReader(frame.Data))
-	if err != nil {
-		return err
-	}
-	imageBuffer = image.NewRGBA(img.Bounds())
-	draw.Draw(imageBuffer, img.Bounds(), img, img.Bounds().Min, draw.Src)
-	return displayImageBuffer(s)
 }
+func invalidateGraphics(s tcell.Screen) {
+	if cfg != nil && cfg.Renderer == "kitty" && displayedFrame != nil {
+		fmt.Fprint(graphicsOutput, kittyDelete)
+	}
+	displayedFrame = nil
+	// Sixel has no portable delete-image command. A real terminal clear is
+	// necessary; changing already-blank tcell cells need not emit an erase.
+	s.Clear()
+	s.Sync()
+}
+
 func redraw(s tcell.Screen) {
 	if f := frames.GetDisplayFrame(); f != nil {
 		latestFrame = f
@@ -524,17 +579,29 @@ func redraw(s tcell.Screen) {
 		}
 	}
 	overlay := keyboardHandler.hasOverlay() || currentDialog != nil
-	if cfg.Renderer != "tcell" && overlay != graphicsHidden {
-		if cfg.Renderer == "kitty" {
-			fmt.Print(kittyDelete)
-		}
-		s.Clear()
-		s.Sync()
+	pipeline.paused.Store(overlay || keyboardHandler.awaitingNavigation || keyboardHandler.state.Loading)
+	identity := overlayState{keyboardHandler.menu, keyboardHandler.help, keyboardHandler.quitConfirm, currentDialog}
+	if overlay != graphicsHidden || identity != lastOverlay {
+		invalidateGraphics(s)
 		graphicsHidden = overlay
+		lastOverlay = identity
 	}
-	if cfg.Renderer == "tcell" || !overlay {
-		if err := displayFrame(s, latestFrame, frames); err != nil {
+	valid := latestFrame != nil && latestFrame.Width == sDims.InnerWidthPx && latestFrame.Height == sDims.InnerHeightPx &&
+		(latestFrame.Generation == 0 || latestFrame.Generation >= keyboardHandler.state.Generation) && !viewportRect(s.Size()).Empty()
+	if !valid && displayedFrame != nil {
+		invalidateGraphics(s)
+	}
+	if valid && (!overlay || cfg.Renderer == "tcell") && latestFrame != displayedFrame {
+		start := time.Now()
+		if err := displayFrame(s, latestFrame); err != nil {
 			keyboardHandler.status = err.Error()
+			invalidateGraphics(s)
+		} else {
+			displayedFrame = latestFrame
+		}
+		pipeline.writeCost.Store(int64(time.Since(start)))
+		if cfg.ShowTimings {
+			fmt.Fprintf(os.Stderr, "Image write=%v frame_age=%v\n", time.Since(start), time.Since(latestFrame.Timestamp))
 		}
 	}
 	drawBorder(s)
@@ -561,6 +628,11 @@ func runMainLoop(s tcell.Screen) error {
 			switch value := ev.Data().(type) {
 			case quitEvent:
 				return nil
+			case frameFailure:
+				latestFrame = nil
+				frames.GetDisplayFrame()
+				invalidateGraphics(s)
+				keyboardHandler.status = value.err.Error()
 			case operationResult:
 				keyboardHandler.result(value)
 			case stateUpdate:
@@ -625,8 +697,7 @@ func ensureLayout(s tcell.Screen) {
 }
 
 func handleResize(s tcell.Screen) {
-	s.Clear()
-	s.Sync()
+	invalidateGraphics(s)
 	updateScreenDimensions(s)
 	latestFrame = nil
 	if keyboardHandler != nil {
@@ -845,11 +916,12 @@ func displayImageBuffer(s tcell.Screen) error {
 	case "tcell":
 		return displayWithTcell(s, scaledImage)
 	default: // "sixel"
-		// Use band-based optimization for websafe palette
-		if cfg.Palette == "websafe" {
-			return displayWithSixelBands(scaledImage)
+		preparer := &framePreparer{renderer: cfg.Renderer, palette: cfg.Palette}
+		data, err := preparer.encode(scaledImage)
+		if err != nil {
+			return err
 		}
-		return displayWithSixel(scaledImage)
+		return writeSixelFrame(graphicsOutput, data, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
 }
 
@@ -891,238 +963,6 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 	draw.ApproxBiLinear.Scale(scaledBuffer, scaledBuffer.Bounds(), src, src.Bounds(), draw.Over, nil)
 
 	return scaledBuffer
-}
-
-// displayWithSixelBands uses band-level caching for optimized sixel encoding
-func displayWithSixelBands(img *image.RGBA) error {
-	sixelStart := time.Now()
-
-	rgbaLock.Lock()
-	defer rgbaLock.Unlock()
-
-	bounds := img.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-
-	// Initialize or recreate if dimensions changed
-	if bandManager == nil || width != bandManager.Width || height != bandManager.Height {
-		bandManager = NewBandManager(width, height)
-		currentRGBA = image.NewRGBA(image.Rect(0, 0, width, height))
-		previousRGBA = image.NewRGBA(image.Rect(0, 0, width, height))
-		Debug(fmt.Sprintf("Initialized band manager and RGBA buffers (%dx%d)", width, height), INFO)
-	}
-
-	// Copy image data to current buffer (reuses the allocated buffer)
-	draw.Draw(currentRGBA, currentRGBA.Bounds(), img, image.Point{}, draw.Src)
-
-	// Detect dirty bands by comparing current frame with previous frame
-	// DetectDirtyBands compares the new frame against stored hashes
-	bandManager.DetectDirtyBands(currentRGBA)
-
-	dirtyCount := bandManager.GetDirtyBandCount()
-	if cfg.ShowTimings {
-		fmt.Fprintf(os.Stderr, "Dirty bands: %d/%d (%.1f%%)\n",
-			dirtyCount, bandManager.NumBands,
-			float64(dirtyCount)*100.0/float64(bandManager.NumBands))
-	}
-
-	// Only encode dirty bands and reuse cached bands
-	if dirtyCount > 0 {
-		encodeStart := time.Now()
-
-		// Determine palette type from config
-		var paletteType sixel.PaletteType
-		switch cfg.Palette {
-		case "websafe":
-			paletteType = sixel.PaletteWebSafe
-		case "plan9":
-			paletteType = sixel.PalettePlan9
-		default:
-			paletteType = sixel.PaletteAdaptive
-		}
-
-		// Create a band encoder
-		bandEncoder := NewBandEncoder(paletteType, bandManager.Width, bandManager.NumBands*6)
-
-		// Process each band
-		bandStrings := make([]string, bandManager.NumBands)
-		for i := range bandManager.Bands {
-			band := &bandManager.Bands[i]
-
-			if band.IsDirty {
-				// Encode this dirty band
-				encodedBand, err := bandEncoder.EncodeBand(currentRGBA, band.Y, band.Height)
-				if err != nil {
-					return err
-				}
-
-				// Cache the encoded string
-				band.CachedRLE = encodedBand
-				band.IsDirty = false
-				// Update the hash for this band
-				band.Hash = HashBand(currentRGBA, band.Y, band.Height, bandManager.Width)
-			}
-
-			// Use the cached string (either newly encoded or previously cached)
-			bandStrings[i] = band.CachedRLE
-		}
-
-		// Compose the full sixel output from all bands
-		var pal color.Palette
-		switch paletteType {
-		case sixel.PaletteWebSafe:
-			pal = palette.WebSafe
-		case sixel.PalettePlan9:
-			pal = palette.Plan9
-		default:
-			pal = nil
-		}
-
-		fullSixel := ComposeFullSixel(bandStrings, bandManager.Width, bandManager.NumBands*6, pal)
-
-		// Position cursor at the top-left of the usable area (after borders)
-		fmt.Printf("\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
-
-		// Save cursor position before sixel output
-		fmt.Print("\033[s")
-
-		// Write the composed sixel to stdout
-		if _, err := os.Stdout.WriteString(fullSixel); err != nil {
-			return err
-		}
-
-		// Restore cursor position after sixel output
-		fmt.Print("\033[u")
-
-		if cfg.ShowTimings {
-			fmt.Fprintf(os.Stderr, "  Band encode time: %v (encoded %d dirty bands)\n",
-				time.Since(encodeStart), dirtyCount)
-		}
-	} else {
-		// No dirty bands - recompose from all cached bands
-		bandStrings := make([]string, bandManager.NumBands)
-		for i := range bandManager.Bands {
-			bandStrings[i] = bandManager.Bands[i].CachedRLE
-		}
-
-		// Determine palette type from config (same as above)
-		var pal color.Palette
-		switch cfg.Palette {
-		case "websafe":
-			pal = palette.WebSafe
-		case "plan9":
-			pal = palette.Plan9
-		default:
-			pal = nil
-		}
-
-		fullSixel := ComposeFullSixel(bandStrings, bandManager.Width, bandManager.NumBands*6, pal)
-
-		// Position cursor at the top-left of the usable area (after borders)
-		fmt.Printf("\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
-
-		// Save cursor position before sixel output
-		fmt.Print("\033[s")
-
-		// Write the composed sixel to stdout
-		if _, err := os.Stdout.WriteString(fullSixel); err != nil {
-			return err
-		}
-
-		// Restore cursor position after sixel output
-		fmt.Print("\033[u")
-
-		if cfg.ShowTimings {
-			fmt.Fprintf(os.Stderr, "  No encoding needed - all bands clean!\n")
-		}
-	}
-
-	// Swap buffers for next frame (pointer swap, no copy)
-	currentRGBA, previousRGBA = previousRGBA, currentRGBA
-
-	Debug(fmt.Sprintf("Band-based display took %v total", time.Since(sixelStart)), INFO)
-	return nil
-}
-
-// displayWithSixel uses the Go sixel library
-func displayWithSixel(img *image.RGBA) error {
-	sixelStart := time.Now()
-
-	buf := bufio.NewWriter(os.Stdout)
-	defer buf.Flush() // Ensures all data is written before function returns
-
-	bounds := img.Bounds()
-	if bounds.Dx() > sDims.InnerWidthPx || bounds.Dy() > sDims.InnerHeightPx {
-		Debug(fmt.Sprintf("Image dimensions %dx%d exceed available space %dx%d",
-			bounds.Dx(), bounds.Dy(),
-			sDims.InnerWidthPx, sDims.InnerHeightPx), WARN)
-	}
-
-	// Position cursor at the top-left of the usable area (after borders)
-	// Add 1 to border width because terminal coordinates are 1-based
-	fmt.Printf("\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
-
-	// Save cursor position before sixel output
-	fmt.Print("\033[s")
-
-	// Initialize encoder once on first use
-	sixelEncoderMutex.Lock()
-	if sixelEncoder == nil {
-		sixelEncoder = sixel.NewEncoder(os.Stdout)
-		sixelEncoder.Dither = false // Disable dithering for speed
-
-		// Set palette based on config
-		switch cfg.Palette {
-		case "websafe":
-			sixelEncoder.Palette = sixel.PaletteWebSafe
-		case "plan9":
-			sixelEncoder.Palette = sixel.PalettePlan9
-		default: // "adaptive"
-			sixelEncoder.Palette = sixel.PaletteAdaptive
-		}
-
-		// TODO: When adding support for other protocols (Kitty, iTerm2, etc),
-		// adjust color depth based on protocol capabilities:
-		// - Sixel: 256 colors max
-		// - Kitty: 24-bit true color support
-		// - iTerm2: 24-bit true color support
-		Debug("Created sixel encoder (one-time initialization)", INFO)
-	}
-
-	// Update dimensions for this frame
-	sixelEncoder.Width = img.Bounds().Dx()
-	sixelEncoder.Height = img.Bounds().Dy()
-	sixelEncoderMutex.Unlock()
-
-	// Encode the image
-	encodeStart := time.Now()
-	if err := sixelEncoder.Encode(img); err != nil {
-		Debug(fmt.Sprintf("Sixel encoding error: %v", err), ERROR)
-		return fmt.Errorf("sixel encoding error: %v", err)
-	}
-
-	if cfg.ShowTimings {
-		// Get cache stats if using fixed palette
-		hits, misses, hitRate := sixelEncoder.GetCacheStats()
-		if hits > 0 || misses > 0 {
-			fmt.Fprintf(os.Stderr, "Cache stats: hits=%d misses=%d (%.1f%% hit rate)\n",
-				hits, misses, hitRate)
-		}
-
-		fmt.Fprintf(os.Stderr, "  Sixel encode time: %v (rendered size: %dx%d pixels)\n",
-			time.Since(encodeStart), img.Bounds().Dx(), img.Bounds().Dy())
-		os.Stderr.Sync() // Force flush stderr
-	}
-
-	// Restore cursor position
-	fmt.Print("\033[u")
-
-	Debug(fmt.Sprintf("Displayed sixel image at (%d,%d) with size %dx%d (took %v)",
-		H_BORDER_WIDTH, V_BORDER_WIDTH,
-		img.Bounds().Dx(), img.Bounds().Dy(),
-		time.Since(sixelStart)), DEBUG)
-
-	return nil
 }
 
 // Displays log messages in the bottom panel with navy background

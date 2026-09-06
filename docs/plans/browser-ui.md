@@ -8,6 +8,8 @@ Implement Vimium-style keyboard navigation natively in Termium, retaining famili
 
 The [user-facing preview](../vimium.md) describes the intended experience. The first UI release has a fixed command scope and input contract below. Visual styling and exact control dimensions remain for the UI review.
 
+The [graphics audit](rendering-audit.md) identifies prerequisite terminal-input and rendering fixes, including Kitty error replies being interpreted as keys. It also records the help/menu direction: polished local panels, keyboard and mouse access, and permission to adopt useful Charm dependencies while retaining one owner for terminal output.
+
 ## Implementation approach
 
 Implement a native command layer shared by keyboard shortcuts, toolbar buttons, and menu actions. A Back button and its keyboard binding invoke the same command and observe the same browser state.

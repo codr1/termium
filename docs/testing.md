@@ -16,6 +16,8 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | --- | --- |
 | Build and static checks | Both languages compile against freshly generated protobuf bindings; Go vet and installer shell syntax checks pass. |
 | Client unit tests | Flags, server discovery/listeners, Kitty encoding, simulated tcell viewport colors/clipping, Unicode editing, mouse capture, modal routing, ordered input, and concurrent frame ownership. |
+| Graphics regression tests | Palette pixel round-trips, exact Sixel dimensions, output errors, unchanged-frame reuse, overlay restoration, stale-image deletion, bounded pending work, and capture pacing. |
+| Server flow-control tests | Slow captures stay exclusive, writable backpressure pauses production, and cancellation prevents late writes. |
 | Executable tests | The built binary exits with the expected status and diagnostic for help, version, unknown flags, and invalid renderers. |
 | Browser integration | Real gRPC calls produce redirects, Unicode form input, special keys, mouse clicks, and recoverable navigation failures. |
 | Navigation and input | History/redirect state, reload, stopping a stalled navigation and recovering, literal paste, modifiers, held-button dragging, right-click, wheel input, and rejection of stale-document input. |
@@ -31,6 +33,12 @@ The browser tests use a local HTTP fixture and verify effects independently of t
 ```bash
 # Unit tests, after generating protobuf bindings:
 npm run test:go
+
+# Server flow-control tests, after rebuilding the server:
+npm run test:server
+
+# Repeatable preparation microbenchmarks (exclude terminal I/O):
+go test ./client -run '^$' -bench 'Benchmark(Websafe|Unchanged)Preparation' -benchmem
 
 # Browser and executable tests, after rebuilding changed code:
 npm run test:integration
@@ -52,7 +60,7 @@ Configure the three test jobs as required checks in the repository's branch rule
 
 ## What a green run does not prove
 
-The suite exercises the interactive client through a pseudo-terminal and checks tcell cells in a simulation. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. Native Vimium hints, find, and tab commands need additional behavioral coverage when implemented.
+The suite exercises the interactive client through a pseudo-terminal, reads its current screen through vt10x, and checks tcell cells in a simulation. Historical ANSI output is retained for failure diagnostics but does not establish UI readiness. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. Native Vimium hints, find, and tab commands need additional behavioral coverage when implemented.
 
 One-command installation also needs its own release acceptance suite: install an actual artifact in a clean environment with no Go, Node, or `protoc`; launch and browse a local fixture; then test update and uninstall. Current build and shell syntax checks do **not** validate that deployment path. Track that work against the [installation plan](plans/one-command-install.md).
 

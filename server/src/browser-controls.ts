@@ -1,5 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
-import { Page, CDPSession, KeyInput, Target } from 'puppeteer';
+import { Page, CDPSession, KeyInput, Target, Frame } from 'puppeteer';
 import { BrowserState, InputEvent, InputKind, NavigationAction, NavigationRequest } from '../generated/bc';
 
 function fail(code: grpc.status, message: string): never {
@@ -61,7 +61,7 @@ export class BrowserControls {
 
     async setViewport(width: number, height: number) {
         await this.ensurePage();
-        if (width < 1 || height < 1 || width > 16384 || height > 16384) fail(grpc.status.INVALID_ARGUMENT, 'Invalid viewport size');
+        if (width < 1 || height < 1 || width > 16384 || height > 16384 || width * height > 16 * 1024 * 1024) fail(grpc.status.INVALID_ARGUMENT, 'Invalid viewport size');
         this.viewport = { width, height };
         await this.applyViewport(await this.session());
     }
@@ -69,6 +69,36 @@ export class BrowserControls {
     async prepareCapture() {
         await this.ensurePage();
         await this.session(); // Reapply desktop dimensions after a target swap.
+    }
+
+    async capture(format: 'png' | 'jpeg'): Promise<Buffer> {
+        const page = await this.ensurePage();
+        if (this.loading) fail(grpc.status.UNAVAILABLE, 'Page is loading');
+        const generation = this.generation;
+        // A navigation can strand a capture waiting for the old compositor.
+        // Give capture its own session: detaching aborts its pending CDP call
+        // without interrupting the input/history session or leaving a live RPC
+        // behind a timer race. The viewport queue waits for that rejection.
+        const session = await page.target().createCDPSession();
+        const abort = () => { void session.detach().catch(() => {}); };
+        const navigated = (frame: Frame) => { if (frame === page.mainFrame()) abort(); };
+        page.on('framenavigated', navigated);
+        const timer = setTimeout(abort, 3000);
+        try {
+            if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
+            const result = await session.send('Page.captureScreenshot', {
+                format, ...(format === 'jpeg' ? { quality: 60 } : {}),
+                captureBeyondViewport: false, fromSurface: true,
+            });
+            return Buffer.from(result.data, 'base64');
+        } catch (error) {
+            if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
+            throw error;
+        } finally {
+            clearTimeout(timer);
+            page.off('framenavigated', navigated);
+            await session.detach().catch(() => {});
+        }
     }
 
     private async history() {

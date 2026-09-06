@@ -14,6 +14,8 @@ service BrowserControl {
   rpc GetBrowserState (Empty) returns (BrowserState) {}
   rpc BrowserCommand (NavigationRequest) returns (BrowserState) {}
   rpc SendInput (InputEvent) returns (Message) {}
+  // Paced clients request only as much capture work as they can present.
+  rpc CaptureScreenshot (ScreenshotRequest) returns (Screenshot) {}
   // Streaming RPC for continuous screenshots
   rpc StreamScreenshots (ScreenshotRequest) returns (stream Screenshot) {}
   // Bidirectional streaming for dialog handling

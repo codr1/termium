@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/creack/pty"
+	"github.com/hinshun/vt10x"
 	pb "termium/client/pb"
 )
 
@@ -31,7 +32,7 @@ func TestTerminalBrowser(t *testing.T) {
 	requireOK(t, err)
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
-	var output lockedBuffer
+	output := lockedBuffer{screen: vt10x.New(vt10x.WithSize(80, 24))}
 	drained := make(chan struct{})
 	go func() { _, _ = io.Copy(&output, terminal); close(drained) }()
 	exited := false
@@ -47,13 +48,12 @@ func TestTerminalBrowser(t *testing.T) {
 		}
 	})
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/" && !s.Loading })
-	waitDisplay := func(text string) {
+	waitDisplay := func(text, address string) {
 		t.Helper()
-		output.Reset()
 		tick := time.NewTicker(20 * time.Millisecond)
 		defer tick.Stop()
 		deadline := time.After(5 * time.Second)
-		for !strings.Contains(output.String(), text) {
+		for !output.visible(text, address) {
 			select {
 			case <-tick.C:
 			case <-deadline:
@@ -61,7 +61,7 @@ func TestTerminalBrowser(t *testing.T) {
 			}
 		}
 	}
-	waitDisplay("Ready")
+	waitDisplay("Ready", url+"/")
 	write := func(text string) { t.Helper(); _, err := io.WriteString(terminal, text); requireOK(t, err) }
 	// A page input at CSS (28,24) is terminal cell (5,4), including toolbar.
 	write("\x1b[<0;5;4M\x1b[<0;5;4m")
@@ -69,15 +69,19 @@ func TestTerminalBrowser(t *testing.T) {
 	write("\x1b[D\x7f\r")
 	expectEvent(t, events, "café 世界ac")
 	// Unicode address editing and an actual browser history transition.
+	output.Reset()
 	write("\x0c" + url + "/second\r")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/second" && !s.Loading })
-	waitDisplay("Ready")
+	waitDisplay("Ready", url+"/second")
 	// Click the toolbar Back button, then edit the original form again.
+	output.Reset()
 	write("\x1b[<0;3;1M\x1b[<0;3;1m")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/" && !s.Loading })
-	waitDisplay("Ready")
+	waitDisplay("Ready", url+"/")
+	output.Reset()
 	write("\x1b[<0;5;12M\x1b[<0;5;12m")
-	waitDisplay("Prompt")
+	waitDisplay("Prompt", "")
+	output.resize(100, 30)
 	requireOK(t, pty.Setsize(terminal, &pty.Winsize{Rows: 30, Cols: 100}))
 	write("\x1b[200~Zoë 世界\x1b[201~\r")
 	expectEvent(t, events, "Zoë 世界")
@@ -111,8 +115,9 @@ func TestTerminalBrowser(t *testing.T) {
 }
 
 type lockedBuffer struct {
-	mu   sync.Mutex
-	data bytes.Buffer
+	screen vt10x.Terminal
+	mu     sync.Mutex
+	data   bytes.Buffer
 }
 
 func (b *lockedBuffer) Write(p []byte) (int, error) {
@@ -121,8 +126,23 @@ func (b *lockedBuffer) Write(p []byte) (int, error) {
 	if b.data.Len() > 256*1024 {
 		b.data.Reset()
 	}
+	if b.screen != nil {
+		if _, err := b.screen.Write(p); err != nil {
+			return 0, err
+		}
+	}
 	return b.data.Write(p)
 }
 func (b *lockedBuffer) String() string { b.mu.Lock(); defer b.mu.Unlock(); return b.data.String() }
 
 func (b *lockedBuffer) Reset() { b.mu.Lock(); defer b.mu.Unlock(); b.data.Reset() }
+
+// Assert the current emulated screen, never a historical ANSI substring. The
+// address and Ready status must belong to the same completed UI projection.
+func (b *lockedBuffer) visible(text, address string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	value := b.screen.String()
+	return strings.Contains(value, text) && (address == "" || strings.Contains(value, address+" "))
+}
+func (b *lockedBuffer) resize(w, h int) { b.mu.Lock(); defer b.mu.Unlock(); b.screen.Resize(w, h) }

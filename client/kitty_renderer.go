@@ -19,9 +19,9 @@ const (
 	// Escape sequence fragments — avoid repeated string building
 	kittyAPC    = "\033_G"
 	kittyST     = "\033\\"
-	kittyMore   = "\033_Gm=1;"
-	kittyFinal  = "\033_Gm=0;"
-	kittyDelete = "\033_Ga=d,d=I,i=1,q=1\033\\"
+	kittyMore   = "\033_Gm=1,q=2;"
+	kittyFinal  = "\033_Gm=0,q=2;"
+	kittyDelete = "\033_Ga=d,d=I,i=1,q=2\033\\"
 )
 
 // kittyStats tracks performance metrics for the Kitty renderer
@@ -72,7 +72,7 @@ func displayWithKittyPNG(pngData []byte) error {
 
 	// Write chunked Kitty escape sequences through buffered writer
 	writeStart := time.Now()
-	if err := writeKittyChunked(kittyB64Buf, "f=100,a=T,i=1,p=1,C=1,q=1"); err != nil {
+	if err := writeKittyChunked(kittyB64Buf, "f=100,a=T,i=1,p=1,C=1,q=2"); err != nil {
 		return fmt.Errorf("kitty write error: %v", err)
 	}
 

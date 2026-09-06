@@ -23,6 +23,11 @@ archives:
       - termium
     name_template: "termium-client-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
     format: tar.gz
+    files:
+      - LICENSE*
+      - README*
+      - third_party/go-sixel/LICENSE
+      - third_party/go-sixel/TERMIUM.md
 
 checksum:
   name_template: "checksums.txt"

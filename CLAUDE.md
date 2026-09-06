@@ -73,4 +73,4 @@ If these commands don't exist, ask the user for the correct commands and update 
 - Kitty renderer uses PNG passthrough (no decode/encode on client)
 - Client auto-launches server if not already running (searches for server.js relative to binary, then ~/.termium/server/)
 - `TERMIUM_SERVER` env var overrides server auto-discovery path
-- go-sixel dependency is a fork at github.com/codr1/go-sixel (referenced via replace directive in go.mod)
+- go-sixel is a patched local module in third_party/go-sixel; read its TERMIUM.md before updating it. The root go.mod replace directive selects this copy.

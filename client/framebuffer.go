@@ -1,6 +1,7 @@
 package main
 
 import (
+	"image"
 	"sync"
 	"time"
 )
@@ -10,6 +11,8 @@ type Frame struct {
 	Generation    uint64
 	Width, Height int
 	Timestamp     time.Time
+	Image         *image.RGBA
+	Sixel         []byte
 }
 
 // Published frames are immutable. Replacing the pending slot drops obsolete
@@ -21,14 +24,16 @@ type FrameBuffer struct {
 }
 
 func NewFrameBuffer() *FrameBuffer { return &FrameBuffer{} }
-func (fb *FrameBuffer) Publish(frame *Frame) {
+func (fb *FrameBuffer) Publish(frame *Frame) bool {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
+	wake := fb.pending == nil
 	if fb.pending != nil {
 		fb.dropped++
 	}
 	fb.pending = frame
 	fb.received++
+	return wake
 }
 func (fb *FrameBuffer) GetDisplayFrame() *Frame {
 	fb.mu.Lock()

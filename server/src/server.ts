@@ -31,7 +31,7 @@ async function ensurePage(): Promise<puppeteer.Page> {
             const created = await browser!.newPage();
             page = created;
             setupDialogHandler(created);
-            controls.attach(created);
+            await controls.attach(created);
             return created;
         })().finally(() => { pageCreation = null; });
     }
@@ -155,7 +155,7 @@ async function launchBrowser() {
     if (options.browser) {
         // Connect to an existing browser instance using DevTools protocol
         logDebug('Connecting to existing browser instance at', options.browser);
-        browser = await puppeteer.connect({ browserWSEndpoint: `ws://${options.browser}` });
+        browser = await puppeteer.connect({ browserWSEndpoint: `ws://${options.browser}`, defaultViewport:null });
     } else {
         // Launch a new headless browser if no browser address is provided
         logDebug('Launching a new headless browser');
@@ -164,13 +164,13 @@ async function launchBrowser() {
             handleSIGTERM: false,
             signal: browserAbort.signal,
             headless: true,
+            // We apply desktop metrics to the active target directly. Puppeteer's
+            // viewport helper also changes touch emulation and can hang after a
+            // modal on macOS. It must not maintain competing emulation state.
+            defaultViewport:null,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
-                // macOS Chrome can leave viewport emulation waiting on a frozen
-                // history target after Back. Keep history navigation, but avoid
-                // frozen-page reuse until the native resize tests pass with it.
-                ...(process.platform === 'darwin' ? ['--disable-features=BackForwardCache'] : []),
                 '--disable-blink-features=AutomationControlled',  // Hide automation
                 '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             ]
@@ -205,7 +205,7 @@ const browserControlHandlers: BrowserControlServer = {
         try {
             if (!page) throw new Error('No active page');
             const { width, height } = call.request;
-            await withViewport(() => page!.setViewport({ width, height, deviceScaleFactor: 1 }));
+            await withViewport(() => controls.setViewport(width,height));
  logDebug(`Viewport set to ${width}x${height}`);
             callback(null, { text: 'Viewport set' });
         } catch (error) {
@@ -364,7 +364,8 @@ const browserControlHandlers: BrowserControlServer = {
                 // overlapping work. Browser shutdown aborts an outstanding CDP call.
                 const screenshot = await withViewport(async () => {
                     if (isCancelled) return new Uint8Array();
-                    return page!.screenshot(screenshotOptions);
+                    await controls.prepareCapture();
+ return page!.screenshot(screenshotOptions);
                 });
                 isScreenshotInProgress = false;
                 const elapsed = Date.now() - startTime;

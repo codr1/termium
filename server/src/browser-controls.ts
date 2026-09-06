@@ -19,10 +19,11 @@ export class BrowserControls {
     private loading = false;
     private error = '';
     private navigation = 0;
+    private viewport = { width: 800, height: 600 };
 
     constructor(private readonly ensurePage: () => Promise<Page>) { }
 
-    attach(page: Page) {
+    async attach(page: Page) {
         this.page = page;
         this.target = undefined;
         this.generation++;
@@ -34,6 +35,7 @@ export class BrowserControls {
         });
         page.on('load', () => { this.loading = false; });
         page.on('requestfailed', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) this.loading = false; });
+        await this.session();
     }
 
     private session(): Promise<CDPSession> {
@@ -44,9 +46,29 @@ export class BrowserControls {
             if (this.cdp) void this.cdp.then(session => session.detach()).catch(() => { });
             this.target = target;
             this.cdp = target.createCDPSession();
+            const apply = this.cdp.then(async session => { await this.applyViewport(session); return session; });
+            this.cdp = apply;
             void this.cdp.catch(() => { this.target = undefined; });
         }
         return this.cdp;
+    }
+
+    private async applyViewport(session: CDPSession) {
+        await session.send('Emulation.setDeviceMetricsOverride', {
+            ...this.viewport, deviceScaleFactor: 1, mobile: false,
+        });
+    }
+
+    async setViewport(width: number, height: number) {
+        await this.ensurePage();
+        if (width < 1 || height < 1 || width > 16384 || height > 16384) fail(grpc.status.INVALID_ARGUMENT, 'Invalid viewport size');
+        this.viewport = { width, height };
+        await this.applyViewport(await this.session());
+    }
+
+    async prepareCapture() {
+        await this.ensurePage();
+        await this.session(); // Reapply desktop dimensions after a target swap.
     }
 
     private async history() {
@@ -166,7 +188,7 @@ export class BrowserControls {
                 }
                 case InputKind.POINTER_INPUT:
                 case InputKind.WHEEL_INPUT: {
-                    const viewport = page.viewport();
+                    const viewport = this.viewport;
                     if (!viewport || event.x < 0 || event.y < 0 || event.x >= viewport.width || event.y >= viewport.height || event.buttons > 7) {
                         fail(grpc.status.INVALID_ARGUMENT, 'Pointer is outside the viewport');
                     }

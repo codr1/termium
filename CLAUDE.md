@@ -37,6 +37,10 @@ To run the server manually (optional):
 npm run start:server
 ```
 
+## Automated Tests
+
+Run `npm test` for a fresh build, static checks, Go race tests, and real Chromium integration tests. Use `npm run test:go` for client unit tests or `npm run test:integration` after rebuilding for browser and executable tests. See [docs/testing.md](docs/testing.md) for prerequisites and coverage boundaries.
+
 ## Testing Performance
 
 When testing with profiling and timings:

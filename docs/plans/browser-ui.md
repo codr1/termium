@@ -1,6 +1,6 @@
 # Browser UI and Vimium-style navigation plan
 
-Status: next phase after the one-command installation work. This document proposes the UI; no UI or Vimium implementation is included in the documentation change.
+Status: navigation foundation implemented in the development branch: top toolbar, real history and Reload/Stop, Unicode local editors, ordered browser input, mouse capture/wheel/modifiers, explicit F6 keyboard pointer, and single-owner terminal rendering. The complete Vimium command matrix and release acceptance below remain outstanding.
 
 ## Goal
 
@@ -77,7 +77,7 @@ If a helper is absent or fails, suspend page shortcuts and show a client-owned r
 
 Regression fixtures must delay/drop focus notifications while dispatching click → `j`, Tab → `f`, and script autofocus → `gg`. The exact text must reach the field, with no navigation command executed. Also test focus changes inside frames, navigation between queued inputs, duplicate sequence numbers, reconnects, composition, and paste.
 
-Current conflicts include arrow keys moving a local cursor, most Ctrl combinations being discarded, Escape opening exit confirmation, and dialog handling bypassing the purported global triple-Escape shortcut. Individual keystrokes are currently sent by independent goroutines; ordering must be addressed before relying on multi-key commands.
+The navigation foundation resolves the previous arrow-key interception, lost modifiers, Escape-to-quit conflict, dialog interception of emergency exit, and independent input goroutines. The present default passes keys to the page. A future helper must implement the mode contract above before enabling ordinary printable Vimium shortcuts.
 
 ## Navigation controls
 

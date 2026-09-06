@@ -47,8 +47,8 @@ check_prereqs() {
 
     local node_version
     node_version=$(node -v | sed 's/v//' | cut -d. -f1)
-    if [ "$node_version" -lt 18 ]; then
-        die "Node.js 18+ required, found $(node -v)"
+    if [ "$node_version" -lt 24 ]; then
+        die "Node.js 24+ required, found $(node -v)"
     fi
 
     if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
@@ -185,8 +185,8 @@ main() {
     rm -f "$tmp_checksums"
     info "Server installed to ${SERVER_DIR}"
 
-    # First run will trigger Puppeteer's Chromium download.
-    warn "Note: First run will download Chromium (~300MB). This is a one-time download."
+    # Launching Puppeteer does not install a missing browser.
+    warn "Browser provisioning is not implemented by this installer. See https://github.com/codr1/termium/blob/main/docs/installation.md"
 
     # Check if BIN_DIR is in PATH
     echo

@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/color/palette"
 	"image/jpeg"
+	_ "image/png"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -21,6 +22,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-sixel"
 	"golang.org/x/image/draw"
+	"golang.org/x/sys/unix"
 	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,17 +38,16 @@ var (
 
 // Screen geometry
 const (
-	LOG_PANEL_HEIGHT   = 5 // height
-	H_BORDER_WIDTH     = 1 // width in chars of all Horizontal borders
-	V_BORDER_WIDTH     = 1 // width in chars of all vertical borders
-	INTER_PANEL_BORDER = 1 // width in chars of the border between the panels
+	H_BORDER_WIDTH = 1 // width in chars of all Horizontal borders
+	V_BORDER_WIDTH = 1 // width in chars of all vertical borders
 )
 
 // ScreenDimensions holds the current screen dimensions and panel calculations
 type ScreenDimensions struct {
+	ViewTop         int
 	Width           int // Total screen width
 	Height          int // Total screen height
-	LogHeight       int // Height of the log panel (constant: 5)
+	LogHeight       int // Height of the status row
 	LogPanelTop     int // Y coordinate where log panel starts
 	ViewHeight      int // Height of the browser panel
 	InnerWidth      int // Width minus borders
@@ -71,28 +72,7 @@ type LogBuffer struct {
 
 var logBuffer LogBuffer
 
-type Cursor struct {
-	x, y      int
-	visible   bool
-	blinkOn   bool
-	lastBlink time.Time
-}
-
-type MouseInfo struct {
-	PixelX, PixelY int
-	CharX, CharY   int
-}
-
-var currentMouse MouseInfo
-
-var cursor Cursor
-
-// Gets
-var firstDraw bool = true
-
 var imageBuffer *image.RGBA
-
-var imageBounds image.Rectangle
 
 // GRPC Client
 var grpcClient pb.BrowserControlClient
@@ -125,14 +105,13 @@ var bandManager *BandManager
 
 // Pre-allocated RGBA buffers for zero-allocation frame comparison
 var (
-    currentRGBA  *image.RGBA
-    previousRGBA *image.RGBA
-    scaledBuffer *image.RGBA  // Reusable buffer for scaled images
-    rgbaLock     sync.Mutex
+	currentRGBA  *image.RGBA
+	previousRGBA *image.RGBA
+	scaledBuffer *image.RGBA // Reusable buffer for scaled images
+	rgbaLock     sync.Mutex
 )
 
 // Channel to signal screenshot loop to stop
-var stopScreenshots = make(chan bool, 1)
 
 // Wait group to ensure clean shutdown
 var shutdownWg sync.WaitGroup
@@ -149,6 +128,14 @@ const (
 )
 
 var cfg *Config
+var appCtx, appCancel = context.WithCancel(context.Background())
+var latestFrame *Frame
+var lastSavedFrame *Frame
+var frames = NewFrameBuffer()
+var graphicsHidden bool
+
+type quitEvent struct{}
+type frameEvent struct{}
 
 // Write implements the io.Writer interface for LogBuffer
 func (lb *LogBuffer) Write(p []byte) (n int, err error) {
@@ -201,55 +188,12 @@ func displayErrorMessage(s tcell.Screen, message string) {
 	s.Show()
 }
 
-func blinkCursor(s tcell.Screen) {
-	now := time.Now()
-	if now.Sub(cursor.lastBlink) >= 500*time.Millisecond {
-		cursor.blinkOn = !cursor.blinkOn
-		cursor.lastBlink = now
-		redrawImageArea(s, cursor.x, cursor.y)
-		s.Show() // Make sure to show the changes
-	}
-}
-
-// redrawImageArea redraws a specific area of the image, including the cursor if present
-func redrawImageArea(s tcell.Screen, x, y int) {
-	if imageBuffer == nil {
-		return
-	}
-
-	pixelX := x * charSize.Width
-	pixelY := y * charSize.Height
-
-	for dy := 0; dy < charSize.Height; dy++ {
-		for dx := 0; dx < charSize.Width; dx++ {
-			if pixelX+dx < imageBounds.Max.X && pixelY+dy < imageBounds.Max.Y {
-				c := imageBuffer.At(pixelX+dx, pixelY+dy)
-				r, g, b, _ := c.RGBA()
-				style := tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
-				s.SetContent(x, y, ' ', nil, style)
-			}
-		}
-	}
-
-	if x == cursor.x && y == cursor.y && cursor.visible {
-		style := tcell.StyleDefault.Background(tcell.ColorWhite)
-		if !cursor.blinkOn {
-			// Use the image color when the cursor is not visible
-			c := imageBuffer.At(pixelX, pixelY)
-			r, g, b, _ := c.RGBA()
-			style = tcell.StyleDefault.Background(tcell.NewRGBColor(int32(r>>8), int32(g>>8), int32(b>>8)))
-		}
-		s.SetContent(x, y, ' ', nil, style)
-	}
-}
-
-// main is the entry point of the application
 func main() {
 	// Parse command line flags
 	var err error
 	cfg, err = parseFlags()
 	if err != nil {
-		Debug(fmt.Sprintf("Failed to parse flags: %v", err), ERROR)
+		fmt.Fprintf(os.Stderr, "Failed to parse flags: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -302,111 +246,63 @@ func main() {
 		Debug("Debug mode enabled", DEBUG)
 	}
 
+	if err := runInteractive(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+func runInteractive() error {
 	detectTerminalAndCalibrate()
 	s := initializeScreen()
-
-	initializeCursor()
-
-	// Show splash screen and wait for user input (unless NONE)
-	if cfg.SplashPath != "NONE" {
-		Debug(fmt.Sprintf("Loading splash screen from: %s", cfg.SplashPath), DEBUG)
+	defer cleanShutdown(s)
+	setupSignalHandling(s)
+	if cfg.SplashPath != "NONE" && cfg.SplashPath != "" {
 		if err := showSplashScreen(s, cfg.SplashPath); err != nil {
-			Debug(fmt.Sprintf("Error showing splash screen: %v", err), ERROR)
-			displayErrorMessage(s, fmt.Sprintf("Error showing splash screen: %v", err))
-			return
+			return err
 		}
 	}
-
-	// Display usage instructions after splash screen
-	displayInstructions(s)
-
-	Debug("Setting up signal handlers", DEBUG)
-	setupSignalHandling(s)
-
-	// Auto-launch server if not already running
 	if err := startServer(); err != nil {
-		Debug(fmt.Sprintf("Failed to auto-launch server: %v", err), ERROR)
-		displayErrorMessage(s, fmt.Sprintf("Server not available: %v", err))
-		// Continue anyway — user may start server manually
+		return err
 	}
-
-	// Connect to gRPC server
 	if err := connectToGRPCServer(); err != nil {
-		Debug(fmt.Sprintf("Failed to connect to server: %v", err), ERROR)
+		return err
 	}
-	defer grpcConn.Close()
-	
-	// Initialize keyboard handler with the gRPC client
-	keyboardHandler = NewKeyboardHandler(grpcClient)
-	
 	if err := openNewTab(); err != nil {
-		Debug(fmt.Sprintf("Failed to open new tab: %v", err), ERROR)
+		return err
 	}
-
-	// Open home page.  For now I have it hardcoded to caffenero.com
-	if _, err := grpcClient.NavigateToUrl(
-		context.Background(),
-		//&pb.Url{Url: "https://www.caffenero.com"},
-		&pb.Url{Url: "https://kleki.com/"},
-	); err != nil {
-		Debug(fmt.Sprintf("Failed to navigate to homepage: %v", err), ERROR)
+	keyboardHandler = NewKeyboardHandler(grpcClient)
+	dialogScreen = s
+	if err := startDialogStream(grpcClient); err != nil {
+		return err
 	}
-	Debug("Successfully opened homepage", INFO)
-
-	// Start the screenshot goroutine
+	keyboardHandler.start(appCtx, s)
+	if cfg.InitialURL != "" && cfg.InitialURL != "about:blank" {
+		address, err := normalizeAddress(cfg.InitialURL)
+		if err != nil {
+			return err
+		}
+		keyboardHandler.navigate(pb.NavigationAction_NAVIGATE, address)
+	}
 	shutdownWg.Add(1)
 	go screenshotLoop(s)
-
-	if err := runMainLoop(s); err != nil {
-		displayErrorMessage(s, fmt.Sprintf("Error in main loop: %v", err))
-	}
-	
-	// Perform clean shutdown
-	cleanShutdown(s)
+	return runMainLoop(s)
 }
 
 // Draws teal borders around both panels and sets the bottom panel background to navy
 func drawBorder(s tcell.Screen) {
-	borderStyle := tcell.StyleDefault.Foreground(tcell.ColorTeal)
-	navyStyle := tcell.StyleDefault.Background(tcell.ColorNavy)
-
-	// Draw outer frame
-	for x := 0; x < sDims.Width; x++ {
-		s.SetContent(x, 0, '─', nil, borderStyle)                           // Top edge
-		s.SetContent(x, sDims.LogPanelTop, '─', nil, borderStyle)           // Middle divider
-		s.SetContent(x, sDims.Height-V_BORDER_WIDTH, '─', nil, borderStyle) // Bottom edge
+	w, h := s.Size()
+	if w < 1 || h < 3 {
+		return
 	}
-
-	// Draw vertical borders for top panel
-	for y := V_BORDER_WIDTH; y < sDims.LogPanelTop; y++ {
-		s.SetContent(0, y, '│', nil, borderStyle)
-		s.SetContent(sDims.Width-V_BORDER_WIDTH, y, '│', nil, borderStyle)
+	style := tcell.StyleDefault.Foreground(tcell.ColorTeal)
+	drawText(s, 0, 1, w, strings.Repeat("─", w), style)
+	drawText(s, 0, h-2, w, strings.Repeat("─", w), style)
+	for y := 2; y < h-2; y++ {
+		s.SetContent(0, y, '│', nil, style)
+		s.SetContent(w-1, y, '│', nil, style)
 	}
-
-	// Draw vertical borders for bottom panel and fill with navy background
-	for y := sDims.LogPanelTop + 1; y < sDims.Height-1; y++ {
-		s.SetContent(0, y, '│', nil, borderStyle)
-		s.SetContent(sDims.Width-1, y, '│', nil, borderStyle)
-		// Fill bottom panel with navy background
-		for x := 1; x < sDims.Width-1; x++ {
-			s.SetContent(x, y, ' ', nil, navyStyle)
-		}
-	}
-
-	// Draw corners for top panel
-	s.SetContent(0, 0, '┌', nil, borderStyle)
-	s.SetContent(sDims.Width-1, 0, '┐', nil, borderStyle)
-
-	// Draw corners for middle divider
-	s.SetContent(0, sDims.LogPanelTop, '├', nil, borderStyle)
-	s.SetContent(sDims.Width-1, sDims.LogPanelTop, '┤', nil, borderStyle)
-
-	// Draw corners for bottom panel
-	s.SetContent(0, sDims.Height-1, '└', nil, borderStyle)
-	s.SetContent(sDims.Width-1, sDims.Height-1, '┘', nil, borderStyle)
 }
 
-// initializeScreen creates and initializes the tcell screen
 func initializeScreen() tcell.Screen {
 	s, err := tcell.NewScreen()
 	if err != nil {
@@ -417,7 +313,8 @@ func initializeScreen() tcell.Screen {
 		Debug(fmt.Sprintf("Failed to initialize screen: %v", err), ERROR)
 		os.Exit(1)
 	}
-	s.EnableMouse()
+	s.EnableMouse(tcell.MouseMotionEvents)
+	s.EnablePaste()
 
 	// Clear screen and draw border
 	s.Clear()
@@ -431,80 +328,55 @@ func initializeScreen() tcell.Screen {
 
 // finalizeScreen properly closes the tcell screen
 func finalizeScreen(s tcell.Screen) {
+	if cfg.Renderer == "kitty" {
+		fmt.Print(kittyDelete)
+	}
 	s.Fini()
 	Debug("Screen finalized", DEBUG)
 }
 
 // cleanShutdown performs a clean shutdown of all components
 func cleanShutdown(s tcell.Screen) {
-	Debug("Starting clean shutdown", DEBUG)
-	
-	// Signal screenshot loop to stop
-	select {
-	case stopScreenshots <- true:
-		Debug("Sent stop signal to screenshot loop", DEBUG)
-	default:
-		Debug("Screenshot loop already stopping", DEBUG)
-	}
-	
-	// Wait for screenshot loop to finish with timeout
-	done := make(chan struct{})
-	go func() {
-		shutdownWg.Wait()
-		close(done)
-	}()
-	
-	select {
-	case <-done:
-		Debug("Screenshot loop stopped cleanly", DEBUG)
-	case <-time.After(2 * time.Second):
-		Debug("Timeout waiting for screenshot loop to stop", ERROR)
-	}
-	
-	// Close the screen
-	finalizeScreen(s)
-	
-	// Close gRPC connection if it exists
+	appCancel()
 	if grpcConn != nil {
-		grpcConn.Close()
-		Debug("gRPC connection closed", DEBUG)
+		_ = grpcConn.Close()
 	}
-
-	// Stop the server if we launched it
+	shutdownWg.Wait()
+	finalizeScreen(s)
 	stopServer()
-
-	fmt.Println("Terminal restored.")
 }
 
-// setupSignalHandling sets up handlers for system signals
 func setupSignalHandling(s tcell.Screen) {
-	Debug("Initializing signal handling", DEBUG)
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		sig := <-signalChan
-		Debug(fmt.Sprintf("Received signal: %v", sig), INFO)
-		cleanShutdown(s)
-		os.Exit(0)
+		defer signal.Stop(signalChan)
+		select {
+		case <-appCtx.Done():
+			return
+		case <-signalChan:
+			postUI(s, quitEvent{})
+		}
 	}()
-	Debug("Signal handlers established", DEBUG)
 }
 
-// initializeCursor sets up the initial cursor position
-func initializeCursor() {
-	cursor = Cursor{
-		x:         sDims.Width / 2,
-		y:         sDims.Height / 2,
-		visible:   true,
-		blinkOn:   true,
-		lastBlink: time.Now(),
+// Retry important events under backpressure without touching the screen buffer.
+func postUI(s tcell.Screen, value any) {
+	for appCtx.Err() == nil {
+		if s.PostEvent(tcell.NewEventInterrupt(value)) == nil {
+			return
+		}
+		select {
+		case <-appCtx.Done():
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 
-// connectToGRPCServer connects to the gRPC server
 func connectToGRPCServer() error {
 	var target string
-	
+
 	// Determine connection type
 	if cfg.ServerAddr != "" {
 		// TCP connection
@@ -540,7 +412,9 @@ func connectToGRPCServer() error {
 
 // openNewTab calls the openTab method on the server
 func openNewTab() error {
-	_, err := grpcClient.OpenTab(context.Background(), &pb.Empty{})
+	ctx, cancel := context.WithTimeout(appCtx, 25*time.Second)
+	defer cancel()
+	_, err := grpcClient.OpenTab(ctx, &pb.Empty{})
 	if err != nil {
 		return fmt.Errorf("failed to open new tab: %v", err)
 	}
@@ -556,8 +430,13 @@ func openNewTab() error {
 
 // updateViewportSize sends the current viewport dimensions to the server
 func updateViewportSize() error {
+	if sDims.InnerWidthPx < 1 || sDims.InnerHeightPx < 1 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(appCtx, 5*time.Second)
+	defer cancel()
 	Debug(fmt.Sprintf("Updating viewport size to %dx%d pixels", sDims.InnerWidthPx, sDims.InnerHeightPx), DEBUG)
-	_, err := grpcClient.SetViewport(context.Background(), &pb.ViewportSize{
+	_, err := grpcClient.SetViewport(ctx, &pb.ViewportSize{
 		Width:  int32(sDims.InnerWidthPx),
 		Height: int32(sDims.InnerHeightPx),
 	})
@@ -571,316 +450,195 @@ func updateViewportSize() error {
 // screenshotLoop handles the screenshot stream from the server
 func screenshotLoop(s tcell.Screen) {
 	defer shutdownWg.Done()
-	
-	// Store screen reference for dialog system
-	dialogScreen = s
-	
-	// Start the dialog stream first
-	if err := startDialogStream(grpcClient); err != nil {
-		Debug(fmt.Sprintf("Failed to start dialog stream: %v", err), ERROR)
-		// Continue anyway - dialogs will just auto-accept on server
-	}
-	
-	// Start the streaming RPC
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	
-	// Kitty uses PNG passthrough — request PNG format and higher FPS
-	screenshotFps := int32(24)
-	screenshotFormat := ""
+	format := ""
 	if cfg.Renderer == "kitty" {
-		screenshotFps = 30
-		screenshotFormat = "png"
-		Debug(fmt.Sprintf("Kitty renderer: requesting PNG at %d FPS", screenshotFps), INFO)
+		format = "png"
 	}
-
-	stream, err := grpcClient.StreamScreenshots(ctx, &pb.ScreenshotRequest{
-		Fps:    screenshotFps,
-		Format: screenshotFormat,
-	})
+	stream, err := grpcClient.StreamScreenshots(appCtx, &pb.ScreenshotRequest{Fps: 24, Format: format})
 	if err != nil {
-		Debug(fmt.Sprintf("Failed to start screenshot stream: %v", err), ERROR)
+		postUI(s, stateUpdate{err: err})
 		return
 	}
-	
-	// Create frame buffer for triple buffering
-	frameBuffer := NewFrameBuffer()
-	
-	// Start receiver goroutine
-	go func() {
-		for {
-			resp, err := stream.Recv()
-			if err != nil {
-				Debug(fmt.Sprintf("Stream receive error: %v", err), ERROR)
-				return
-			}
-			
-			// Write to the current write frame
-			frame := frameBuffer.GetWriteFrame()
-			frame.Data = resp.Data
-			frame.Timestamp = time.Now()
-			
-			// Swap to make it ready for display
-			frameBuffer.SwapWriteFrame()
-		}
-	}()
-	
-	// Display loop
 	for {
-		select {
-		case <-stopScreenshots:
-			Debug("Screenshot loop stopped", INFO)
-			cancel()
-			return
-		default:
-			// Try to get the latest frame (non-blocking)
-			frame := frameBuffer.GetDisplayFrame()
-			if frame != nil && len(frame.Data) > 0 {
-				if err := displayFrame(s, frame, frameBuffer); err != nil {
-					Debug(fmt.Sprintf("Error displaying frame: %v", err), ERROR)
-				}
-			} else {
-				// No new frame, wait a bit
-				time.Sleep(10 * time.Millisecond)
+		response, err := stream.Recv()
+		if err != nil {
+			if appCtx.Err() == nil {
+				postUI(s, stateUpdate{err: err})
 			}
+			return
 		}
+		frames.Publish(&Frame{Data: response.Data, Generation: response.Generation, Timestamp: time.Now()})
+		// Dropping a wakeup is safe: the next frame or state poll also drains the slot.
+		_ = s.PostEvent(tcell.NewEventInterrupt(frameEvent{}))
 	}
 }
 
-func clearDrawingArea(s tcell.Screen) {
-	// Clear the drawing area (viewport area between borders)
-	/*	for y := V_BORDER_WIDTH; y < sDims.LogPanelTop; y++ {
-		for x := H_BORDER_WIDTH; x < sDims.InnerWidth+H_BORDER_WIDTH; x++ {
-			s.SetContent(x, y, ' ', nil, tcell.StyleDefault)
-		}
-	}*/
-}
+func clearDrawingArea(s tcell.Screen) { fillRect(s, viewportRect(s.Size()), tcell.StyleDefault) }
 
-// displayFrame displays a frame from the buffer
 func displayFrame(s tcell.Screen, frame *Frame, fb *FrameBuffer) error {
-	frameStart := time.Now()
-	var decodeTime, displayTime, renderTime time.Duration
-	
-	// Kitty PNG passthrough: skip all decode/encode, send PNG bytes directly
-	if cfg.Renderer == "kitty" {
-		displayStart := time.Now()
-		if err := displayWithKittyPNG(frame.Data); err != nil {
-			Debug(fmt.Sprintf("Error displaying Kitty frame: %v", err), ERROR)
-			return err
-		}
-		displayTime = time.Since(displayStart)
-
-		// Timing output is handled inside displayWithKittyPNG (per-frame detail)
-		// and here (frame-level stats) — same pattern as sixel path below.
-		if cfg.ShowTimings {
-			totalTime := time.Since(frameStart)
-			received, displayed, dropped := fb.GetStats()
-			fmt.Fprintf(os.Stderr, "Frame timings: Total=%v Display=%v | Received=%d Displayed=%d Dropped=%d\n",
-				totalTime, displayTime, received, displayed, dropped)
-			os.Stderr.Sync()
-		}
+	if frame == nil || viewportRect(s.Size()).Empty() {
+		clearDrawingArea(s)
 		return nil
 	}
-
-	// Only save debug screenshots if flag is enabled
-	if cfg.SaveScreenshots {
-		// Save the raw bytes first (JPEG now)
-		rawImageFile, err := os.Create(fmt.Sprintf("RawImage%03d.jpg", lastImageNumber))
-		if err != nil {
-			Debug(fmt.Sprintf("Error creating raw image file: %v", err), ERROR)
-		} else {
-			rawImageFile.Write(frame.Data)
-			rawImageFile.Close()
+	if frame.Generation != 0 && keyboardHandler != nil && frame.Generation < keyboardHandler.state.Generation {
+		clearDrawingArea(s)
+		return nil
+	}
+	if cfg.SaveScreenshots && frame != lastSavedFrame {
+		ext := "jpg"
+		if cfg.Renderer == "kitty" {
+			ext = "png"
 		}
-	}
-
-	// Measure decode time
-	decodeStart := time.Now()
-	img, err := jpeg.Decode(bytes.NewReader(frame.Data))
-	if err != nil {
-		Debug(fmt.Sprintf("Error decoding screenshot JPEG: %v", err), ERROR)
-		return err
-	}
-	decodeTime = time.Since(decodeStart)
-
-	// Only save decoded image if flag is enabled
-	if cfg.SaveScreenshots {
-		// Save the decoded image as JPEG
-		outputFile, err := os.Create(fmt.Sprintf("Image%03d.jpg", lastImageNumber))
-		if err != nil {
-			Debug(fmt.Sprintf("Error creating output file: %v", err), ERROR)
-		} else {
-			if err := jpeg.Encode(outputFile, img, &jpeg.Options{Quality: 90}); err != nil {
-				Debug(fmt.Sprintf("Error encoding JPEG: %v", err), ERROR)
-			}
-			outputFile.Close()
+		if err := os.WriteFile(fmt.Sprintf("RawImage%03d.%s", lastImageNumber, ext), frame.Data, 0600); err != nil {
+			return err
 		}
 		lastImageNumber++
+		lastSavedFrame = frame
 	}
-
-	screenshotMutex.Lock()
-	// Reuse imageBuffer if dimensions haven't changed
-	newBounds := img.Bounds()
-	if imageBuffer == nil || imageBuffer.Bounds() != newBounds {
-		imageBuffer = image.NewRGBA(newBounds)
-	}
-	draw.Draw(imageBuffer, newBounds, img, image.Point{0, 0}, draw.Src)
-	imageBounds = newBounds
-	screenshotMutex.Unlock()
-
-	// Update the display
-	//   Only do it on first draw or after resize.  Otherwise images from the server should be the same size
-	if firstDraw {
-		clearDrawingArea(s)
-	}
-	firstDraw = false
-
-	// Measure display time
-	displayStart := time.Now()
-	if err := displayImageBuffer(s); err != nil {
-		Debug(fmt.Sprintf("Error displaying image buffer: %v", err), ERROR)
+	dimensions, _, err := image.DecodeConfig(bytes.NewReader(frame.Data))
+	if err != nil {
 		return err
 	}
-	displayTime = time.Since(displayStart)
-
-	// Draw dialog if active (on top of everything)
-	dialogLock.Lock()
-	if currentDialog != nil && currentDialog.Active {
+	if dimensions.Width != sDims.InnerWidthPx || dimensions.Height != sDims.InnerHeightPx {
+		clearDrawingArea(s)
+		return nil
+	}
+	if cfg.Renderer == "kitty" {
+		return displayWithKittyPNG(frame.Data)
+	}
+	img, _, err := image.Decode(bytes.NewReader(frame.Data))
+	if err != nil {
+		return err
+	}
+	imageBuffer = image.NewRGBA(img.Bounds())
+	draw.Draw(imageBuffer, img.Bounds(), img, img.Bounds().Min, draw.Src)
+	return displayImageBuffer(s)
+}
+func redraw(s tcell.Screen) {
+	if f := frames.GetDisplayFrame(); f != nil {
+		latestFrame = f
+		if f.Generation > keyboardHandler.state.Generation {
+			keyboardHandler.state.Generation = f.Generation
+			keyboardHandler.pointerHeld = 0
+			keyboardHandler.capturePage = false
+		}
+	}
+	overlay := keyboardHandler.hasOverlay() || currentDialog != nil
+	if cfg.Renderer != "tcell" && overlay != graphicsHidden {
+		if cfg.Renderer == "kitty" {
+			fmt.Print(kittyDelete)
+		}
+		s.Clear()
+		s.Sync()
+		graphicsHidden = overlay
+	}
+	if cfg.Renderer == "tcell" || !overlay {
+		if err := displayFrame(s, latestFrame, frames); err != nil {
+			keyboardHandler.status = err.Error()
+		}
+	}
+	drawBorder(s)
+	keyboardHandler.Draw(s)
+	if currentDialog != nil && !keyboardHandler.quitConfirm {
+		s.HideCursor()
 		currentDialog.Draw(s)
 	}
-	dialogLock.Unlock()
-	
-	// Measure render time (Show)
-	renderStart := time.Now()
 	s.Show()
-	renderTime = time.Since(renderStart)
-
-	// Print timing info if requested
-	if cfg.ShowTimings {
-		totalTime := time.Since(frameStart)
-		
-		// Get frame buffer stats
-		received, displayed, dropped := fb.GetStats()
-		
-		fmt.Fprintf(os.Stderr, "Frame timings: Total=%v Decode=%v Display=%v Show=%v | Stats: Received=%d Displayed=%d Dropped=%d\n",
-			totalTime, decodeTime, displayTime, renderTime, received, displayed, dropped)
-		os.Stderr.Sync() // Force flush stderr
-	}
-
-	return nil
 }
 
-// runMainLoop runs the main event loop of the application
 func runMainLoop(s tcell.Screen) error {
-	Debug("Entering main event loop", DEBUG)
+	redraw(s)
 	for {
 		ev := s.PollEvent()
-		
-		// Check if dialog is active and should handle this event
-		if handleDialogInput(ev) {
-			continue // Dialog consumed the event
+		ensureLayout(s)
+		if ev == nil {
+			return nil
 		}
-		
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			Debug("Screen resize event detected", DEBUG)
-			handleResize(s)
-		case *tcell.EventKey:
-			if shouldExit := keyboardHandler.HandleKeyEvent(s, ev); shouldExit {
-				Debug("Exiting main loop", DEBUG)
+			ensureLayout(s)
+		case *tcell.EventInterrupt:
+			switch value := ev.Data().(type) {
+			case quitEvent:
 				return nil
+			case operationResult:
+				keyboardHandler.result(value)
+			case stateUpdate:
+				if value.err != nil {
+					keyboardHandler.status = value.err.Error()
+				} else if !keyboardHandler.awaitingNavigation {
+					keyboardHandler.applyState(value.state)
+				}
+			case *pb.DialogEvent:
+				currentDialog = NewDialog(value)
+				currentDialog.mouseDown = keyboardHandler.mouseButtons&tcell.Button1 != 0
+				keyboardHandler.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
+			}
+		case *tcell.EventPaste:
+			if !ev.Start() && currentDialog != nil {
+				if keyboardHandler.pasting && currentDialog.FocusedButton == -1 {
+					currentDialog.editor.insert(keyboardHandler.paste.String())
+				}
+				keyboardHandler.pasting = false
+				keyboardHandler.paste.Reset()
+			} else {
+				keyboardHandler.pasteEvent(ev.Start())
+			}
+		case *tcell.EventKey:
+			exit, handled := keyboardHandler.globalKey(ev, currentDialog != nil)
+			if exit {
+				return nil
+			}
+			if !handled {
+				if keyboardHandler.pasting || keyboardHandler.quitConfirm || !handleDialogInput(ev) {
+					if keyboardHandler.HandleKeyEvent(s, ev) {
+						return nil
+					}
+				}
 			}
 		case *tcell.EventMouse:
-			handleMouseEvent(s, ev)
-		case *tcell.EventInterrupt:
-			// Check if exit was requested
-			if keyboardHandler.IsExitRequested() {
-				Debug("Exiting after user confirmation", INFO)
+			if keyboardHandler.quitConfirm || !handleDialogInput(ev) {
+				keyboardHandler.HandleMouseEvent(s, ev)
+			}
+			if keyboardHandler.exitRequested {
 				return nil
 			}
-			handleInterrupt(s)
+		}
+		redraw(s)
+	}
+}
+
+func updateScreenDimensions(s tcell.Screen) {
+	w, h := s.Size()
+	r := viewportRect(w, h)
+	sDims = ScreenDimensions{Width: w, Height: h, ViewTop: r.Min.Y, LogHeight: 1, LogPanelTop: h - 2, ViewHeight: r.Dy(), InnerWidth: r.Dx(), InnerViewHeight: r.Dy(), InnerWidthPx: r.Dx() * charSize.Width, InnerHeightPx: r.Dy() * charSize.Height}
+}
+
+// tcell's resize notification is best effort when its event queue is full.
+// Reconcile the actual screen size before routing every event, so a dropped
+// notification cannot leave browser pixels and terminal hit-testing out of sync.
+func ensureLayout(s tcell.Screen) {
+	w, h := s.Size()
+	if w != sDims.Width || h != sDims.Height {
+		handleResize(s)
+	}
+}
+
+func handleResize(s tcell.Screen) {
+	s.Clear()
+	s.Sync()
+	updateScreenDimensions(s)
+	latestFrame = nil
+	if keyboardHandler != nil {
+		keyboardHandler.sizeStatus()
+		keyboardHandler.pointerHeld = 0
+		keyboardHandler.capturePage = false
+		keyboardHandler.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
+		if sDims.InnerWidthPx > 0 && sDims.InnerHeightPx > 0 {
+			keyboardHandler.queue(browserOperation{viewport: &pb.ViewportSize{Width: int32(sDims.InnerWidthPx), Height: int32(sDims.InnerHeightPx)}})
 		}
 	}
 }
-
-// updateScreenDimensions updates the screen dimensions struct
-func updateScreenDimensions(s tcell.Screen) {
-	width, height := s.Size()
-	sDims = ScreenDimensions{
-		Width:           width,
-		Height:          height,
-		LogHeight:       LOG_PANEL_HEIGHT,
-		ViewHeight:      height - LOG_PANEL_HEIGHT,
-		LogPanelTop:     height - LOG_PANEL_HEIGHT,
-		InnerWidth:      width - (2 * H_BORDER_WIDTH),
-		InnerViewHeight: height - LOG_PANEL_HEIGHT - (2 * V_BORDER_WIDTH),
-		InnerWidthPx:    (width - (2 * H_BORDER_WIDTH)) * charSize.Width,
-		InnerHeightPx:   (height - LOG_PANEL_HEIGHT - (2 * V_BORDER_WIDTH)) * charSize.Height,
-	}
-	Debug(fmt.Sprintf("Screen dimensions updated: %+v", sDims), DEBUG)
-}
-
-// handleResize handles screen resize events
-func handleResize(s tcell.Screen) {
-	Debug("Resize event", DEBUG)
-	s.Clear()
-	updateScreenDimensions(s)
-
-	// Update server with new viewport size
-	if err := updateViewportSize(); err != nil {
-		Debug(fmt.Sprintf("Failed to update viewport size after resize: %v", err), ERROR)
-	}
-
-	drawBorder(s)
-	
-	// Redraw the bottom panel (status bar)
-	displayBottomPanel(s)
-	
-	// Draw dialog if active
-	dialogLock.Lock()
-	if currentDialog != nil && currentDialog.Active {
-		currentDialog.Draw(s)
-	}
-	dialogLock.Unlock()
-	
-	s.Show()
-	clearDrawingArea(s)
-	s.Sync()
-	// No need to redisplay static content, as the screenshot will be updated by the goroutine
-}
-
-// handleInterrupt handles interrupt events for updating the display
-func handleInterrupt(s tcell.Screen) {
-	blinkCursor(s)
-	displayMouseInfo(s)
-}
-
-// handleMouseEvent handles mouse events
-func handleMouseEvent(s tcell.Screen, ev *tcell.EventMouse) {
-	x, y := ev.Position()
-	currentMouse.CharX = x
-	currentMouse.CharY = y
-	currentMouse.PixelX = (x - H_BORDER_WIDTH) * charSize.Width
-	currentMouse.PixelY = (y - V_BORDER_WIDTH) * charSize.Height
-
-	displayMouseInfo(s)
-
-	// Handle mouse click
-	button := ev.Buttons()
-	if button&tcell.Button1 != 0 {
-		go sendMouseClick(currentMouse.PixelX, currentMouse.PixelY)
-	}
-}
-
-// sendMouseClick sends a mouse click event to the server
-func sendMouseClick(x, y int) {
-	Debug(fmt.Sprintf("Sending mouse click at (%d, %d)", x, y), DEBUG)
-	_, err := grpcClient.ClickMouse(context.Background(), &pb.Coordinate{X: int32(x), Y: int32(y)})
-	if err != nil {
-		Debug(fmt.Sprintf("Failed to send mouse click: %v", err), ERROR)
-	}
-}
-
 
 func handleLocalKeyEvent(ev *tcell.EventKey) MenuAction {
 	// Check for Ctrl+Key combinations first
@@ -921,82 +679,80 @@ func handleLocalKeyEvent(ev *tcell.EventKey) MenuAction {
 // detectTerminalAndCalibrate detects the terminal type, auto-detects the
 // renderer if needed, and calibrates the character size.
 func detectTerminalAndCalibrate() {
-	termType := os.Getenv("TERM")
-	Debug(fmt.Sprintf("Terminal type: %s", termType), DEBUG)
-
-	// Auto-detect renderer if not explicitly set
+	setDefaultCharSize()
 	if cfg.Renderer == "auto" {
 		cfg.Renderer = detectRenderer()
-		Debug(fmt.Sprintf("Auto-detected renderer: %s", cfg.Renderer), INFO)
 	}
-
-	if strings.HasPrefix(termType, "xterm") || strings.Contains(termType, "256color") {
-		Debug("xterm-compatible terminal detected. Attempting to calibrate.", DEBUG)
-		if err := calibrateXterm(); err != nil {
-			Debug(fmt.Sprintf("Terminal calibration failed: %v", err), WARN)
-			Debug("Falling back to default character size", INFO)
-			setDefaultCharSize()
-		}
-	} else {
-		Debug("Non-xterm terminal detected, using defaults", DEBUG)
+	if cfg.Renderer == "tcell" {
+		return
+	}
+	if size, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ); err == nil && size.Col > 0 && size.Row > 0 && size.Xpixel >= size.Col && size.Ypixel >= size.Row {
+		charSize = CharSize{int(size.Xpixel / size.Col), int(size.Ypixel / size.Row)}
+	} else if err := calibrateXterm(); err != nil {
 		setDefaultCharSize()
 	}
 }
 
-// detectRenderer probes the terminal to determine the best graphics protocol.
-// Tries Kitty first (query with a 1x1 pixel image), falls back to sixel.
 func detectRenderer() string {
-	// Try Kitty graphics query: send a 1x1 transparent pixel and check for OK response
-	// \033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\
-	// If the terminal supports Kitty, it responds with \033_Gi=31;OK\033\\
-	kittyQuery := "\033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\"
-
-	response, err := queryTerminalWithTimeout(kittyQuery, 500)
-	if err != nil {
-		Debug(fmt.Sprintf("Kitty detection query failed: %v", err), DEBUG)
-		return "sixel"
-	}
-
-	Debug(fmt.Sprintf("Kitty detection response: %q", response), DEBUG)
-
-	if strings.Contains(response, "OK") {
-		Debug("Terminal supports Kitty graphics protocol", INFO)
+	response, err := queryTerminalWithTimeout("\033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\", 200)
+	if err == nil && strings.Contains(response, "i=31;OK") {
 		return "kitty"
 	}
-
-	Debug("Terminal does not support Kitty, defaulting to sixel", DEBUG)
-	return "sixel"
+	response, err = queryTerminalWithTimeout("\033[c", 200)
+	if err == nil {
+		for _, parameter := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(response, "\033[?"), "c"), ";") {
+			if parameter == "4" {
+				return "sixel"
+			}
+		}
+	}
+	return "tcell"
 }
 
-// queryTerminalWithTimeout sends a query and reads the response with a timeout in ms.
-// Unlike queryTerminal, this won't block forever if the terminal doesn't respond.
 func queryTerminalWithTimeout(query string, timeoutMs int) (string, error) {
-	_, err := fmt.Fprint(os.Stdout, query)
+	fd := int(os.Stdin.Fd())
+	old, err := term.MakeRaw(fd)
 	if err != nil {
 		return "", err
 	}
-
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
+	defer term.Restore(fd, old)
+	if _, err = fmt.Fprint(os.Stdout, query); err != nil {
 		return "", err
 	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
-
-	// Set read deadline so we don't block forever if terminal doesn't respond
 	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
-	os.Stdin.SetReadDeadline(deadline)
-	defer os.Stdin.SetReadDeadline(time.Time{}) // clear deadline
-
-	response := make([]byte, 64)
-	n, err := os.Stdin.Read(response)
-	if err != nil {
-		return "", err
+	response := make([]byte, 0, 128)
+	for time.Now().Before(deadline) {
+		poll := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
+		n, err := unix.Poll(poll, max(1, int(time.Until(deadline).Milliseconds())))
+		if err == unix.EINTR {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		if n == 0 {
+			break
+		}
+		if poll[0].Revents&unix.POLLIN == 0 {
+			return "", fmt.Errorf("terminal closed")
+		}
+		buf := make([]byte, 128)
+		n, err = unix.Read(fd, buf)
+		if err != nil {
+			return "", err
+		}
+		response = append(response, buf[:n]...)
+		text := string(response)
+		if strings.HasSuffix(text, "t") || strings.HasSuffix(text, "c") || strings.HasSuffix(text, "\033\\") {
+			return text, nil
+		}
+		if len(response) > 1024 {
+			break
+		}
 	}
-
-	return string(response[:n]), nil
+	return "", fmt.Errorf("terminal query timed out")
 }
 
-// calibrateXterm calibrates the character size for xterm-compatible terminals
 func calibrateXterm() error {
 	Debug("Starting terminal calibration", DEBUG)
 
@@ -1050,28 +806,8 @@ func calibrateXterm() error {
 }
 
 // queryTerminal sends a query to the terminal and returns the response
-func queryTerminal(query string) (string, error) {
-	_, err := fmt.Fprint(os.Stdout, query)
-	if err != nil {
-		return "", err
-	}
+func queryTerminal(query string) (string, error) { return queryTerminalWithTimeout(query, 200) }
 
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return "", err
-	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
-
-	response := make([]byte, 32)
-	n, err := os.Stdin.Read(response)
-	if err != nil {
-		return "", err
-	}
-
-	return string(response[:n]), nil
-}
-
-// setDefaultCharSize sets default character size when calibration fails
 func setDefaultCharSize() {
 	charSize = CharSize{Width: 8, Height: 16}
 	Debug("Using default character size: 8x16 pixels", DEBUG)
@@ -1079,6 +815,9 @@ func setDefaultCharSize() {
 
 // Displays the image buffer using either sixel or character-based rendering within tcell's framework
 func displayImageBuffer(s tcell.Screen) error {
+	if viewportRect(s.Size()).Empty() {
+		return nil
+	}
 	if s == nil || imageBuffer == nil {
 		return fmt.Errorf("invalid screen or image buffer")
 	}
@@ -1093,7 +832,7 @@ func displayImageBuffer(s tcell.Screen) error {
 
 	// Calculate the maximum available space for the image, respecting borders
 	maxWidth := sDims.Width - (2 * H_BORDER_WIDTH)
-	maxHeight := sDims.LogPanelTop - (2 * V_BORDER_WIDTH)
+	maxHeight := sDims.InnerViewHeight
 	maxWidthPx := maxWidth * charSize.Width
 	maxHeightPx := maxHeight * charSize.Height
 
@@ -1142,13 +881,13 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 	newHeight := int(float64(srcHeight) * scale)
 
 	Debug(fmt.Sprintf("Scaling image down to: %dx%d", newWidth, newHeight), DEBUG)
-	
+
 	// Reuse scaledBuffer if dimensions match, otherwise allocate new
 	newBounds := image.Rect(0, 0, newWidth, newHeight)
 	if scaledBuffer == nil || scaledBuffer.Bounds() != newBounds {
 		scaledBuffer = image.NewRGBA(newBounds)
 	}
-	
+
 	draw.ApproxBiLinear.Scale(scaledBuffer, scaledBuffer.Bounds(), src, src.Bounds(), draw.Over, nil)
 
 	return scaledBuffer
@@ -1157,14 +896,14 @@ func scaleImage(src *image.RGBA, targetWidth, targetHeight int) *image.RGBA {
 // displayWithSixelBands uses band-level caching for optimized sixel encoding
 func displayWithSixelBands(img *image.RGBA) error {
 	sixelStart := time.Now()
-	
+
 	rgbaLock.Lock()
 	defer rgbaLock.Unlock()
-	
+
 	bounds := img.Bounds()
 	width := bounds.Dx()
 	height := bounds.Dy()
-	
+
 	// Initialize or recreate if dimensions changed
 	if bandManager == nil || width != bandManager.Width || height != bandManager.Height {
 		bandManager = NewBandManager(width, height)
@@ -1172,25 +911,25 @@ func displayWithSixelBands(img *image.RGBA) error {
 		previousRGBA = image.NewRGBA(image.Rect(0, 0, width, height))
 		Debug(fmt.Sprintf("Initialized band manager and RGBA buffers (%dx%d)", width, height), INFO)
 	}
-	
+
 	// Copy image data to current buffer (reuses the allocated buffer)
 	draw.Draw(currentRGBA, currentRGBA.Bounds(), img, image.Point{}, draw.Src)
-	
+
 	// Detect dirty bands by comparing current frame with previous frame
 	// DetectDirtyBands compares the new frame against stored hashes
 	bandManager.DetectDirtyBands(currentRGBA)
-	
+
 	dirtyCount := bandManager.GetDirtyBandCount()
 	if cfg.ShowTimings {
-		fmt.Fprintf(os.Stderr, "Dirty bands: %d/%d (%.1f%%)\n", 
-			dirtyCount, bandManager.NumBands, 
+		fmt.Fprintf(os.Stderr, "Dirty bands: %d/%d (%.1f%%)\n",
+			dirtyCount, bandManager.NumBands,
 			float64(dirtyCount)*100.0/float64(bandManager.NumBands))
 	}
-	
+
 	// Only encode dirty bands and reuse cached bands
 	if dirtyCount > 0 {
 		encodeStart := time.Now()
-		
+
 		// Determine palette type from config
 		var paletteType sixel.PaletteType
 		switch cfg.Palette {
@@ -1201,33 +940,33 @@ func displayWithSixelBands(img *image.RGBA) error {
 		default:
 			paletteType = sixel.PaletteAdaptive
 		}
-		
+
 		// Create a band encoder
 		bandEncoder := NewBandEncoder(paletteType, bandManager.Width, bandManager.NumBands*6)
-		
+
 		// Process each band
 		bandStrings := make([]string, bandManager.NumBands)
 		for i := range bandManager.Bands {
 			band := &bandManager.Bands[i]
-			
+
 			if band.IsDirty {
 				// Encode this dirty band
 				encodedBand, err := bandEncoder.EncodeBand(currentRGBA, band.Y, band.Height)
 				if err != nil {
 					return err
 				}
-				
+
 				// Cache the encoded string
 				band.CachedRLE = encodedBand
 				band.IsDirty = false
 				// Update the hash for this band
 				band.Hash = HashBand(currentRGBA, band.Y, band.Height, bandManager.Width)
 			}
-			
+
 			// Use the cached string (either newly encoded or previously cached)
 			bandStrings[i] = band.CachedRLE
 		}
-		
+
 		// Compose the full sixel output from all bands
 		var pal color.Palette
 		switch paletteType {
@@ -1238,25 +977,25 @@ func displayWithSixelBands(img *image.RGBA) error {
 		default:
 			pal = nil
 		}
-		
+
 		fullSixel := ComposeFullSixel(bandStrings, bandManager.Width, bandManager.NumBands*6, pal)
-		
+
 		// Position cursor at the top-left of the usable area (after borders)
-		fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
-		
+		fmt.Printf("\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
+
 		// Save cursor position before sixel output
 		fmt.Print("\033[s")
-		
+
 		// Write the composed sixel to stdout
 		if _, err := os.Stdout.WriteString(fullSixel); err != nil {
 			return err
 		}
-		
+
 		// Restore cursor position after sixel output
 		fmt.Print("\033[u")
-		
+
 		if cfg.ShowTimings {
-			fmt.Fprintf(os.Stderr, "  Band encode time: %v (encoded %d dirty bands)\n", 
+			fmt.Fprintf(os.Stderr, "  Band encode time: %v (encoded %d dirty bands)\n",
 				time.Since(encodeStart), dirtyCount)
 		}
 	} else {
@@ -1265,7 +1004,7 @@ func displayWithSixelBands(img *image.RGBA) error {
 		for i := range bandManager.Bands {
 			bandStrings[i] = bandManager.Bands[i].CachedRLE
 		}
-		
+
 		// Determine palette type from config (same as above)
 		var pal color.Palette
 		switch cfg.Palette {
@@ -1276,31 +1015,31 @@ func displayWithSixelBands(img *image.RGBA) error {
 		default:
 			pal = nil
 		}
-		
+
 		fullSixel := ComposeFullSixel(bandStrings, bandManager.Width, bandManager.NumBands*6, pal)
-		
+
 		// Position cursor at the top-left of the usable area (after borders)
-		fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
-		
+		fmt.Printf("\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
+
 		// Save cursor position before sixel output
 		fmt.Print("\033[s")
-		
+
 		// Write the composed sixel to stdout
 		if _, err := os.Stdout.WriteString(fullSixel); err != nil {
 			return err
 		}
-		
+
 		// Restore cursor position after sixel output
 		fmt.Print("\033[u")
-		
+
 		if cfg.ShowTimings {
 			fmt.Fprintf(os.Stderr, "  No encoding needed - all bands clean!\n")
 		}
 	}
-	
+
 	// Swap buffers for next frame (pointer swap, no copy)
 	currentRGBA, previousRGBA = previousRGBA, currentRGBA
-	
+
 	Debug(fmt.Sprintf("Band-based display took %v total", time.Since(sixelStart)), INFO)
 	return nil
 }
@@ -1308,7 +1047,7 @@ func displayWithSixelBands(img *image.RGBA) error {
 // displayWithSixel uses the Go sixel library
 func displayWithSixel(img *image.RGBA) error {
 	sixelStart := time.Now()
-	
+
 	buf := bufio.NewWriter(os.Stdout)
 	defer buf.Flush() // Ensures all data is written before function returns
 
@@ -1321,7 +1060,7 @@ func displayWithSixel(img *image.RGBA) error {
 
 	// Position cursor at the top-left of the usable area (after borders)
 	// Add 1 to border width because terminal coordinates are 1-based
-	fmt.Printf("\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
+	fmt.Printf("\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
 
 	// Save cursor position before sixel output
 	fmt.Print("\033[s")
@@ -1330,8 +1069,8 @@ func displayWithSixel(img *image.RGBA) error {
 	sixelEncoderMutex.Lock()
 	if sixelEncoder == nil {
 		sixelEncoder = sixel.NewEncoder(os.Stdout)
-		sixelEncoder.Dither = false  // Disable dithering for speed
-		
+		sixelEncoder.Dither = false // Disable dithering for speed
+
 		// Set palette based on config
 		switch cfg.Palette {
 		case "websafe":
@@ -1341,7 +1080,7 @@ func displayWithSixel(img *image.RGBA) error {
 		default: // "adaptive"
 			sixelEncoder.Palette = sixel.PaletteAdaptive
 		}
-		
+
 		// TODO: When adding support for other protocols (Kitty, iTerm2, etc),
 		// adjust color depth based on protocol capabilities:
 		// - Sixel: 256 colors max
@@ -1349,7 +1088,7 @@ func displayWithSixel(img *image.RGBA) error {
 		// - iTerm2: 24-bit true color support
 		Debug("Created sixel encoder (one-time initialization)", INFO)
 	}
-	
+
 	// Update dimensions for this frame
 	sixelEncoder.Width = img.Bounds().Dx()
 	sixelEncoder.Height = img.Bounds().Dy()
@@ -1361,16 +1100,16 @@ func displayWithSixel(img *image.RGBA) error {
 		Debug(fmt.Sprintf("Sixel encoding error: %v", err), ERROR)
 		return fmt.Errorf("sixel encoding error: %v", err)
 	}
-	
+
 	if cfg.ShowTimings {
 		// Get cache stats if using fixed palette
 		hits, misses, hitRate := sixelEncoder.GetCacheStats()
 		if hits > 0 || misses > 0 {
-			fmt.Fprintf(os.Stderr, "Cache stats: hits=%d misses=%d (%.1f%% hit rate)\n", 
+			fmt.Fprintf(os.Stderr, "Cache stats: hits=%d misses=%d (%.1f%% hit rate)\n",
 				hits, misses, hitRate)
 		}
-		
-		fmt.Fprintf(os.Stderr, "  Sixel encode time: %v (rendered size: %dx%d pixels)\n", 
+
+		fmt.Fprintf(os.Stderr, "  Sixel encode time: %v (rendered size: %dx%d pixels)\n",
 			time.Since(encodeStart), img.Bounds().Dx(), img.Bounds().Dy())
 		os.Stderr.Sync() // Force flush stderr
 	}
@@ -1386,91 +1125,14 @@ func displayWithSixel(img *image.RGBA) error {
 	return nil
 }
 
-
 // Displays log messages in the bottom panel with navy background
 func displayBottomPanel(s tcell.Screen) error {
-	baseStyle := tcell.StyleDefault.Foreground(tcell.ColorWhite).Background(tcell.ColorNavy)
-
-	// First clear the entire bottom panel (respect borders)
-	for y := sDims.LogPanelTop + 1; y < sDims.Height-1; y++ {
-		for x := H_BORDER_WIDTH; x < sDims.Width-H_BORDER_WIDTH; x++ {
-			s.SetContent(x, y, ' ', nil, baseStyle)
-		}
+	if keyboardHandler != nil {
+		keyboardHandler.Draw(s)
 	}
-
-	logBuffer.mutex.Lock()
-	defer logBuffer.mutex.Unlock()
-
-	// Calculate how many messages we can display (account for top and bottom borders)
-	displayLines := sDims.LogHeight - 2 // Subtract 2 for top and bottom borders
-	startIdx := 0
-	if len(logBuffer.messages) > displayLines {
-		startIdx = len(logBuffer.messages) - displayLines
-	}
-
-	// Display messages
-	for i := 0; i < displayLines && startIdx+i < len(logBuffer.messages); i++ {
-		message := logBuffer.messages[startIdx+i]
-
-		// Truncate message if it's too long
-		if len(message) > sDims.InnerWidth {
-			message = message[:sDims.InnerWidth-3] + "..."
-		}
-
-		// Write the message
-		y := sDims.LogPanelTop + 1 + i // Add 1 to start after the top border
-		for x, ch := range message {
-			if x >= sDims.InnerWidth {
-				break
-			}
-			// Skip any control characters
-			if ch < 32 || ch == 127 {
-				continue
-			}
-			s.SetContent(x+H_BORDER_WIDTH, y, ch, nil, baseStyle)
-		}
-	}
-
 	return nil
 }
 
-// Displays current mouse coordinate information on top of the bottom border
-func displayMouseInfo(s tcell.Screen) {
-	style := tcell.StyleDefault.Foreground(tcell.ColorYellow).Background(tcell.ColorNavy)
-
-	// Calculate maximum width needed for coordinates (assuming max 4 digits per number)
-	// Format: "Mouse Pixel: (XXXX, XXXX), Mouse Char: (XXXX, XXXX)" = 47 chars
-	maxWidth := 47
-
-	// Clear only the area we need; start drwaing at 3
-	for x := 3; x < maxWidth+3 && x < sDims.Width-2*H_BORDER_WIDTH; x++ {
-		s.SetContent(x+H_BORDER_WIDTH, sDims.Height, ' ', nil, style)
-	}
-
-	// Format and display the coordinate information
-	info := fmt.Sprintf("Mouse Pixel: (%4d, %4d), Mouse Char: (%4d, %4d)",
-		currentMouse.PixelX,
-		currentMouse.PixelY,
-		currentMouse.CharX,
-		currentMouse.CharY)
-
-	for x, ch := range info {
-		if x+3+H_BORDER_WIDTH < sDims.Width-H_BORDER_WIDTH {
-			s.SetContent(x+3+H_BORDER_WIDTH, sDims.Height, ch, nil, style)
-		}
-	}
-
-	s.Show()
-}
-
-// Displays usage instructions in the bottom panel
-func displayInstructions(s tcell.Screen) {
-	message := "Use arrow keys to move cursor. Mouse over image for coordinates. Press ESC or Ctrl+C to exit"
-	logBuffer.Write([]byte(message))
-	displayBottomPanel(s)
-}
-
-// Displays a cool graphic as a splash screen
 func showSplashScreen(s tcell.Screen, splashPath string) error {
 	// Load and decode the splash image
 	var img image.Image
@@ -1514,7 +1176,6 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 	// Set the global imageBuffer
 	screenshotMutex.Lock()
 	imageBuffer = rgbaImg
-	imageBounds = imageBuffer.Bounds()
 	screenshotMutex.Unlock()
 
 	// Clear the viewport area first
@@ -1525,7 +1186,7 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 		return fmt.Errorf("failed to display splash image: %v", err)
 	}
 
-	logBuffer.Write([]byte("Press Enter to continue..."))
+	drawText(s, 0, sDims.Height-1, sDims.Width, "Press Enter to continue…", tcell.StyleDefault)
 	displayBottomPanel(s)
 	s.Show()
 
@@ -1533,6 +1194,10 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 	for {
 		ev := s.PollEvent()
 		switch ev := ev.(type) {
+		case *tcell.EventInterrupt:
+			if _, ok := ev.Data().(quitEvent); ok {
+				return fmt.Errorf("interrupted")
+			}
 		case *tcell.EventKey:
 			Debug(fmt.Sprintf("Splash screen received key event: %v", ev.Key()), DEBUG)
 			action := handleLocalKeyEvent(ev)
@@ -1555,4 +1220,3 @@ func showSplashScreen(s tcell.Screen, splashPath string) error {
 		}
 	}
 }
-

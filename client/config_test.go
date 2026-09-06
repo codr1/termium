@@ -6,12 +6,15 @@ import (
 	"testing"
 )
 
-func resetFlags() {
+func resetFlags(t *testing.T) {
+	t.Helper()
+	args, flags, usage := os.Args, flag.CommandLine, flag.Usage
+	t.Cleanup(func() { os.Args, flag.CommandLine, flag.Usage = args, flags, usage })
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 }
 
 func TestParseFlagsDefaults(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 	os.Args = []string{"termium"}
 
 	cfg, err := parseFlags()
@@ -30,7 +33,7 @@ func TestParseFlagsDefaults(t *testing.T) {
 }
 
 func TestParseFlagsKittyRenderer(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 	os.Args = []string{"termium", "--renderer", "kitty"}
 
 	cfg, err := parseFlags()
@@ -43,7 +46,7 @@ func TestParseFlagsKittyRenderer(t *testing.T) {
 }
 
 func TestParseFlagsInvalidRenderer(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 	os.Args = []string{"termium", "--renderer", "bogus"}
 
 	_, err := parseFlags()
@@ -53,7 +56,7 @@ func TestParseFlagsInvalidRenderer(t *testing.T) {
 }
 
 func TestParseFlagsTcellBackwardCompat(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 	os.Args = []string{"termium", "--tcell"}
 
 	cfg, err := parseFlags()
@@ -66,7 +69,7 @@ func TestParseFlagsTcellBackwardCompat(t *testing.T) {
 }
 
 func TestParseFlagsShortRenderer(t *testing.T) {
-	resetFlags()
+	resetFlags(t)
 	os.Args = []string{"termium", "-r", "kitty"}
 
 	cfg, err := parseFlags()
@@ -75,5 +78,21 @@ func TestParseFlagsShortRenderer(t *testing.T) {
 	}
 	if cfg.Renderer != "kitty" {
 		t.Errorf("expected renderer 'kitty' via -r, got %q", cfg.Renderer)
+	}
+}
+
+func TestParseFlagsSupportedRenderers(t *testing.T) {
+	for _, renderer := range []string{"auto", "sixel", "kitty", "tcell"} {
+		t.Run(renderer, func(t *testing.T) {
+			resetFlags(t)
+			os.Args = []string{"termium", "--renderer", renderer, "--splash", "NONE"}
+			config, err := parseFlags()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.Renderer != renderer {
+				t.Fatalf("got renderer %q", config.Renderer)
+			}
+		})
 	}
 }

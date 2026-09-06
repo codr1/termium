@@ -1,6 +1,6 @@
 # Vimium-style navigation and browser controls
 
-**Planned: this is the next UI phase. The keyboard navigation and controls below are not implemented in the current Termium build.** For today's controls, see [getting started](getting-started.md).
+**Vimium command coverage remains planned.** The development build now has a top address bar, history controls, Reload/Stop, Menu, and explicit keyboard pointer control. Page keys currently pass through directly; `h/j/k/l` move a pointer only after F6. The full normal/insert/hint/find and tab model below is not implemented. See [getting started](getting-started.md) for today's controls.
 
 Termium will provide built-in keyboard navigation using familiar Vimium shortcuts. It will be ready when Termium opens, without installing a browser extension. The first UI release has a defined core command set; broader command coverage follows later.
 
@@ -36,17 +36,17 @@ In normal mode, unbound letters are ignored. Press `i` to pass keys through to a
 
 ## Browser controls
 
-The proposed interface adds a compact bar above the page:
+The current development interface has a compact bar above the page:
 
 ```text
 [Back] [Forward] [Reload]  [ https://example.com             ] [Menu]
 ```
 
-The layout is a proposal for the next design review.
+This establishes the navigation controls; the full Vimium release remains subject to the command matrix below.
 
 - The address field shows the current page and is reachable by keyboard or mouse.
 - Back and Forward are available when the page has a history entry in that direction.
-- The first menu gives access to New tab, Close tab, Reopen tab, shortcut help, and Quit. Keybinding settings will appear when customization is implemented.
+- The current menu contains navigation, address, pointer mode, shortcut help, and Quit. New tab, Close tab, and Reopen tab remain planned; keybinding settings follow customization.
 - Page content keeps the remaining space; narrow windows keep essential controls reachable.
 
 Keyboard navigation and the visible controls must stay in sync. Following a link or moving through history must update the displayed address.

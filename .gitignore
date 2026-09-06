@@ -31,7 +31,6 @@ Thumbs.db
 *.tsbuildinfo
 
 # Lock files
-package-lock.json
 yarn.lock
 
 # Optional: PID files from daemon

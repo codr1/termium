@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,49 +40,83 @@ func TestFindServerBinaryEnvVarMissing(t *testing.T) {
 }
 
 func TestFindServerBinaryDevLayout(t *testing.T) {
-	// Create a temp directory mimicking the dev layout
-	tmpDir, err := os.MkdirTemp("", "termium-test-*")
+	dir := t.TempDir()
+	client := filepath.Join(dir, "client", "termium")
+	script := filepath.Join(dir, "server", "dist", "src", "server.js")
+	for _, path := range []string{client, script} {
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("fixture"), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link := filepath.Join(dir, "termium-link")
+	if err := os.Symlink(client, link); err != nil {
+		t.Fatal(err)
+	}
+	// Darwin's temp directory may itself be reached through a symlink.
+	resolved, err := filepath.EvalSymlinks(script)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create client/ and server/dist/src/ directories
-	clientDir := filepath.Join(tmpDir, "client")
-	serverDir := filepath.Join(tmpDir, "server", "dist", "src")
-	os.MkdirAll(clientDir, 0755)
-	os.MkdirAll(serverDir, 0755)
-
-	// Create fake server.js
-	serverJS := filepath.Join(serverDir, "server.js")
-	os.WriteFile(serverJS, []byte("// fake"), 0644)
-
-	// Create fake client binary
-	clientBin := filepath.Join(clientDir, "termium")
-	os.WriteFile(clientBin, []byte("// fake"), 0755)
-
-	// Clear env var so it doesn't interfere
-	t.Setenv("TERMIUM_SERVER", "")
-
-	// We can't easily test os.Executable() pointing to our temp dir,
-	// but we can verify the path construction logic
-	expectedServerDir := filepath.Join(tmpDir, "server")
-	if _, err := os.Stat(filepath.Join(expectedServerDir, "dist", "src", "server.js")); err != nil {
-		t.Errorf("dev layout server.js not found at expected path: %v", err)
+	for _, executable := range []string{client, link} {
+		loc := findServerNextToExecutable(executable)
+		if loc == nil || loc.scriptPath != resolved {
+			t.Fatalf("discovery from %q: %+v", executable, loc)
+		}
+		if loc.workDir != filepath.Dir(filepath.Dir(filepath.Dir(resolved))) {
+			t.Fatalf("wrong workDir: %s", loc.workDir)
+		}
+	}
+	if err := os.Remove(script); err != nil {
+		t.Fatal(err)
+	}
+	if loc := findServerNextToExecutable(client); loc != nil {
+		t.Fatalf("found missing server: %+v", loc)
 	}
 }
 
-func TestIsServerRunningNoSocket(t *testing.T) {
-	// Ensure no socket exists
-	os.Remove(defaultSocketPath)
-
-	// Initialize cfg for the test
-	origCfg := cfg
-	cfg = &Config{}
-	defer func() { cfg = origCfg }()
-
-	if isServerRunning() {
-		t.Error("expected isServerRunning() = false when no socket exists")
+func TestServerListening(t *testing.T) {
+	for _, network := range []string{"tcp", "unix"} {
+		t.Run(network, func(t *testing.T) {
+			address := "127.0.0.1:0"
+			if network == "unix" {
+				// Short path also fits Darwin's Unix socket limit.
+				dir, err := os.MkdirTemp("/tmp", "termium-test-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { os.RemoveAll(dir) })
+				address = filepath.Join(dir, "s")
+			}
+			listener, err := net.Listen(network, address)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { listener.Close() })
+			address = listener.Addr().String()
+			if !serverListening(network, address) {
+				t.Fatal("failed to detect live listener")
+			}
+			if err := listener.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if serverListening(network, address) {
+				t.Fatal("reported closed listener as live")
+			}
+			if network == "unix" {
+				if err := os.WriteFile(address, []byte("stale"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if serverListening(network, address) {
+					t.Fatal("reported stale file as live")
+				}
+				if _, err := os.Stat(address); err != nil {
+					t.Fatalf("probe changed socket path: %v", err)
+				}
+			}
+		})
 	}
 }
 

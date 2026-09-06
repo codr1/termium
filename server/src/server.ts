@@ -1,4 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
+import { BrowserControls } from './browser-controls';
 import * as puppeteer from 'puppeteer';
 import { Command } from 'commander';
 import * as fs from 'fs';
@@ -8,7 +9,7 @@ import debugFactory from 'debug';
 // Update import paths
 import { ServerUnaryCall, sendUnaryData, ServerWritableStream } from '@grpc/grpc-js';
 import { BrowserControlService, BrowserControlServer } from '../generated/bc';
-import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, ScreenshotRequest } from '../generated/bc';
+import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, ScreenshotRequest, DialogEvent, DialogResponse } from '../generated/bc';
 
 const program = new Command();
 const logDebug = debugFactory('server:debug');
@@ -16,14 +17,44 @@ const logDebug = debugFactory('server:debug');
 // Puppeteer browser and page instances
 let browser: puppeteer.Browser | null = null;
 let page: puppeteer.Page | null = null;
+let browserLaunch: Promise<void> | null = null;
+let shuttingDown = false;
+const browserAbort = new AbortController();
+let pageCreation: Promise<puppeteer.Page> | null = null;
+const controls = new BrowserControls(ensurePage);
+
+async function ensurePage(): Promise<puppeteer.Page> {
+    if (page && !page.isClosed()) return page;
+    if (!pageCreation) {
+        pageCreation = (async () => {
+            await launchOrConnectToBrowser();
+            const created = await browser!.newPage();
+            page = created;
+            setupDialogHandler(created);
+            await controls.attach(created);
+            return created;
+        })().finally(() => { pageCreation = null; });
+    }
+    return pageCreation;
+}
+
+// Chromium capture and viewport emulation both affect the compositor surface.
+// Serialize them across streams, including an in-flight frame after cancellation.
+let viewportWork: Promise<unknown> = Promise.resolve();
+function withViewport<T>(action: () => Promise<T>): Promise<T> {
+    const work = viewportWork.then(action);
+    viewportWork = work.catch(() => {});
+    return work;
+}
 
 // Dialog handling
 interface PendingDialog {
     dialog: puppeteer.Dialog;
-    resolver: (response: any) => void;
+    owner: grpc.ServerDuplexStream<DialogResponse, DialogEvent>;
+    resolver: () => void;
 }
-let dialogStream: any = null; // Will be set when client connects
-let pendingDialogs = new Map<string, PendingDialog>();
+let dialogStream: grpc.ServerDuplexStream<DialogResponse, DialogEvent> | null = null;
+const pendingDialogs = new Map<string, PendingDialog>();
 let dialogIdCounter = 0;
 
 // CLI setup with Commander
@@ -84,21 +115,18 @@ function setupDialogHandler(page: puppeteer.Page) {
             
             // Send dialog event to client
             try {
-                dialogStream.write({
-                    id: dialogId,
-                    type: protoType,
-                    message: message,
-                    defaultValue: defaultValue || ''
-                });
-                
-                // Wait for response from client
+                const owner = dialogStream;
                 await new Promise<void>((resolve) => {
-                    pendingDialogs.set(dialogId, {
-                        dialog: dialog,
-                        resolver: resolve
+                    pendingDialogs.set(dialogId, { dialog, owner, resolver: resolve });
+                    owner.write({
+                        id: dialogId,
+                        type: protoType,
+                        message,
+                        defaultValue: defaultValue || ''
                     });
                 });
             } catch (error) {
+                pendingDialogs.delete(dialogId);
                 logDebug(`Error sending dialog to client: ${(error as Error).message}`);
                 // Fallback to auto-accept if client communication fails
                 await dialog.accept(defaultValue || '');
@@ -114,15 +142,32 @@ function setupDialogHandler(page: puppeteer.Page) {
 
 // Function to launch or connect to the browser
 async function launchOrConnectToBrowser() {
+    if (shuttingDown) throw new Error('Server is shutting down');
+    if (browser) return;
+    // Concurrent RPCs must share one launch, including its cancellation.
+    if (!browserLaunch) {
+        browserLaunch = launchBrowser().finally(() => { browserLaunch = null; });
+    }
+    await browserLaunch;
+}
+
+async function launchBrowser() {
     if (options.browser) {
         // Connect to an existing browser instance using DevTools protocol
         logDebug('Connecting to existing browser instance at', options.browser);
-        browser = await puppeteer.connect({ browserWSEndpoint: `ws://${options.browser}` });
+        browser = await puppeteer.connect({ browserWSEndpoint: `ws://${options.browser}`, defaultViewport:null });
     } else {
         // Launch a new headless browser if no browser address is provided
         logDebug('Launching a new headless browser');
         browser = await puppeteer.launch({ 
-            headless: 'new' as any,  // Use the new headless mode (less detectable) - cast to any for older types
+            handleSIGINT: false, // The server owns signal handling and process exit.
+            handleSIGTERM: false,
+            signal: browserAbort.signal,
+            headless: true,
+            // We apply desktop metrics to the active target directly. Puppeteer's
+            // viewport helper also changes touch emulation and can hang after a
+            // modal on macOS. It must not maintain competing emulation state.
+            defaultViewport:null,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -134,40 +179,34 @@ async function launchOrConnectToBrowser() {
 }
 
 const browserControlHandlers: BrowserControlServer = {
-    openTab: async (_call: ServerUnaryCall<Empty, Message>, callback: sendUnaryData<Message>) => {
+    openTab: async (_call, callback) => {
         try {
-            if (!browser) {
-                await launchOrConnectToBrowser();
-            }
-            
-            // Only create a new page if we don't have one already
-            if (!page || page.isClosed()) {
-                if (browser) {
-                    page = await browser.newPage();
-                    logDebug('Created new page in openTab');
-                    setupDialogHandler(page);
-                } else {
-                    throw new Error('Browser instance is not initiated.');
-                }
-                callback(null, { text: 'New tab opened' });
-            } else {
-                logDebug('Page already exists, reusing it');
-                callback(null, { text: 'Using existing tab' });
-            }
+            await ensurePage();
+            callback(null, { text: 'Tab ready' });
         } catch (error) {
-            logDebug('Error in openTab:', (error as Error).message);
-            callback({
-                code: grpc.status.INTERNAL,
-                message: `Failed to open a new tab: ${(error as Error).message}`,
-            });
+            callback({ code: grpc.status.INTERNAL, message: (error as Error).message });
         }
+    },
+
+    getBrowserState: async (_call, callback) => {
+        try { callback(null, await controls.state()); }
+        catch (error) { callback({ code: grpc.status.INTERNAL, message:(error as Error).message }); }
+    },
+    browserCommand: async (call, callback) => {
+        try { callback(null, await controls.command(call.request)); }
+        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
+    },
+    sendInput: async (call, callback) => {
+        try { await controls.input(call.request); callback(null, { text:'Input dispatched' }); }
+        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
     },
 
     setViewport: async (call: ServerUnaryCall<ViewportSize, Message>, callback: sendUnaryData<Message>) => {
         try {
             if (!page) throw new Error('No active page');
             const { width, height } = call.request;
-            await page.setViewport({ width, height });
+            await withViewport(() => controls.setViewport(width,height));
+ logDebug(`Viewport set to ${width}x${height}`);
             callback(null, { text: 'Viewport set' });
         } catch (error) {
             logDebug('Error in setViewport:', (error as Error).message);
@@ -224,73 +263,15 @@ const browserControlHandlers: BrowserControlServer = {
             const url = call.request.url;
             logDebug(`Attempting to navigate to URL: ${url}`);
             
-            // List all pages before navigation
-            if (browser) {
-                const pages = await browser.pages();
-                logDebug(`Pages BEFORE navigation (${pages.length} total):`);
-                for (let i = 0; i < pages.length; i++) {
-                    const pageUrl = pages[i].url();
-                    const isCurrent = pages[i] === page;
-                    logDebug(`  Page ${i}: ${pageUrl}${isCurrent ? ' (current)' : ''}`);
-                }
-            }
-            
-            // Check if we have no page at all
-            if (!page) {
-                logDebug('No page exists, creating initial page');
-                if (!browser) {
-                    await launchOrConnectToBrowser();
-                }
-                if (browser) {
-                    page = await browser.newPage();
-                    logDebug('Created initial page');
-                    setupDialogHandler(page);
-                } else {
-                    throw new Error('Failed to create browser');
-                }
-            } else if (page.isClosed()) {
-                // Page was closed, need to create a new one
-                logDebug('Page was closed, creating new page');
-                page = await browser!.newPage();
-                logDebug('Created replacement page');
-                setupDialogHandler(page);
-            } else {
-                // Page exists and is open - reuse it!
-                logDebug('Reusing existing page for navigation');
-            }
-            
-            // Set up dialog handler if not already set
-            if (!page.listenerCount('dialog')) {
-                setupDialogHandler(page);
-            }
-            
-            // Log current URL before navigation
-            const currentUrl = page.url();
-            logDebug(`Current URL before navigation: ${currentUrl}`);
-            
-            // Set up event listeners for debugging only - no promises that could reject
-            const loadListener = () => {
-                logDebug(`Page 'load' event fired`);
-            };
-            const domContentLoadedListener = () => {
-                logDebug(`Page 'domcontentloaded' event fired`);
-            };
-            const errorListener = (err: Error) => {
-                logDebug(`Page error during navigation: ${err.message}`);
-            };
-            
-            page!.once('load', loadListener);
-            page!.once('domcontentloaded', domContentLoadedListener);
-            page!.once('error', errorListener);
-            
+            await ensurePage();
             // Start navigation
             logDebug(`Starting navigation to: ${url}`);
-            await page.goto(url, {
+            await page!.goto(url, {
                 waitUntil: 'networkidle0',
                 timeout: 8000
             });
             
-            const newUrl = page.url();
+            const newUrl = page!.url();
             logDebug(`Successfully navigated to: ${url}, actual URL: ${newUrl}`);
             callback(null, { text: `Navigated to ${newUrl}` });
         } catch (error) {
@@ -300,43 +281,12 @@ const browserControlHandlers: BrowserControlServer = {
             // Log more details about the error
             logDebug(`Navigation error for '${url}': ${errorMessage}`);
             
-            // IMPORTANT: Check what URL we actually ended up on, even if navigation "failed"
-            let actualUrl = 'unknown';
-            let pageIsResponsive = false;
-            let previousUrl = '';
-            
-            try {
-                // Get the URL we were on before navigation attempt
-                previousUrl = page?.url() || '';
-            } catch (e) {
-                // Page might not be accessible
-            }
-            
-            try {
-                actualUrl = page?.url() || 'unknown';
-                pageIsResponsive = true;
-                logDebug(`Despite timeout, page is responsive and loaded URL: ${actualUrl}`);
-                
-                // If we're on a different URL than before, navigation partially succeeded
-                // Also check if we're on a redirect of the requested URL
-                const requestedDomain = new URL(url).hostname;
-                const actualDomain = actualUrl !== 'unknown' && actualUrl !== 'about:blank' ? new URL(actualUrl).hostname : '';
-                
-                if ((actualUrl !== previousUrl && actualUrl !== 'about:blank') || 
-                    (actualDomain && actualDomain.includes(requestedDomain.replace('www.', '').replace('.com', '')))) {
-                    logDebug(`Navigation succeeded (with timeout) - browser is now at: ${actualUrl}`);
-                    // Return success since we did navigate somewhere
-                    callback(null, { text: `Navigated to ${actualUrl}` });
-                    return;
-                }
-            } catch (e) {
-                logDebug(`Page is not responsive: ${(e as Error).message}`);
-            }
-            
-            // Only return error if we truly failed to navigate
+            // A responsive old page is not evidence that this navigation worked.
+            // Preserve real failures, including browser launch and network errors.
             callback({
-                code: grpc.status.DEADLINE_EXCEEDED,
-                message: `Navigation to '${url}' timed out. Current URL: ${actualUrl}`,
+                code: error instanceof puppeteer.TimeoutError
+                    ? grpc.status.DEADLINE_EXCEEDED : grpc.status.INTERNAL,
+                message: `Navigation to '${url}' failed: ${errorMessage}`,
             });
         }
     },
@@ -408,29 +358,23 @@ const browserControlHandlers: BrowserControlServer = {
                 const screenshotOptions: any = format === 'png'
                     ? { type: 'png' }
                     : { type: 'jpeg', quality: 60 };
-                const screenshotPromise = page.screenshot(screenshotOptions);
-                
-                const timeoutPromise = new Promise<never>((_, reject) => {
-                    setTimeout(() => reject(new Error('Screenshot timeout after 1 second')), 1000);
+                const generation = controls.generation;
+                // Do not race capture against a timer and release this slot while
+                // the capture still runs: that races the next resize and queues
+                // overlapping work. Browser shutdown aborts an outstanding CDP call.
+                const screenshot = await withViewport(async () => {
+                    if (isCancelled) return new Uint8Array();
+                    await controls.prepareCapture();
+ return page!.screenshot(screenshotOptions);
                 });
-
-                // Race between screenshot and timeout
-                let screenshot: Buffer;
-                try {
-                    screenshot = await Promise.race([screenshotPromise, timeoutPromise]) as unknown as Buffer;
-                } finally {
-                    // ALWAYS clear the flag, even if we timeout
-                    isScreenshotInProgress = false;
-                    const elapsed = Date.now() - startTime;
-                    if (elapsed > 100) {
-                        logDebug(`Screenshot took ${elapsed}ms`);
-                    }
-                }
+                isScreenshotInProgress = false;
+                const elapsed = Date.now() - startTime;
+                if (elapsed > 100) logDebug(`Screenshot took ${elapsed}ms`);
                 const screenshotBuffer = Buffer.from(screenshot);
 
                 // Only write if not cancelled
-                if (!isCancelled) {
-                    const success = call.write({ data: screenshotBuffer });
+                if (!isCancelled && generation === controls.generation) {
+                    const success = call.write({ data: screenshotBuffer, generation });
                     if (!success) {
                         logDebug('Stream backpressure detected');
                     } else {
@@ -512,61 +456,54 @@ const browserControlHandlers: BrowserControlServer = {
         });
     },
 
-    streamDialogs: (call: any) => {
+    streamDialogs: (call) => {
         logDebug('Dialog stream connected');
+        if (dialogStream) {
+            call.emit('error', { code: grpc.status.RESOURCE_EXHAUSTED, message: 'A dialog stream is already connected' });
+            return;
+        }
         dialogStream = call;
+        // A client can wait for headers before triggering a page dialog.
+        call.sendMetadata(new grpc.Metadata());
         
-        // Handle incoming dialog responses from client
-        call.on('data', (response: any) => {
-            logDebug(`Received dialog response: id=${response.id}, accepted=${response.accepted}`);
-            
-            const pending = pendingDialogs.get(response.id);
-            if (pending) {
-                // Handle the dialog based on response
+        // Resolve once, and always consume Puppeteer's promise rejection.
+        const finish = async (id: string, pending: PendingDialog, response: Pick<DialogResponse, 'accepted' | 'inputText'>) => {
+            pendingDialogs.delete(id);
+            try {
                 if (response.accepted) {
-                    if (response.inputText !== undefined && response.inputText !== '') {
-                        // Prompt with text
-                        pending.dialog.accept(response.inputText).then(() => {
-                            logDebug(`Dialog ${response.id} accepted with text: ${response.inputText}`);
-                        });
-                    } else {
-                        // Regular accept
-                        pending.dialog.accept().then(() => {
-                            logDebug(`Dialog ${response.id} accepted`);
-                        });
-                    }
+                    await pending.dialog.accept(pending.dialog.type() === 'prompt' ? response.inputText : undefined);
                 } else {
-                    // Dismiss/cancel
-                    pending.dialog.dismiss().then(() => {
-                        logDebug(`Dialog ${response.id} dismissed`);
-                    });
+                    await pending.dialog.dismiss();
                 }
-                
-                // Resolve the promise and clean up
-                pending.resolver(response);
-                pendingDialogs.delete(response.id);
-            } else {
-                logDebug(`No pending dialog found for id: ${response.id}`);
+            } catch (error) {
+                logDebug(`Failed to resolve dialog ${id}: ${(error as Error).message}`);
+            } finally {
+                pending.resolver();
+            }
+        };
+
+        call.on('data', (response: DialogResponse) => {
+            const pending = pendingDialogs.get(response.id);
+            if (pending && pending.owner === call) {
+                void finish(response.id, pending, response);
             }
         });
-        
-        call.on('end', () => {
-            logDebug('Dialog stream disconnected');
-            dialogStream = null;
-            
-            // Auto-accept any pending dialogs since client disconnected
+
+        let disconnected = false;
+        const disconnect = () => {
+            if (disconnected) return;
+            disconnected = true;
+            if (dialogStream === call) dialogStream = null;
             for (const [id, pending] of pendingDialogs) {
-                logDebug(`Auto-accepting dialog ${id} due to stream disconnect`);
-                pending.dialog.accept();
-                pending.resolver(null);
+                if (pending.owner === call) {
+                    void finish(id, pending, { accepted: true, inputText: pending.dialog.defaultValue() });
+                }
             }
-            pendingDialogs.clear();
-        });
-        
-        call.on('error', (err: Error) => {
-            logDebug('Dialog stream error:', err.message);
-            dialogStream = null;
-        });
+            call.end();
+        };
+        call.on('end', disconnect);
+        call.on('cancelled', disconnect);
+        call.on('error', disconnect);
     },
 };
 
@@ -594,10 +531,13 @@ function main() {
   server.bindAsync(bindAddress, grpc.ServerCredentials.createInsecure(), (err, port) => {
     if (err) {
       console.error('Failed to bind server:', err);
+      process.exitCode = 1;
+      server.forceShutdown();
       return;
     }
     if (options.tcp) {
-      console.log(`Server running at ${bindAddress}`);
+      // Report the actual port when the OS assigns one (--tcp 127.0.0.1:0).
+      console.log(`Server running at ${bindAddress.replace(/:\d+$/, `:${port}`)}`);
     } else {
       console.log(`Server running on Unix domain socket: /tmp/termium.sock`);
     }
@@ -605,30 +545,36 @@ function main() {
     console.log('TERMIUM_READY');
   });
 
-  // Handle shutdown gracefully
-  const signals = ['SIGINT', 'SIGTERM'];
-  signals.forEach(signal => {
-    process.on(signal, async () => {
-      console.log(`Received ${signal}, shutting down...`);
-      
-      // Close browser if it exists
-      if (browser) {
-        try {
-          logDebug('Closing browser...');
-          await browser.close();
-          console.log('Browser closed successfully');
-        } catch (error) {
-          console.error('Error closing browser:', error);
-        }
-      }
-      
-      server.tryShutdown(() => {
-        console.log('Server shutdown complete');
-        process.exit(0);
-      });
-    });
-  });
-  
+  // Termination must not wait for clients to close long-lived streams. Abort
+  // any in-flight browser launch too; browser may not have been assigned yet.
+  const shutdown = async (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`Received ${signal}, shutting down...`);
+    server.forceShutdown();
+    const forcedExit = setTimeout(() => {
+      console.error('Shutdown timed out');
+      browserAbort.abort();
+      process.exit(1);
+    }, 2000);
+    try {
+      if (!browser) browserAbort.abort();
+      await browserLaunch?.catch(() => {});
+      if (browser) await browser.close();
+      console.log('Server shutdown complete');
+      clearTimeout(forcedExit);
+      process.exit(0);
+    } catch (error) {
+      console.error('Error shutting down:', error);
+      browserAbort.abort();
+      clearTimeout(forcedExit);
+      process.exit(1);
+    }
+  };
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    process.on(signal, () => { void shutdown(signal); });
+  }
+
   // Also handle uncaught exceptions and unhandled rejections
   process.on('uncaughtException', async (error) => {
     console.error('Uncaught exception:', error);

@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"image"
+	"net/url"
 	"strings"
 	"time"
 
@@ -10,380 +12,448 @@ import (
 	pb "termium/client/pb"
 )
 
-// KeyboardHandler manages all keyboard input for the application
-type KeyboardHandler struct {
-	browserMode   BrowserMode
-	urlBuffer     string
-	urlCursorPos  int
-	grpcClient    pb.BrowserControlClient
-	exitRequested bool // Track if exit was requested
-	escCount      int  // Consecutive Escape presses
-	lastEscTime   time.Time
+type navControl struct {
+	id, label string
+	rect      image.Rectangle
+	enabled   bool
 }
 
-// NewKeyboardHandler creates a new keyboard handler
+type KeyboardHandler struct {
+	grpcClient              pb.BrowserControlClient
+	dispatcher              *inputDispatcher
+	submit                  func(browserOperation) bool
+	state                   pb.BrowserState
+	editor                  textEditor
+	focus                   string
+	menu, help, quitConfirm bool
+	menuIndex               int
+	status                  string
+	pendingAddress          string
+	awaitingNavigation      bool
+	pointerMode             bool
+	pointer                 image.Point
+	pointerHeld             uint32
+	mouseButtons            tcell.ButtonMask
+	capturePage, captureUI  bool
+	lastClick               time.Time
+	lastClickAt             image.Point
+	lastClickButton         tcell.ButtonMask
+	clickCount              uint32
+	escCount                int
+	lastEscTime             time.Time
+	exitRequested           bool
+	pasting                 bool
+	paste                   strings.Builder
+}
+
 func NewKeyboardHandler(client pb.BrowserControlClient) *KeyboardHandler {
-	return &KeyboardHandler{
-		browserMode: ModeNormal,
-		grpcClient:  client,
+	return &KeyboardHandler{grpcClient: client, focus: "page", status: "Ctrl+L: address   F10: menu   F6: keyboard pointer   Ctrl+Q: quit"}
+}
+func (kh *KeyboardHandler) start(ctx context.Context, s tcell.Screen) {
+	notify := func(value any) { postUI(s, value) }
+	kh.dispatcher = newInputDispatcher(ctx, kh.grpcClient, notify)
+	kh.submit = kh.dispatcher.enqueue
+	shutdownWg.Add(1)
+	go func() {
+		defer shutdownWg.Done()
+		tick := time.NewTicker(250 * time.Millisecond)
+		defer tick.Stop()
+		for {
+			callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+			state, err := kh.grpcClient.GetBrowserState(callCtx, &pb.Empty{})
+			cancel()
+			if ctx.Err() != nil {
+				return
+			}
+			notify(stateUpdate{state, err})
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
+}
+func (kh *KeyboardHandler) queue(o browserOperation) {
+	if kh.submit == nil || !kh.submit(o) {
+		kh.status = "Input queue is busy; try again"
 	}
 }
+func (kh *KeyboardHandler) input(event *pb.InputEvent) {
+	event.Generation = kh.state.Generation
+	kh.queue(browserOperation{input: event})
+}
+func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
+	if state == nil || state.Generation < kh.state.Generation {
+		return
+	}
+	if state.Generation != kh.state.Generation {
+		kh.pointerHeld = 0
+		kh.capturePage = false
+	}
+	kh.state = pb.BrowserState{Url: state.Url, Title: state.Title, CanBack: state.CanBack, CanForward: state.CanForward, Loading: state.Loading, Generation: state.Generation, Error: state.Error}
+	if state.Error != "" {
+		kh.status = state.Error
+		if kh.pendingAddress != "" && kh.focus == "page" {
+			kh.editor.set(kh.pendingAddress, false)
+			kh.focus = "address"
+		}
+		kh.pendingAddress = ""
+	} else if !state.Loading && !kh.awaitingNavigation {
+		kh.pendingAddress = ""
+		if kh.status == "Loading…" {
+			kh.status = "Ready · Ctrl+L: address · F10: menu"
+		}
+	}
+}
+func (kh *KeyboardHandler) result(result operationResult) {
+	if result.operation.navigation != nil {
+		kh.awaitingNavigation = false
+	}
+	if result.err != nil {
+		kh.status = result.err.Error()
+		if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE && kh.focus == "page" {
+			kh.editor.set(result.operation.navigation.Url, false)
+			kh.focus = "address"
+		}
+		return
+	}
+	if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE {
+		kh.pendingAddress = result.operation.navigation.Url
+	}
+	kh.applyState(result.state)
+}
+func (kh *KeyboardHandler) controls(width int) []navControl {
+	if width < 1 {
+		return nil
+	}
+	menuWidth := min(6, width)
+	controls := []navControl{}
+	x := 0
+	if width >= 28 {
+		labels := []string{"[<]", "[>]", "[R]"}
+		if kh.state.Loading {
+			labels[2] = "[X]"
+		}
+		if width >= 70 {
+			labels = []string{"[Back]", "[Forward]", "[Reload]"}
+			if kh.state.Loading {
+				labels[2] = "[Stop]"
+			}
+		}
+		for i, id := range []string{"back", "forward", "reload"} {
+			enabled := true
+			if id == "back" {
+				enabled = kh.state.CanBack && !kh.state.Loading
+			}
+			if id == "forward" {
+				enabled = kh.state.CanForward && !kh.state.Loading
+			}
+			controls = append(controls, navControl{id, labels[i], image.Rect(x, 0, x+len(labels[i]), 1), enabled})
+			x += len(labels[i]) + 1
+		}
+	}
+	end := max(x, width-menuWidth-1)
+	controls = append(controls, navControl{"address", "", image.Rect(x, 0, end, 1), true})
+	controls = append(controls, navControl{"menu", "[Menu]", image.Rect(max(0, width-menuWidth), 0, width, 1), true})
+	return controls
+}
+func (kh *KeyboardHandler) openAddress() {
+	if kh.pointerHeld != 0 || kh.capturePage {
+		kh.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
+		kh.pointerHeld = 0
+		kh.capturePage = false
+	}
+	kh.focus = "address"
+	kh.menu = false
+	kh.help = false
+	text := kh.state.Url
+	if text == "about:blank" {
+		text = ""
+	}
+	kh.editor.set(text, true)
+}
+func normalizeAddress(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", fmt.Errorf("Enter an address")
+	}
+	if value == "about:blank" {
+		return value, nil
+	}
+	if !strings.Contains(value, "://") {
+		value = "https://" + value
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || strings.ContainsAny(parsed.Host, " \t\r\n") {
+		return "", fmt.Errorf("Use a valid HTTP or HTTPS address")
+	}
+	return parsed.String(), nil
+}
+func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {
+	if kh.submit == nil || !kh.submit(browserOperation{navigation: &pb.NavigationRequest{Action: action, Url: address}}) {
+		kh.status = "Input queue is busy; try again"
+		return
+	}
+	kh.awaitingNavigation = true
+	kh.focus = "page"
+	kh.menu = false
+	if action != pb.NavigationAction_STOP {
+		kh.state.Loading = true
+		kh.status = "Loading…"
+	}
+}
+func (kh *KeyboardHandler) action(id string) {
+	switch id {
+	case "address":
+		kh.openAddress()
+	case "back":
+		if kh.state.CanBack && !kh.state.Loading {
+			kh.navigate(pb.NavigationAction_BACK, "")
+		}
+	case "forward":
+		if kh.state.CanForward && !kh.state.Loading {
+			kh.navigate(pb.NavigationAction_FORWARD, "")
+		}
+	case "reload":
+		if kh.state.Loading {
+			kh.navigate(pb.NavigationAction_STOP, "")
+		} else {
+			kh.navigate(pb.NavigationAction_RELOAD, "")
+		}
+	case "menu":
+		kh.help = false
+		kh.menu = !kh.menu
+		kh.menuIndex = 0
+		kh.focus = "page"
+	case "pointer":
+		kh.help = false
+		kh.pointerMode = !kh.pointerMode
+		kh.menu = false
+		kh.focus = "page"
+		kh.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
+		kh.pointerHeld = 0
+		rect := viewportRect(sDims.Width, sDims.Height)
+		if !kh.pointer.In(rect) {
+			kh.pointer = image.Pt((rect.Min.X+rect.Max.X)/2, (rect.Min.Y+rect.Max.Y)/2)
+		}
+	case "help":
+		kh.help = !kh.help
+		kh.menu = false
+	case "quit":
+		kh.quitConfirm = true
+		kh.menu = false
+	}
+}
+func ctrl(ev *tcell.EventKey, key tcell.Key, r rune) bool {
+	return ev.Key() == key || ev.Modifiers()&tcell.ModCtrl != 0 && (ev.Rune() == r || ev.Rune() == r-32)
+}
 
-// HandleKeyEvent processes keyboard events and returns true if should exit
-func (kh *KeyboardHandler) HandleKeyEvent(s tcell.Screen, ev *tcell.EventKey) bool {
-	// Triple-Escape emergency exit works in any mode
+// Global shortcuts are checked before modal input. Paste content never executes them.
+func (kh *KeyboardHandler) globalKey(ev *tcell.EventKey, modal bool) (bool, bool) {
+	if kh.pasting {
+		return false, false
+	}
 	if ev.Key() == tcell.KeyEscape {
 		now := time.Now()
-		if now.Sub(kh.lastEscTime) > 1*time.Second {
+		if now.Sub(kh.lastEscTime) > time.Second {
 			kh.escCount = 0
 		}
 		kh.escCount++
 		kh.lastEscTime = now
-		Debug(fmt.Sprintf("Escape pressed (%d/3)", kh.escCount), DEBUG)
 		if kh.escCount >= 3 {
-			return true // Emergency exit — always works
+			return true, true
 		}
 	} else {
-		// Any non-Escape key resets the counter
 		kh.escCount = 0
 	}
-
-	// Handle URL input mode separately
-	if kh.browserMode == ModeURL {
-		return kh.handleURLModeKey(s, ev)
+	if ctrl(ev, tcell.KeyCtrlQ, 'q') {
+		kh.action("quit")
+		return false, true
 	}
-
-	// Normal mode handling
-	return kh.handleNormalModeKey(s, ev)
-}
-
-// handleURLModeKey handles keyboard input when in URL input mode
-func (kh *KeyboardHandler) handleURLModeKey(s tcell.Screen, ev *tcell.EventKey) bool {
-	switch ev.Key() {
-	case tcell.KeyEscape:
-		// Cancel URL input
-		kh.browserMode = ModeNormal
-		kh.clearURLPrompt(s)
-		Debug("URL input cancelled", DEBUG)
-		return false
-
-	case tcell.KeyEnter:
-		// Submit URL and immediately return to normal mode
-		url := kh.urlBuffer
-		
-		// Immediately show status and return to normal mode
-		logBuffer.Write([]byte(fmt.Sprintf("Navigation request sent to: %s", url)))
-		displayBottomPanel(s)
-		
-		kh.browserMode = ModeNormal
-		kh.clearURLPrompt(s)
-		
-		// Navigate asynchronously in the background
-		go kh.navigateToURLAsync(url, s)
-		
-		Debug(fmt.Sprintf("URL submitted: %s", url), DEBUG)
-		return false
-
-	case tcell.KeyBackspace, tcell.KeyBackspace2:
-		// Delete character before cursor
-		if len(kh.urlBuffer) > 0 && kh.urlCursorPos > 0 {
-			kh.urlBuffer = kh.urlBuffer[:kh.urlCursorPos-1] + kh.urlBuffer[kh.urlCursorPos:]
-			kh.urlCursorPos--
-			kh.showURLPrompt(s)
-		}
-		return false
-
-	case tcell.KeyDelete:
-		// Delete character at cursor
-		if kh.urlCursorPos < len(kh.urlBuffer) {
-			kh.urlBuffer = kh.urlBuffer[:kh.urlCursorPos] + kh.urlBuffer[kh.urlCursorPos+1:]
-			kh.showURLPrompt(s)
-		}
-		return false
-
-	case tcell.KeyLeft:
-		// Move cursor left
-		if kh.urlCursorPos > 0 {
-			kh.urlCursorPos--
-			kh.showURLPrompt(s)
-		}
-		return false
-
-	case tcell.KeyRight:
-		// Move cursor right
-		if kh.urlCursorPos < len(kh.urlBuffer) {
-			kh.urlCursorPos++
-			kh.showURLPrompt(s)
-		}
-		return false
-
-	case tcell.KeyHome:
-		// Move to beginning
-		kh.urlCursorPos = 0
-		kh.showURLPrompt(s)
-		return false
-
-	case tcell.KeyEnd:
-		// Move to end
-		kh.urlCursorPos = len(kh.urlBuffer)
-		kh.showURLPrompt(s)
-		return false
-
-	case tcell.KeyCtrlU:
-		// Clear entire line
-		kh.urlBuffer = ""
-		kh.urlCursorPos = 0
-		kh.showURLPrompt(s)
-		return false
-
+	if modal || kh.quitConfirm {
+		return false, false
+	}
+	switch {
+	case ctrl(ev, tcell.KeyCtrlL, 'l'):
+		kh.openAddress()
+	case ev.Key() == tcell.KeyF10:
+		kh.action("menu")
+	case ev.Key() == tcell.KeyF1:
+		kh.action("help")
+	case ev.Key() == tcell.KeyF6:
+		kh.action("pointer")
+	case ev.Key() == tcell.KeyF5 || ctrl(ev, tcell.KeyCtrlR, 'r'):
+		kh.action("reload")
+	case ev.Key() == tcell.KeyLeft && ev.Modifiers()&tcell.ModAlt != 0:
+		kh.action("back")
+	case ev.Key() == tcell.KeyRight && ev.Modifiers()&tcell.ModAlt != 0:
+		kh.action("forward")
 	default:
-		// Add character to buffer
-		if ev.Rune() != 0 {
-			kh.urlBuffer = kh.urlBuffer[:kh.urlCursorPos] + string(ev.Rune()) + kh.urlBuffer[kh.urlCursorPos:]
-			kh.urlCursorPos++
-			kh.showURLPrompt(s)
-		}
+		return false, false
 	}
-	return false
+	return false, true
 }
-
-// handleNormalModeKey handles keyboard input in normal browsing mode
-func (kh *KeyboardHandler) handleNormalModeKey(s tcell.Screen, ev *tcell.EventKey) bool {
-	oldX, oldY := cursor.x, cursor.y
-
-	if ev.Modifiers()&tcell.ModCtrl != 0 {
-		// Ctrl+Key combinations
-		// Check both Rune and Key for Ctrl+L (tcell might report it differently)
-		if ev.Rune() == 'l' || ev.Rune() == 'L' || ev.Key() == tcell.KeyCtrlL {
-			// Ctrl+L - Show URL bar with current URL
-			Debug("Ctrl+L detected, entering URL mode", DEBUG)
-			kh.browserMode = ModeURL
-			kh.urlBuffer = kh.getCurrentURL()
-			kh.urlCursorPos = len(kh.urlBuffer)
-			kh.showURLPrompt(s)
-			return false
+func (kh *KeyboardHandler) HandleKeyEvent(s tcell.Screen, ev *tcell.EventKey) bool {
+	if kh.pasting {
+		if ev.Key() == tcell.KeyRune && kh.paste.Len() < 1024*1024 {
+			kh.paste.WriteRune(ev.Rune())
+		} else if ev.Key() == tcell.KeyEnter {
+			kh.paste.WriteByte('\n')
+		} else if ev.Key() == tcell.KeyTab {
+			kh.paste.WriteByte('\t')
 		}
-
-		// Handle other Ctrl+Key combinations if needed
+		return false
+	}
+	if kh.quitConfirm {
 		switch ev.Key() {
-		case tcell.KeyUp:
-			Debug("Ctrl+Up pressed", DEBUG)
-			return false
-		case tcell.KeyDown:
-			Debug("Ctrl+Down pressed", DEBUG)
-			return false
-		case tcell.KeyLeft:
-			Debug("Ctrl+Left pressed", DEBUG)
-			return false
-		case tcell.KeyRight:
-			Debug("Ctrl+Right pressed", DEBUG)
-			return false
-		default:
-			// Don't send Ctrl+key combinations to the server
-			Debug(fmt.Sprintf("Unhandled Ctrl+key: Key=%v, Rune=%c", ev.Key(), ev.Rune()), DEBUG)
-			return false
+		case tcell.KeyEnter:
+			return true
+		case tcell.KeyEscape:
+			kh.quitConfirm = false
 		}
-	} else {
-		// Regular keys
+		if ev.Rune() == 'n' || ev.Rune() == 'N' {
+			kh.quitConfirm = false
+		}
+		if ev.Rune() == 'y' || ev.Rune() == 'Y' {
+			return true
+		}
+		return false
+	}
+	if kh.help {
+		if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyEnter || ev.Key() == tcell.KeyF1 {
+			kh.help = false
+		}
+		return false
+	}
+	if kh.menu {
 		switch ev.Key() {
 		case tcell.KeyEscape:
-			// Triple-escape handled in HandleKeyEvent above.
-			// Single Escape in normal mode — show confirmation dialog.
-			if kh.escCount == 1 {
-				kh.showExitConfirmation()
-			}
-
-		case tcell.KeyUp:
-			if cursor.y > V_BORDER_WIDTH {
-				cursor.y--
-			}
-
-		case tcell.KeyDown:
-			if cursor.y < sDims.Height-(V_BORDER_WIDTH+sDims.LogHeight) {
-				cursor.y++
-			}
-
-		case tcell.KeyLeft:
-			if cursor.x > H_BORDER_WIDTH {
-				cursor.x--
-			}
-
-		case tcell.KeyRight:
-			if cursor.x < sDims.Width-H_BORDER_WIDTH {
-				cursor.x++
-			}
-
+			kh.menu = false
+		case tcell.KeyUp, tcell.KeyBacktab:
+			kh.menuIndex = (kh.menuIndex + len(menuIDs) - 1) % len(menuIDs)
+		case tcell.KeyDown, tcell.KeyTab:
+			kh.menuIndex = (kh.menuIndex + 1) % len(menuIDs)
 		case tcell.KeyEnter:
-			// Send Enter key to browser (for form submission, etc.)
-			Debug("Sending Enter key to browser", DEBUG)
-			go kh.sendSpecialKey("Enter")
-			
+			kh.action(menuIDs[kh.menuIndex])
+		}
+		return false
+	}
+	if kh.focus == "address" {
+		switch ev.Key() {
+		case tcell.KeyEscape:
+			kh.focus = "page"
+		case tcell.KeyEnter:
+			address, err := normalizeAddress(kh.editor.value())
+			if err != nil {
+				kh.status = err.Error()
+				return false
+			}
+			kh.pendingAddress = kh.editor.value()
+			kh.navigate(pb.NavigationAction_NAVIGATE, address)
 		case tcell.KeyTab:
-			// Send Tab key to browser (for form navigation)
-			Debug("Sending Tab key to browser", DEBUG)
-			go kh.sendSpecialKey("Tab")
-			
-		case tcell.KeyBackspace, tcell.KeyBackspace2:
-			// Send Backspace to browser (for text input)
-			Debug("Sending Backspace key to browser", DEBUG)
-			go kh.sendSpecialKey("Backspace")
-
+			kh.focus = "menu"
+		case tcell.KeyBacktab:
+			kh.focus = "reload"
 		default:
-			// Send regular keyboard input to server
-			if ev.Rune() != 0 {
-				go kh.sendKeyboardInput(string(ev.Rune()))
+			kh.editor.key(ev)
+		}
+		return false
+	}
+	if kh.focus != "page" {
+		controls := kh.controls(sDims.Width)
+		if len(controls) == 0 {
+			return false
+		}
+		index := 0
+		for i, c := range controls {
+			if c.id == kh.focus {
+				index = i
 			}
 		}
-	}
-
-	if oldX != cursor.x || oldY != cursor.y {
-		redrawImageArea(s, oldX, oldY)
-		redrawImageArea(s, cursor.x, cursor.y)
-	}
-
-	return false // Don't exit
-}
-
-// GetBrowserMode returns the current browser mode
-func (kh *KeyboardHandler) GetBrowserMode() BrowserMode {
-	return kh.browserMode
-}
-
-// URL prompt display functions
-
-// showURLPrompt displays the URL input field at the bottom of the terminal
-func (kh *KeyboardHandler) showURLPrompt(s tcell.Screen) {
-	// Clear the bottom line (inside the log panel area)
-	y := sDims.Height - 2 // One line up from bottom border
-	style := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite)
-
-	// Clear the line first
-	for x := 1; x < sDims.Width-1; x++ {
-		s.SetContent(x, y, ' ', nil, style)
-	}
-
-	// Draw the prompt
-	prompt := "URL: "
-	x := 2
-	for _, ch := range prompt {
-		s.SetContent(x, y, ch, nil, style.Bold(true))
-		x++
-	}
-
-	// Draw the URL buffer with selection highlight (browser-like behavior)
-	urlStyle := tcell.StyleDefault.Background(tcell.ColorWhite).Foreground(tcell.ColorBlack)
-	for _, ch := range kh.urlBuffer {
-		if x < sDims.Width-2 {
-			s.SetContent(x, y, ch, nil, urlStyle)
-			x++
+		switch ev.Key() {
+		case tcell.KeyEnter:
+			kh.action(kh.focus)
+		case tcell.KeyEscape:
+			kh.focus = "page"
+		case tcell.KeyTab, tcell.KeyRight:
+			kh.focus = controls[(index+1)%len(controls)].id
+		case tcell.KeyBacktab, tcell.KeyLeft:
+			kh.focus = controls[(index+len(controls)-1)%len(controls)].id
 		}
+		if kh.focus == "address" {
+			kh.openAddress()
+		}
+		return false
 	}
-
-	// Draw cursor at end if buffer is not empty
-	if kh.urlCursorPos >= len(kh.urlBuffer) && x < sDims.Width-2 {
-		s.SetContent(x, y, ' ', nil, urlStyle.Reverse(true))
+	if kh.pointerMode {
+		kh.pointerKey(ev)
+		return false
 	}
-
-	s.Show()
+	kh.pageKey(ev)
+	return false
 }
-
-// clearURLPrompt clears the URL prompt from the bottom of the screen
-func (kh *KeyboardHandler) clearURLPrompt(s tcell.Screen) {
-	// Restore the bottom line to normal log panel appearance
-	y := sDims.Height - 2
-	navyStyle := tcell.StyleDefault.Background(tcell.ColorNavy)
-
-	for x := 1; x < sDims.Width-1; x++ {
-		s.SetContent(x, y, ' ', nil, navyStyle)
+func (kh *KeyboardHandler) GetBrowserMode() BrowserMode {
+	if kh.focus == "address" {
+		return ModeURL
 	}
-
-	s.Show()
+	return ModeNormal
 }
-
-// Browser interaction functions
-
-// getCurrentURL fetches the current URL from the browser
-func (kh *KeyboardHandler) getCurrentURL() string {
-	resp, err := kh.grpcClient.GetCurrentUrl(context.Background(), &pb.Empty{})
-	if err != nil {
-		Debug(fmt.Sprintf("Failed to get current URL: %v", err), ERROR)
-		return ""
-	}
-	return resp.Url
-}
-
-// navigateToURLAsync sends the URL to the server asynchronously and updates status
-func (kh *KeyboardHandler) navigateToURLAsync(url string, s tcell.Screen) {
-	if url == "" {
-		logBuffer.Write([]byte("Empty URL"))
-		displayBottomPanel(s)
+func (kh *KeyboardHandler) IsExitRequested() bool { return kh.exitRequested }
+func (kh *KeyboardHandler) pasteEvent(start bool) {
+	if !start && !kh.pasting {
 		return
 	}
-
-	// Add https:// if no protocol specified
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = "https://" + url
+	if start {
+		kh.pasting = true
+		kh.paste.Reset()
+		kh.escCount = 0
+		return
 	}
-
-	Debug(fmt.Sprintf("Navigating to URL: %s", url), INFO)
-	
-	// Set a reasonable timeout for the navigation request
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	
-	_, err := kh.grpcClient.NavigateToUrl(ctx, &pb.Url{Url: url})
-	if err != nil {
-		errorMsg := fmt.Sprintf("Navigation failed for '%s': %v", url, err)
-		Debug(errorMsg, ERROR)
-		logBuffer.Write([]byte(errorMsg))
-	} else {
-		// Log successful navigation
-		successMsg := fmt.Sprintf("Successfully navigated to: %s", url)
-		Debug(successMsg, INFO)
-		logBuffer.Write([]byte(successMsg))
-	}
-	displayBottomPanel(s)
-}
-
-// sendKeyboardInput sends keyboard input to the server
-func (kh *KeyboardHandler) sendKeyboardInput(text string) {
-	Debug(fmt.Sprintf("Sending keyboard input: %s", text), DEBUG)
-	_, err := kh.grpcClient.SendKeyboardInput(context.Background(), &pb.Text{Content: text})
-	if err != nil {
-		Debug(fmt.Sprintf("Failed to send keyboard input: %v", err), ERROR)
+	text := kh.paste.String()
+	kh.pasting = false
+	kh.paste.Reset()
+	if kh.focus == "address" {
+		kh.editor.insert(text)
+	} else if !kh.menu && !kh.help && !kh.quitConfirm {
+		kh.input(&pb.InputEvent{Kind: pb.InputKind_PASTE_INPUT, Text: text})
 	}
 }
-
-// sendSpecialKey sends special keys like Enter, Tab, etc. to the server
-func (kh *KeyboardHandler) sendSpecialKey(key string) {
-	Debug(fmt.Sprintf("Sending special key: %s", key), DEBUG)
-	// We need to send a special marker for these keys
-	// The server should interpret these as keyboard.press() instead of keyboard.type()
-	specialKeyMarker := fmt.Sprintf("__KEY__%s", key)
-	_, err := kh.grpcClient.SendKeyboardInput(context.Background(), &pb.Text{Content: specialKeyMarker})
-	if err != nil {
-		Debug(fmt.Sprintf("Failed to send special key %s: %v", key, err), ERROR)
+func inputModifiers(mod tcell.ModMask) uint32 {
+	var result uint32
+	if mod&tcell.ModAlt != 0 {
+		result |= 1
 	}
+	if mod&tcell.ModCtrl != 0 {
+		result |= 2
+	}
+	if mod&tcell.ModMeta != 0 {
+		result |= 4
+	}
+	if mod&tcell.ModShift != 0 {
+		result |= 8
+	}
+	return result
 }
-
-// showExitConfirmation shows the exit confirmation dialog
-func (kh *KeyboardHandler) showExitConfirmation() {
-	showLocalDialog(pb.DialogType_CONFIRM, "Exit Termium?", func(response *pb.DialogResponse) {
-		if response.Accepted {
-			Debug("Exit confirmed by user", INFO)
-			kh.exitRequested = true
-			// Force a screen event to trigger exit
-			if dialogScreen != nil {
-				dialogScreen.PostEvent(tcell.NewEventInterrupt(nil))
-			}
-		} else {
-			Debug("Exit cancelled by user", DEBUG)
-			kh.exitRequested = false
+func (kh *KeyboardHandler) pageKey(ev *tcell.EventKey) {
+	names := map[tcell.Key]string{tcell.KeyEnter: "Enter", tcell.KeyTab: "Tab", tcell.KeyBacktab: "Tab", tcell.KeyEscape: "Escape", tcell.KeyBackspace: "Backspace", tcell.KeyBackspace2: "Backspace", tcell.KeyDelete: "Delete", tcell.KeyInsert: "Insert", tcell.KeyLeft: "ArrowLeft", tcell.KeyRight: "ArrowRight", tcell.KeyUp: "ArrowUp", tcell.KeyDown: "ArrowDown", tcell.KeyHome: "Home", tcell.KeyEnd: "End", tcell.KeyPgUp: "PageUp", tcell.KeyPgDn: "PageDown"}
+	mod := inputModifiers(ev.Modifiers())
+	key := names[ev.Key()]
+	if ev.Key() == tcell.KeyBacktab {
+		mod |= 8
+	}
+	if key == "" && ev.Key() >= tcell.KeyCtrlA && ev.Key() <= tcell.KeyCtrlZ {
+		key = string(rune('a' + ev.Key() - tcell.KeyCtrlA))
+		mod |= 2
+	}
+	if ev.Key() == tcell.KeyRune {
+		if mod&7 == 0 {
+			kh.input(&pb.InputEvent{Kind: pb.InputKind_TEXT_INPUT, Text: string(ev.Rune()), Modifiers: mod})
+			return
 		}
-	})
-}
-
-// IsExitRequested returns true if the user confirmed exit
-func (kh *KeyboardHandler) IsExitRequested() bool {
-	return kh.exitRequested
+		key = string(ev.Rune())
+	}
+	if key != "" {
+		kh.input(&pb.InputEvent{Kind: pb.InputKind_KEY_INPUT, Key: key, Modifiers: mod})
+	}
 }

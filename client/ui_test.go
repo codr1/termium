@@ -358,3 +358,25 @@ func TestPointerDoesNotStealAddressCursorAndOverlaysAreExclusive(t *testing.T) {
 		t.Fatal("overlay obscures pointer mode")
 	}
 }
+
+func TestLostResizeNotificationStillUpdatesBrowserViewport(t *testing.T) {
+	s := uiScreen(t, 80, 24)
+	kh, ops := recorder()
+	old := keyboardHandler
+	keyboardHandler = kh
+	t.Cleanup(func() { keyboardHandler = old })
+	// SimulationScreen changes size without delivering EventResize, reproducing
+	// the dropped notification in tcell's bounded event queue under frame load.
+	s.SetSize(100, 30)
+	ensureLayout(s)
+	if sDims.Width != 100 || sDims.Height != 30 {
+		t.Fatal("layout did not catch up")
+	}
+	if len(*ops) != 2 || (*ops)[1].viewport.Width != 784 || (*ops)[1].viewport.Height != 416 {
+		t.Fatal("browser viewport remained stale", *ops)
+	}
+	ensureLayout(s)
+	if len(*ops) != 2 {
+		t.Fatal("unchanged geometry resent resize")
+	}
+}

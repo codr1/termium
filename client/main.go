@@ -550,12 +550,13 @@ func runMainLoop(s tcell.Screen) error {
 	redraw(s)
 	for {
 		ev := s.PollEvent()
+		ensureLayout(s)
 		if ev == nil {
 			return nil
 		}
 		switch ev := ev.(type) {
 		case *tcell.EventResize:
-			handleResize(s)
+			ensureLayout(s)
 		case *tcell.EventInterrupt:
 			switch value := ev.Data().(type) {
 			case quitEvent:
@@ -611,6 +612,16 @@ func updateScreenDimensions(s tcell.Screen) {
 	w, h := s.Size()
 	r := viewportRect(w, h)
 	sDims = ScreenDimensions{Width: w, Height: h, ViewTop: r.Min.Y, LogHeight: 1, LogPanelTop: h - 2, ViewHeight: r.Dy(), InnerWidth: r.Dx(), InnerViewHeight: r.Dy(), InnerWidthPx: r.Dx() * charSize.Width, InnerHeightPx: r.Dy() * charSize.Height}
+}
+
+// tcell's resize notification is best effort when its event queue is full.
+// Reconcile the actual screen size before routing every event, so a dropped
+// notification cannot leave browser pixels and terminal hit-testing out of sync.
+func ensureLayout(s tcell.Screen) {
+	w, h := s.Size()
+	if w != sDims.Width || h != sDims.Height {
+		handleResize(s)
+	}
 }
 
 func handleResize(s tcell.Screen) {

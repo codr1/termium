@@ -32,6 +32,8 @@ Sixel bands are six pixels high. Caching at that granularity follows the image f
 
 The client checks whether a server accepts connections, discovers its entry point, and launches Node if necessary. It watches stdout for `TERMIUM_READY`. That sentinel means the gRPC listener is available; browser startup happens later when requested.
 
+Managed Chromium on macOS disables the back/forward page cache: CI found viewport emulation hanging on a frozen history target after Back. History navigation remains available and reloads the previous document. Re-enable this optimization only after the native history → prompt → resize tests pass with it.
+
 The default endpoint is `/tmp/termium.sock`, with optional TCP. The server maintains one global page and dialog stream. This does not provide isolated multi-client sessions.
 
 Shutdown attempts to close the browser, server, connection, and terminal screen. Terminal probes have bounded deadlines. The event loop alone draws or finalizes the screen; workers post events and publish immutable frames into a latest-frame slot. A single client worker orders navigation, keys, mouse transitions, and resize requests. Browser input carries a document generation so queued input cannot act on a replacement page. Session isolation remains release work.

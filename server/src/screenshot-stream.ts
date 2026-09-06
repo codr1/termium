@@ -9,7 +9,7 @@ export function streamScreenshots(
 ) {
     const fps = call.request.fps || 10;
     if (fps < 1 || fps > 60 || !['', 'jpeg', 'png'].includes(call.request.format)) {
-        call.destroy(Object.assign(new Error('Use 1–60 FPS and png or jpeg'), { code: grpc.status.INVALID_ARGUMENT }));
+        call.emit('error', Object.assign(new Error('Use 1–60 FPS and png or jpeg'), { code: grpc.status.INVALID_ARGUMENT }));
         return;
     }
     let busy = false;
@@ -29,7 +29,7 @@ export function streamScreenshots(
             const code = (error as { code?: grpc.status }).code;
             if (code === grpc.status.UNAVAILABLE || code === grpc.status.FAILED_PRECONDITION ||
                 (code === grpc.status.RESOURCE_EXHAUSTED && (error as Error).message === 'Capture is busy')) return;
-            if (!stopped && ++errors > 10) { stop(); call.destroy(error as Error); }
+            if (!stopped && ++errors > 10) { stop(); call.emit('error', error); }
         } finally { busy = false; }
     }, 1000 / fps);
     const stop = () => { stopped = true; clearInterval(timer); };

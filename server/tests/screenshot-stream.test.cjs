@@ -5,6 +5,7 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { streamScreenshots } = require('../dist/src/screenshot-stream');
 
 class Sink extends EventEmitter {
+    constructor() { super(); this.on('error', error => { this.error = error; this.emit('close'); }); }
     request = { fps: 60, format: 'png' };
     cancelled = false;
     writes = 0;

@@ -52,7 +52,8 @@ func displayWithKittyPNG(pngData []byte) error {
 
 	// Position cursor at the top-left of the usable area (after borders)
 	// Same positioning logic as displayWithSixel
-	fmt.Fprintf(kittyWriter, "\033[%d;%dH", V_BORDER_WIDTH+1, H_BORDER_WIDTH+1)
+	fmt.Fprint(kittyWriter, "\033[s")
+	fmt.Fprintf(kittyWriter, "\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
 
 	// No explicit delete — transmitting with the same image ID (i=1) and
 	// placement ID (p=1) atomically replaces the previous image. Deleting
@@ -75,6 +76,7 @@ func displayWithKittyPNG(pngData []byte) error {
 		return fmt.Errorf("kitty write error: %v", err)
 	}
 
+	fmt.Fprint(kittyWriter, "\033[u")
 	// Flush everything to stdout in one shot
 	if err := kittyWriter.Flush(); err != nil {
 		return fmt.Errorf("kitty flush error: %v", err)

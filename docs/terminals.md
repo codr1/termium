@@ -12,7 +12,7 @@ Termium displays browser screenshots inside the terminal. Image quality and resp
 
 Character display is an image approximation, not a text or accessibility view of the webpage. Small text may be difficult to read.
 
-The current default is `auto`: Termium probes for Kitty support and otherwise selects sixel. It does not yet verify sixel support or automatically choose character display. If graphics do not appear, use a manual override.
+The default is `auto`: bounded probes check Kitty support and sixel device attributes, then fall back to character display. Character mode skips graphics calibration entirely. If graphics do not appear, use a manual override. Menus and dialogs temporarily pause graphics output to keep local controls visible.
 
 ## Compatibility status
 

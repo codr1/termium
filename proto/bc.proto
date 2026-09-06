@@ -11,6 +11,9 @@ service BrowserControl {
   rpc SendKeyboardInput (Text) returns (Message) {}
   rpc NavigateToUrl (Url) returns (Message) {}
   rpc GetCurrentUrl (Empty) returns (Url) {}
+  rpc GetBrowserState (Empty) returns (BrowserState) {}
+  rpc BrowserCommand (NavigationRequest) returns (BrowserState) {}
+  rpc SendInput (InputEvent) returns (Message) {}
   // Streaming RPC for continuous screenshots
   rpc StreamScreenshots (ScreenshotRequest) returns (stream Screenshot) {}
   // Bidirectional streaming for dialog handling
@@ -43,6 +46,53 @@ message Url {
 
 message Screenshot {
   bytes data = 1;
+  uint64 generation = 2;
+}
+
+message BrowserState {
+  string url = 1;
+  string title = 2;
+  bool can_back = 3;
+  bool can_forward = 4;
+  bool loading = 5;
+  uint64 generation = 6;
+  string error = 7;
+}
+
+enum NavigationAction {
+  NAVIGATE = 0;
+  BACK = 1;
+  FORWARD = 2;
+  RELOAD = 3;
+  STOP = 4;
+}
+
+message NavigationRequest {
+  NavigationAction action = 1;
+  string url = 2;
+}
+
+enum InputKind {
+  TEXT_INPUT = 0;
+  KEY_INPUT = 1;
+  POINTER_INPUT = 2;
+  WHEEL_INPUT = 3;
+  RESET_INPUT = 4;
+  PASTE_INPUT = 5;
+}
+
+message InputEvent {
+  InputKind kind = 1;
+  string text = 2;
+  string key = 3;
+  int32 x = 4;
+  int32 y = 5;
+  uint32 buttons = 6; // left=1, right=2, middle=4; complete held state
+  uint32 modifiers = 7; // Alt=1, Control=2, Meta=4, Shift=8
+  int32 delta_x = 8;
+  int32 delta_y = 9;
+  uint32 click_count = 10;
+  uint64 generation = 11; // zero permits input before the first state update
 }
 
 message ScreenshotRequest {

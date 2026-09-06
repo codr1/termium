@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	InitialURL      string
 	Debug           bool
 	ServerAddr      string
 	SplashPath      string
@@ -27,6 +28,7 @@ func parseFlags() (*Config, error) {
 	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
 	flag.BoolVar(&showVersion, "v", false, "Print version and exit (shorthand)")
 
+	flag.StringVar(&cfg.InitialURL, "url", "about:blank", "Initial HTTP or HTTPS address")
 	// Define flags
 	flag.BoolVar(&cfg.Debug, "debug", false, "Enable debug output")
 	flag.StringVar(&cfg.ServerAddr, "tcp", "", "Use TCP connection (default: Unix socket at /tmp/termium.sock, with --tcp defaults to localhost:50051)")

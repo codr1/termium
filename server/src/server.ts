@@ -1,4 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
+import { BrowserControls } from './browser-controls';
 import * as puppeteer from 'puppeteer';
 import { Command } from 'commander';
 import * as fs from 'fs';
@@ -19,6 +20,23 @@ let page: puppeteer.Page | null = null;
 let browserLaunch: Promise<void> | null = null;
 let shuttingDown = false;
 const browserAbort = new AbortController();
+let pageCreation: Promise<puppeteer.Page> | null = null;
+const controls = new BrowserControls(ensurePage);
+
+async function ensurePage(): Promise<puppeteer.Page> {
+    if (page && !page.isClosed()) return page;
+    if (!pageCreation) {
+        pageCreation = (async () => {
+            await launchOrConnectToBrowser();
+            const created = await browser!.newPage();
+            page = created;
+            setupDialogHandler(created);
+            controls.attach(created);
+            return created;
+        })().finally(() => { pageCreation = null; });
+    }
+    return pageCreation;
+}
 
 // Dialog handling
 interface PendingDialog {
@@ -148,33 +166,26 @@ async function launchBrowser() {
 }
 
 const browserControlHandlers: BrowserControlServer = {
-    openTab: async (_call: ServerUnaryCall<Empty, Message>, callback: sendUnaryData<Message>) => {
+    openTab: async (_call, callback) => {
         try {
-            if (!browser) {
-                await launchOrConnectToBrowser();
-            }
-            
-            // Only create a new page if we don't have one already
-            if (!page || page.isClosed()) {
-                if (browser) {
-                    page = await browser.newPage();
-                    logDebug('Created new page in openTab');
-                    setupDialogHandler(page);
-                } else {
-                    throw new Error('Browser instance is not initiated.');
-                }
-                callback(null, { text: 'New tab opened' });
-            } else {
-                logDebug('Page already exists, reusing it');
-                callback(null, { text: 'Using existing tab' });
-            }
+            await ensurePage();
+            callback(null, { text: 'Tab ready' });
         } catch (error) {
-            logDebug('Error in openTab:', (error as Error).message);
-            callback({
-                code: grpc.status.INTERNAL,
-                message: `Failed to open a new tab: ${(error as Error).message}`,
-            });
+            callback({ code: grpc.status.INTERNAL, message: (error as Error).message });
         }
+    },
+
+    getBrowserState: async (_call, callback) => {
+        try { callback(null, await controls.state()); }
+        catch (error) { callback({ code: grpc.status.INTERNAL, message:(error as Error).message }); }
+    },
+    browserCommand: async (call, callback) => {
+        try { callback(null, await controls.command(call.request)); }
+        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
+    },
+    sendInput: async (call, callback) => {
+        try { await controls.input(call.request); callback(null, { text:'Input dispatched' }); }
+        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
     },
 
     setViewport: async (call: ServerUnaryCall<ViewportSize, Message>, callback: sendUnaryData<Message>) => {
@@ -238,73 +249,15 @@ const browserControlHandlers: BrowserControlServer = {
             const url = call.request.url;
             logDebug(`Attempting to navigate to URL: ${url}`);
             
-            // List all pages before navigation
-            if (browser) {
-                const pages = await browser.pages();
-                logDebug(`Pages BEFORE navigation (${pages.length} total):`);
-                for (let i = 0; i < pages.length; i++) {
-                    const pageUrl = pages[i].url();
-                    const isCurrent = pages[i] === page;
-                    logDebug(`  Page ${i}: ${pageUrl}${isCurrent ? ' (current)' : ''}`);
-                }
-            }
-            
-            // Check if we have no page at all
-            if (!page) {
-                logDebug('No page exists, creating initial page');
-                if (!browser) {
-                    await launchOrConnectToBrowser();
-                }
-                if (browser) {
-                    page = await browser.newPage();
-                    logDebug('Created initial page');
-                    setupDialogHandler(page);
-                } else {
-                    throw new Error('Failed to create browser');
-                }
-            } else if (page.isClosed()) {
-                // Page was closed, need to create a new one
-                logDebug('Page was closed, creating new page');
-                page = await browser!.newPage();
-                logDebug('Created replacement page');
-                setupDialogHandler(page);
-            } else {
-                // Page exists and is open - reuse it!
-                logDebug('Reusing existing page for navigation');
-            }
-            
-            // Set up dialog handler if not already set
-            if (!page.listenerCount('dialog')) {
-                setupDialogHandler(page);
-            }
-            
-            // Log current URL before navigation
-            const currentUrl = page.url();
-            logDebug(`Current URL before navigation: ${currentUrl}`);
-            
-            // Set up event listeners for debugging only - no promises that could reject
-            const loadListener = () => {
-                logDebug(`Page 'load' event fired`);
-            };
-            const domContentLoadedListener = () => {
-                logDebug(`Page 'domcontentloaded' event fired`);
-            };
-            const errorListener = (err: Error) => {
-                logDebug(`Page error during navigation: ${err.message}`);
-            };
-            
-            page!.once('load', loadListener);
-            page!.once('domcontentloaded', domContentLoadedListener);
-            page!.once('error', errorListener);
-            
+            await ensurePage();
             // Start navigation
             logDebug(`Starting navigation to: ${url}`);
-            await page.goto(url, {
+            await page!.goto(url, {
                 waitUntil: 'networkidle0',
                 timeout: 8000
             });
             
-            const newUrl = page.url();
+            const newUrl = page!.url();
             logDebug(`Successfully navigated to: ${url}, actual URL: ${newUrl}`);
             callback(null, { text: `Navigated to ${newUrl}` });
         } catch (error) {
@@ -391,6 +344,7 @@ const browserControlHandlers: BrowserControlServer = {
                 const screenshotOptions: any = format === 'png'
                     ? { type: 'png' }
                     : { type: 'jpeg', quality: 60 };
+                const generation = controls.generation;
                 const screenshotPromise = page.screenshot(screenshotOptions);
                 
                 const timeoutPromise = new Promise<never>((_, reject) => {
@@ -412,8 +366,8 @@ const browserControlHandlers: BrowserControlServer = {
                 const screenshotBuffer = Buffer.from(screenshot);
 
                 // Only write if not cancelled
-                if (!isCancelled) {
-                    const success = call.write({ data: screenshotBuffer });
+                if (!isCancelled && generation === controls.generation) {
+                    const success = call.write({ data: screenshotBuffer, generation });
                     if (!success) {
                         logDebug('Stream backpressure detected');
                     } else {

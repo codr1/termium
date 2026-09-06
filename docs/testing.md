@@ -6,7 +6,7 @@ After installing the [contributor toolchain and npm dependencies](development.md
 npm test
 ```
 
-This rebuilds the generated protocol bindings, TypeScript server, and Go client; runs static checks and Go tests with the race detector; installs Puppeteer's matching Chrome; and runs integration tests against the actual server and browser. A missing browser or failed launch fails the run. Tests do not require a visible terminal window, GNU `timeout`, or a public website.
+This rebuilds the generated protocol bindings, TypeScript server, and Go client (with race instrumentation for terminal integration); runs static checks and Go tests with the race detector; installs Puppeteer's matching Chrome; and runs integration tests against the actual server and browser. A missing browser or failed launch fails the run. Tests do not require a visible terminal window, GNU `timeout`, or a public website.
 
 The first run needs internet access to download dependencies and Chrome. Later browser runs reuse [Puppeteer's cache](https://pptr.dev/guides/configuration). Linux needs Chrome's system libraries; CI installs them automatically. Prefer Node 24 LTS. An interrupted browser download can leave an incomplete cache directory; remove that specific incomplete browser version and rerun `npm run test:browser:install`.
 
@@ -15,9 +15,11 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | Layer | What the tests establish |
 | --- | --- |
 | Build and static checks | Both languages compile against freshly generated protobuf bindings; Go vet and installer shell syntax checks pass. |
-| Client unit tests | Supported flags, server discovery through symlinks, live/closed/stale listener detection, and existing Kitty encoding tests. The race detector runs on exercised Go code. |
+| Client unit tests | Flags, server discovery/listeners, Kitty encoding, simulated tcell viewport colors/clipping, Unicode editing, mouse capture, modal routing, ordered input, and concurrent frame ownership. |
 | Executable tests | The built binary exits with the expected status and diagnostic for help, version, unknown flags, and invalid renderers. |
 | Browser integration | Real gRPC calls produce redirects, Unicode form input, special keys, mouse clicks, and recoverable navigation failures. |
+| Navigation and input | History/redirect state, reload, stopping a stalled navigation and recovering, literal paste, modifiers, held-button dragging, right-click, wheel input, and rejection of stale-document input. |
+| Terminal integration | The actual client runs in a pseudo-terminal and submits Unicode form input through SGR mouse events and bracketed paste, edits an address, uses Back, resizes during a prompt, submits Unicode prompt text, verifies the new browser viewport, and quits. |
 | Screenshot integration | PNG and JPEG decode correctly, contain the fixture's background pixels, match viewport dimensions, and can be cancelled and reopened. |
 | Dialog integration | Prompt text, empty text, cancellation, and confirmation responses reach the page; closing the dialog stream terminates it. |
 | Process lifecycle | Port conflicts fail startup, missing Chrome produces RPC errors, and SIGINT/SIGTERM shut down with live streams, an unanswered prompt, or a stalled browser launch. Cleanup detects and kills a leaked browser process. |
@@ -50,9 +52,7 @@ Configure the three test jobs as required checks in the repository's branch rule
 
 ## What a green run does not prove
 
-This is browser integration through the production protocol, not a full terminal UI test. It does not yet drive the client's interactive event loop or certify graphics on Ghostty, Kitty, iTerm2, or other terminals. Keep a short manual check for terminal rendering, resize, keyboard focus, dialogs, and clean exit on each supported terminal.
-
-For the next UI work, put Vimium-style command routing behind a state machine with deterministic tests for modes, counts, prefixes, and focus. Add a pseudo-terminal test that launches the real client and sends key sequences. Keep visual terminal checks separate from browser behavior so a failure identifies the layer that broke.
+The suite exercises the interactive client through a pseudo-terminal and checks tcell cells in a simulation. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. Native Vimium hints, find, and tab commands need additional behavioral coverage when implemented.
 
 One-command installation also needs its own release acceptance suite: install an actual artifact in a clean environment with no Go, Node, or `protoc`; launch and browse a local fixture; then test update and uninstall. Current build and shell syntax checks do **not** validate that deployment path. Track that work against the [installation plan](plans/one-command-install.md).
 

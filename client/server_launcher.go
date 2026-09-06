@@ -113,7 +113,11 @@ func startServer() error {
 		return fmt.Errorf("node not found in PATH: %v", err)
 	}
 
-	serverProcess = exec.Command(nodePath, loc.scriptPath)
+	args := []string{loc.scriptPath}
+	if cfg.ServerAddr != "" {
+		args = append(args, "--tcp", cfg.ServerAddr)
+	}
+	serverProcess = exec.Command(nodePath, args...)
 	serverProcess.Dir = loc.workDir
 
 	// Capture stdout to watch for readiness sentinel
@@ -123,7 +127,7 @@ func startServer() error {
 	}
 
 	// Let server stderr pass through for debugging
-	serverProcess.Stderr = os.Stderr
+	serverProcess.Stderr = &logBuffer
 
 	if err := serverProcess.Start(); err != nil {
 		return fmt.Errorf("failed to start server: %v", err)
@@ -182,12 +186,15 @@ func stopServer() {
 	if err := serverProcess.Process.Signal(os.Interrupt); err != nil {
 		Debug(fmt.Sprintf("Failed to send SIGINT to server: %v", err), WARN)
 		serverProcess.Process.Kill()
+		_ = serverProcess.Wait()
+		serverProcess = nil
 		return
 	}
 
 	// Wait briefly for graceful exit
 	done := make(chan error, 1)
-	go func() { done <- serverProcess.Wait() }()
+	process := serverProcess
+	go func() { done <- process.Wait() }()
 
 	select {
 	case <-done:
@@ -195,7 +202,7 @@ func stopServer() {
 	case <-time.After(3 * time.Second):
 		Debug("Server didn't stop gracefully, killing", WARN)
 		serverProcess.Process.Kill()
-		serverProcess.Wait()
+		<-done
 	}
 
 	serverProcess = nil

@@ -16,10 +16,11 @@ See [installation status](docs/installation.md) for platform targets and what th
 
 For an existing working installation, run `termium`. From a source checkout, run `./client/termium`.
 
-- Press **Enter** to continue past the current splash screen.
-- Press **Ctrl+L**, then **Ctrl+U**, type an address, and press **Enter**.
+- Press **Ctrl+L**, type an address, and press **Enter**.
+- Use the top bar for Back, Forward, Reload/Stop, and Menu.
 - Click a page field to focus it, then type normally.
-- Press **Escape** in normal browsing mode to open the exit confirmation, then **Enter** to quit.
+- Press **F6** for keyboard pointer control; press it again to return to typing.
+- Press **Ctrl+Q**, then **Enter** to quit.
 
 Read the [getting started guide](docs/getting-started.md) for controls and display options.
 
@@ -36,7 +37,7 @@ Read the [getting started guide](docs/getting-started.md) for controls and displ
 ## What's next
 
 1. **One-command setup:** no manual dependency installation, configuration edits, or separate server startup on supported Linux and macOS systems.
-2. **Browser UI and keyboard navigation:** implement familiar Vimium shortcuts natively with broad command coverage, plus an address bar, back/forward controls, and a menu under consideration.
+2. **Browser UI and keyboard navigation:** implement familiar Vimium shortcuts natively with broad command coverage, building on the current address bar, back/forward controls, and menu.
 3. **Windows:** add native installation and terminal support after Linux and macOS.
 
 The [installation plan](docs/plans/one-command-install.md) and [browser UI plan](docs/plans/browser-ui.md) define the work and release checks. These are planned capabilities, not features of the current build.

@@ -16,7 +16,7 @@ Try one of the manual display options in [terminal support](terminals.md). For e
 termium --renderer tcell --splash NONE
 ```
 
-If you use tmux, screen, or SSH, also try launching directly in the local terminal. Include both results when reporting the issue. Some terminals may stall during the current startup calibration even with a manual renderer.
+If you use tmux, screen, or SSH, also try launching directly in the local terminal. Include both results when reporting the issue. Character mode skips terminal graphics queries; automatic detection uses bounded timeouts.
 
 ## The page feels slow
 
@@ -24,11 +24,11 @@ For sixel, try `--palette websafe`. A smaller terminal window can also reduce re
 
 ## Keyboard shortcuts behave unexpectedly
 
-The current build intercepts several keys, including Escape and the arrow keys, and does not forward most Ctrl combinations. Native Vimium-style navigation is planned, not currently available. Consult the [current controls](getting-started.md) and [upcoming keyboard navigation](vimium.md).
+Arrow keys normally go to the page. If they move a local cursor, press F6 or Escape to leave keyboard pointer mode. Termium reserves Ctrl+L, Ctrl+Q, Ctrl+R, Alt+Left/Right, F1, F5, F6, and F10; other supported page keys pass through. Terminals may intercept modifiers or mouse buttons before Termium receives them. Consult the [current controls](getting-started.md) and [upcoming Vimium navigation](vimium.md).
 
 ## Termium stops responding
 
-Try the normal exit flow first. If the application cannot process input, open another terminal and identify the affected Termium process before stopping it; avoid stopping unrelated browser processes.
+Try Ctrl+Q, then Enter. Rapidly pressing Escape three times also exits through modal dialogs. If the application cannot process input, open another terminal and identify the affected Termium process before stopping it; avoid stopping unrelated browser processes.
 
 If the shell's display remains garbled after Termium exits, run `reset` in that terminal. Report whether the problem occurred during startup, navigation, a website dialog, or shutdown.
 

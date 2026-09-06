@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ const (
 var debugEnabled bool
 
 var logFile *os.File
+var logMu sync.Mutex
 
 // SetDebug enables or disables debug output
 func SetDebug(enabled bool) {
@@ -61,6 +63,8 @@ func SetLogFile(filename string) error {
 
 // CloseLogFile closes the log file if it's open
 func CloseLogFile() {
+	logMu.Lock()
+	defer logMu.Unlock()
 	if logFile != nil {
 		timestamp := time.Now().Format("2006-01-02 15:04:05.000")
 		logLine := fmt.Sprintf("%s [INFO] Log file closed\n", timestamp)
@@ -72,6 +76,8 @@ func CloseLogFile() {
 
 // Debug outputs debug messages with severity levels
 func Debug(message string, severity Severity) {
+	logMu.Lock()
+	defer logMu.Unlock()
 	var prefix string
 
 	switch severity {

@@ -137,3 +137,18 @@ func TestGetKittyStatsEmpty(t *testing.T) {
 		t.Error("expected zero averages for empty stats")
 	}
 }
+
+func TestKittyFramePreservesCursorAndToolbarOrigin(t *testing.T) {
+	uiScreen(t, 80, 24)
+	oldCfg := cfg
+	cfg = &Config{}
+	t.Cleanup(func() { cfg = oldCfg })
+	var buf bytes.Buffer
+	kittyWriter.Reset(&buf)
+	if err := displayWithKittyPNG([]byte("frame")); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(buf.Bytes(), []byte("\033[s\033[3;2H")) || !bytes.HasSuffix(buf.Bytes(), []byte("\033[u")) {
+		t.Fatalf("graphics disturb toolbar or cursor: %q", buf.String())
+	}
+}

@@ -45,6 +45,7 @@ type testServer struct {
 	done        chan error
 	exited      bool
 	browserPIDs string
+	address     string
 }
 
 func (s *testServer) stop(t *testing.T, signals ...os.Signal) {
@@ -112,9 +113,14 @@ func killBrowserGroups(pidFile string) ([]int, error) {
 		if err != nil || pid <= 1 {
 			return leaked, fmt.Errorf("invalid owned browser PID %q", field)
 		}
-		if syscall.Kill(pid, 0) == nil {
-			leaked = append(leaked, pid)
+		// Once our child has exited and been reaped, its group ID is no longer
+		// safe to signal (Darwin can also return EPERM for a defunct group).
+		if err := syscall.Kill(pid, 0); err == syscall.ESRCH {
+			continue
+		} else if err != nil {
+			return leaked, err
 		}
+		leaked = append(leaked, pid)
 		if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
 			return leaked, err
 		}
@@ -169,6 +175,7 @@ func startServer(t *testing.T, env ...string) *testServer {
 			if len(match) == 0 || !strings.Contains(string(output), "TERMIUM_READY") {
 				continue
 			}
+			server.address = string(match[1])
 			conn, err := grpc.NewClient(string(match[1]), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				t.Fatal(err)

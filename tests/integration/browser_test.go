@@ -152,17 +152,23 @@ func TestBrowser(t *testing.T) {
 		}{{"png", 640, 480}, {"jpeg", 800, 600}} {
 			_, err = client.SetViewport(ctx, &pb.ViewportSize{Width: tc.width, Height: tc.height})
 			requireOK(t, err)
-			streamCtx, cancel := context.WithCancel(ctx)
+			streamCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			stream, err := client.StreamScreenshots(streamCtx, &pb.ScreenshotRequest{Fps: 10, Format: tc.format})
 			requireOK(t, err)
 			t.Cleanup(cancel)
-			for i := 0; i < 2; i++ {
+			for i := 0; i < 2; {
 				frame, err := stream.Recv()
 				requireOK(t, err)
 				decoded, format, err := image.Decode(bytes.NewReader(frame.Data))
 				requireOK(t, err)
-				if format != tc.format || decoded.Bounds().Dx() != int(tc.width) || decoded.Bounds().Dy() != int(tc.height) {
+				if format != tc.format {
 					t.Fatalf("wrong screenshot: %s %v", format, decoded.Bounds())
+				}
+				// Chromium's compositor can deliver the previous surface briefly
+				// after viewport acknowledgement, notably on macOS. Require two
+				// correctly resized frames within the stream deadline.
+				if decoded.Bounds().Dx() != int(tc.width) || decoded.Bounds().Dy() != int(tc.height) {
+					continue
 				}
 				// Background pixel proves this is the rendered fixture, not a blank frame.
 				r, g, b, _ := decoded.At(400, 300).RGBA()
@@ -172,6 +178,7 @@ func TestBrowser(t *testing.T) {
 						t.Fatalf("wrong screenshot background: %d,%d,%d", r>>8, g>>8, b>>8)
 					}
 				}
+				i++
 			}
 			cancel()
 			// Drain any frames already in flight; the cancelled stream must terminate.

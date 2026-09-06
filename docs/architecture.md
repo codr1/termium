@@ -20,9 +20,9 @@ The protocol lives in `proto/bc.proto`; Go and TypeScript bindings are generated
 
 ## Renderers
 
-- **Kitty:** requests PNG screenshots and sends the encoded image bytes through the Kitty graphics protocol. The streaming path avoids decoding and re-encoding images on the client. It requests 30 frames per second; achieved frame rate must be measured.
+- **Kitty:** requests PNG screenshots and sends the encoded image bytes through the Kitty graphics protocol. The streaming path reads image dimensions to reject stale resize frames, then passes PNG bytes through without decoding pixels or re-encoding. It requests 24 frames per second; achieved frame rate must be measured.
 - **Sixel:** decodes screenshots, quantizes colors, and encodes sixel output. Band-level caching reuses encoded regions when their contents are unchanged. Fixed palettes such as websafe support more stable caching.
-- **tcell:** approximates images with Unicode character blocks. This is a screenshot renderer, not a DOM text browser.
+- **tcell:** samples two colors per cell and draws a Unicode half block across the shared viewport. This is a screenshot renderer, not a DOM text browser.
 
 Sixel bands are six pixels high. Caching at that granularity follows the image format, but effectiveness depends on page changes, palette selection, and viewport size. Earlier README timing figures were not a cross-platform benchmark and should not be used as release guarantees.
 
@@ -34,7 +34,7 @@ The client checks whether a server accepts connections, discovers its entry poin
 
 The default endpoint is `/tmp/termium.sock`, with optional TCP. The server maintains one global page and dialog stream. This does not provide isolated multi-client sessions.
 
-Shutdown attempts to close the browser, server, connection, and terminal screen. Bounded startup probes, lifecycle ownership, session isolation, and cleanup coverage are release work.
+Shutdown attempts to close the browser, server, connection, and terminal screen. Terminal probes have bounded deadlines. The event loop alone draws or finalizes the screen; workers post events and publish immutable frames into a latest-frame slot. A single client worker orders navigation, keys, mouse transitions, and resize requests. Browser input carries a document generation so queued input cannot act on a replacement page. Session isolation remains release work.
 
 ## Code map
 
@@ -43,11 +43,13 @@ Shutdown attempts to close the browser, server, connection, and terminal screen.
 | `client/main.go` | Application lifecycle, terminal events, viewport, and rendering coordination |
 | `client/config.go` | Flags and renderer selection |
 | `client/server_launcher.go` | Server discovery and child process lifecycle |
-| `client/keyboard.go` | Keyboard routing and address editing |
+| `client/keyboard.go`, `client/navigation_ui.go`, `client/text_editor.go` | Keyboard routing, navigation bar, menu, and Unicode editing |
+| `client/mouse.go`, `client/input_dispatcher.go` | Mouse capture, keyboard pointer, and ordered input |
+| `client/ui_layout.go`, `client/framebuffer.go` | Shared viewport geometry and immutable frame handoff |
 | `client/kitty_renderer.go` | Kitty graphics encoding |
 | `client/sixel_bands.go`, `client/sixel_band_encoder.go` | Sixel band processing and caching |
 | `client/dialog.go`, `client/dialog_stream.go` | Browser and local dialogs |
-| `server/src/server.ts` | Puppeteer lifecycle and gRPC handlers |
+| `server/src/server.ts`, `server/src/browser-controls.ts` | Puppeteer lifecycle, history/loading state, ordered input, and gRPC handlers |
 | `proto/bc.proto` | Client/server protocol |
 
 [Documentation home](README.md)

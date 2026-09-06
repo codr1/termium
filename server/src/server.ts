@@ -38,6 +38,15 @@ async function ensurePage(): Promise<puppeteer.Page> {
     return pageCreation;
 }
 
+// Chromium capture and viewport emulation both affect the compositor surface.
+// Serialize them across streams, including an in-flight frame after cancellation.
+let viewportWork: Promise<unknown> = Promise.resolve();
+function withViewport<T>(action: () => Promise<T>): Promise<T> {
+    const work = viewportWork.then(action);
+    viewportWork = work.catch(() => {});
+    return work;
+}
+
 // Dialog handling
 interface PendingDialog {
     dialog: puppeteer.Dialog;
@@ -192,7 +201,7 @@ const browserControlHandlers: BrowserControlServer = {
         try {
             if (!page) throw new Error('No active page');
             const { width, height } = call.request;
-            await page.setViewport({ width, height });
+            await withViewport(() => page!.setViewport({ width, height, deviceScaleFactor: 1 }));
             callback(null, { text: 'Viewport set' });
         } catch (error) {
             logDebug('Error in setViewport:', (error as Error).message);
@@ -345,24 +354,16 @@ const browserControlHandlers: BrowserControlServer = {
                     ? { type: 'png' }
                     : { type: 'jpeg', quality: 60 };
                 const generation = controls.generation;
-                const screenshotPromise = page.screenshot(screenshotOptions);
-                
-                const timeoutPromise = new Promise<never>((_, reject) => {
-                    setTimeout(() => reject(new Error('Screenshot timeout after 1 second')), 1000);
+                // Do not race capture against a timer and release this slot while
+                // the capture still runs: that races the next resize and queues
+                // overlapping work. Browser shutdown aborts an outstanding CDP call.
+                const screenshot = await withViewport(async () => {
+                    if (isCancelled) return new Uint8Array();
+                    return page!.screenshot(screenshotOptions);
                 });
-
-                // Race between screenshot and timeout
-                let screenshot: Buffer;
-                try {
-                    screenshot = await Promise.race([screenshotPromise, timeoutPromise]) as unknown as Buffer;
-                } finally {
-                    // ALWAYS clear the flag, even if we timeout
-                    isScreenshotInProgress = false;
-                    const elapsed = Date.now() - startTime;
-                    if (elapsed > 100) {
-                        logDebug(`Screenshot took ${elapsed}ms`);
-                    }
-                }
+                isScreenshotInProgress = false;
+                const elapsed = Date.now() - startTime;
+                if (elapsed > 100) logDebug(`Screenshot took ${elapsed}ms`);
                 const screenshotBuffer = Buffer.from(screenshot);
 
                 // Only write if not cancelled

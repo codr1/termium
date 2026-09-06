@@ -85,11 +85,15 @@ func TestTerminalBrowser(t *testing.T) {
 	defer cancel()
 	stream, err := c.StreamScreenshots(frameCtx, &pb.ScreenshotRequest{Fps: 10, Format: "png"})
 	requireOK(t, err)
+	lastSize := image.Config{}
 	for {
 		frame, err := stream.Recv()
-		requireOK(t, err)
+		if err != nil {
+			t.Fatalf("viewport stayed %dx%d, want 784x416: %v", lastSize.Width, lastSize.Height, err)
+		}
 		size, _, err := image.DecodeConfig(bytes.NewReader(frame.Data))
 		requireOK(t, err)
+		lastSize = size
 		if size.Width == 784 && size.Height == 416 {
 			break
 		}

@@ -157,7 +157,13 @@ export class BrowserControls {
             switch (event.kind) {
                 case InputKind.TEXT_INPUT: await page.keyboard.type(event.text); break;
                 case InputKind.PASTE_INPUT: await page.keyboard.sendCharacter(event.text); break;
-                case InputKind.KEY_INPUT: await page.keyboard.press(event.key as KeyInput); break;
+                case InputKind.KEY_INPUT: {
+                    // Headless Chromium on macOS needs the editing command in
+                    // addition to the Command+A key event (no AppKit menu exists).
+                    const commands = process.platform === 'darwin' && event.modifiers === 4 && event.key.toLowerCase() === 'a' ? ['selectAll'] : undefined;
+                    await page.keyboard.press(event.key as KeyInput, { commands });
+                    break;
+                }
                 case InputKind.POINTER_INPUT:
                 case InputKind.WHEEL_INPUT: {
                     const viewport = page.viewport();

@@ -540,6 +540,7 @@ func redraw(s tcell.Screen) {
 	drawBorder(s)
 	keyboardHandler.Draw(s)
 	if currentDialog != nil && !keyboardHandler.quitConfirm {
+		s.HideCursor()
 		currentDialog.Draw(s)
 	}
 	s.Show()

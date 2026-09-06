@@ -331,3 +331,30 @@ func TestCombiningTextAndOversizedReplacement(t *testing.T) {
 		t.Fatal("oversized paste destroyed original address")
 	}
 }
+
+func TestPointerDoesNotStealAddressCursorAndOverlaysAreExclusive(t *testing.T) {
+	s := uiScreen(t, 80, 24)
+	kh, _ := recorder()
+	kh.action("pointer")
+	kh.openAddress()
+	kh.Draw(s)
+	_, y, visible := s.GetCursor()
+	if !visible || y != 0 {
+		t.Fatal("pointer stole address caret")
+	}
+	kh.action("help")
+	kh.Draw(s)
+	_, _, visible = s.GetCursor()
+	if visible {
+		t.Fatal("editor cursor leaked through help")
+	}
+	kh.action("menu")
+	if kh.help || !kh.menu {
+		t.Fatal("help obscures menu")
+	}
+	kh.action("help")
+	kh.action("pointer")
+	if kh.help || kh.menu {
+		t.Fatal("overlay obscures pointer mode")
+	}
+}

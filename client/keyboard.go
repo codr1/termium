@@ -222,10 +222,12 @@ func (kh *KeyboardHandler) action(id string) {
 			kh.navigate(pb.NavigationAction_RELOAD, "")
 		}
 	case "menu":
+		kh.help = false
 		kh.menu = !kh.menu
 		kh.menuIndex = 0
 		kh.focus = "page"
 	case "pointer":
+		kh.help = false
 		kh.pointerMode = !kh.pointerMode
 		kh.menu = false
 		kh.focus = "page"

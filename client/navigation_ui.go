@@ -69,7 +69,10 @@ func (kh *KeyboardHandler) Draw(s tcell.Screen) {
 		}
 		drawText(s, 0, height-1, width, status, base)
 	}
-	if kh.pointerMode && kh.pointer.In(viewportRect(width, height)) && !kh.hasOverlay() {
+	if kh.hasOverlay() {
+		s.HideCursor()
+	}
+	if kh.pointerMode && kh.focus == "page" && kh.pointer.In(viewportRect(width, height)) && !kh.hasOverlay() {
 		s.ShowCursor(kh.pointer.X, kh.pointer.Y)
 	}
 	if kh.menu {

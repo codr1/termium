@@ -48,7 +48,7 @@ Each normal launch uses a private Unix socket and a separate temporary Chromium 
 
 WSL2 runs the Linux build. Windows Terminal's graphics support does not imply a native Windows executable.
 
-The installer tests the actual host rather than silently disabling security features when browser startup fails. Distribution policies can restrict sandbox namespaces, notably on Ubuntu. A green hosted-runner test is not certification of every stock distribution or macOS Gatekeeper configuration. Clean native-machine distribution testing remains part of release acceptance.
+The installer tests the actual host rather than silently disabling security features when browser startup fails. Distribution policies can restrict sandbox namespaces, notably on Ubuntu. Ubuntu CI explicitly allows Chromium user namespaces through a targeted AppArmor profile on the disposable runner; installation does not change host policy. A green hosted-runner test is not certification of every stock distribution or macOS Gatekeeper configuration. Clean native-machine distribution testing remains part of release acceptance.
 
 ## Updates and storage
 

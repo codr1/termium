@@ -68,9 +68,13 @@ If these commands don't exist, ask the user for the correct commands and update 
 ## Notes
 
 - The project uses gRPC for client-server communication
-- Default connection is Unix domain socket at `/tmp/termium.sock`
+- Normal clients create private per-session Unix sockets; the manually launched server defaults to `/tmp/termium.sock`
 - Websafe palette provides best performance for sixel encoding due to caching
 - Kitty renderer uses PNG passthrough (no decode/encode on client)
 - Client auto-launches server if not already running (searches for server.js relative to binary, then ~/.termium/server/)
 - `TERMIUM_SERVER` env var overrides server auto-discovery path
 - go-sixel is a patched local module in third_party/go-sixel; read its TERMIUM.md before updating it. The root go.mod replace directive selects this copy.
+
+## Installation builds
+
+Use `npm run build:bundle` for the complete native release, `npm run test:installation` to exercise its installer, and `npm run install:local` to build and install the current checkout. Linux packaging requires Docker; end-user installation does not. Releases remain drafts until reviewed.

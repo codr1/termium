@@ -34,15 +34,15 @@ Sixel bands are six pixels high. Caching at that granularity follows the image f
 
 ## Process and transport lifecycle
 
-The client checks whether a server accepts connections, discovers its entry point, and launches Node if necessary. It watches stdout for `TERMIUM_READY`. That sentinel means the gRPC listener is available; browser startup happens later when requested.
+Normal clients create a private per-session socket and launch their own server. Release builds resolve the private Node and Chromium runtimes beside the installed executable; development builds use the contributor toolchain. An explicit TCP endpoint can connect to a separately managed server. It watches stdout for `TERMIUM_READY`. That sentinel means the gRPC listener is available; browser startup happens later when requested.
 
 Captures have an independent CDP session that is detached on navigation or after a bounded timeout. The shared capture/resize queue waits for the command to reject before continuing; it does not abandon a live command in a timer race. Input and history use a different session.
 
 The server applies desktop viewport metrics directly to the active Chromium target. It serializes capture and resize, and reapplies the viewport after target replacement. This avoids Puppeteer's additional touch-emulation operations, which hung after modal dialogs in native macOS tests.
 
-The default endpoint is `/tmp/termium.sock`, with optional TCP. The server maintains one global page and dialog stream. This does not provide isolated multi-client sessions.
+Each normal client gets a private directory and Unix socket. A manually started server still defaults to `/tmp/termium.sock`, with optional `--socket` or TCP. Each server maintains one page and dialog stream; clients explicitly sharing a TCP server still share that state.
 
-Shutdown attempts to close the browser, server, connection, and terminal screen. Terminal probes have bounded deadlines. The event loop alone draws or finalizes the screen; workers post events and publish immutable frames into a latest-frame slot. A single client worker orders navigation, keys, mouse transitions, and resize requests. Browser input carries a document generation so queued input cannot act on a replacement page. Session isolation remains release work.
+Shutdown attempts to close the browser, server, connection, and terminal screen. Terminal probes have bounded deadlines. The event loop alone draws or finalizes the screen; workers post events and publish immutable frames into a latest-frame slot. A single client worker orders navigation, keys, mouse transitions, and resize requests. Browser input carries a document generation so queued input cannot act on a replacement page. Installed sessions hold shared version locks; the installer requires an exclusive lock before updating.
 
 ## Code map
 

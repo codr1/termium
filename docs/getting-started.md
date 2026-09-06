@@ -10,10 +10,10 @@ For an existing working installation:
 termium
 ```
 
-From a source checkout, use `./client/termium`. Termium opens a blank page with its navigation bar at the top. To open a particular page immediately:
+To install a contributor build from a source checkout, use `npm run install:local`; afterward, `termium` works from any directory. Termium opens a blank page with its navigation bar at the top. To open a particular page immediately:
 
 ```bash
-termium --url https://example.com
+termium example.com
 ```
 
 ```text

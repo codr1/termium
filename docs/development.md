@@ -12,29 +12,21 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 export PATH="$(go env GOPATH)/bin:$PATH"
 ```
 
-The full automated suite has been verified on Linux AMD64 with Node 24.20.0 and Go 1.23.1 using the plugin versions above. Native macOS execution is configured in CI and still needs a successful hosted run. Node 18 and 20 are [end-of-life](https://nodejs.org/en/about/previous-releases).
+The full automated suite has been verified on Linux AMD64 with Node 24.20.0 and Go 1.23.1 using the plugin versions above. The full suite also passes on the native Apple Silicon and Intel macOS CI runners. Node 18 and 20 are [end-of-life](https://nodejs.org/en/about/previous-releases).
 
-## Build and run
+## Build, install, and run
+
+After cloning the repository and installing the toolchain above:
 
 ```bash
-git clone https://github.com/codr1/termium.git
-cd termium
 PUPPETEER_SKIP_DOWNLOAD=true npm ci
-npm run build
+npm run install:local
+termium example.com
 ```
 
-The explicit skip avoids an implicit browser download during dependency installation. Prepare the browser once before launching:
+`install:local` builds a normal client, assembles the native release bundle, checks its private browser, and installs it for your user. Linux packaging uses Docker with the pinned Debian build image to collect libraries and fonts; it does not install packages on your host. The installed command is independent of your checkout. Rebuild and reinstall when you want to update that copy.
 
-```bash
-cd server
-npx --no-install puppeteer browsers install chrome
-cd ..
-./client/termium
-```
-
-The browser installation command uses the locally installed Puppeteer version. Its default Chrome download supports Linux x86-64 and macOS Intel/Apple Silicon; [Linux ARM64 needs a separate browser strategy](https://pptr.dev/troubleshooting). Browser system libraries are still required for the current development setup.
-
-The client starts the server automatically. Keep the client binary at `client/termium` so relative server discovery works.
+For an edit/test loop without installing, `npm run build` builds both components and `npm run test:browser:install` prepares the development browser. The development binary remains at `client/termium`; the installed command is the normal daily entry point.
 
 ## Rebuild and test
 
@@ -58,12 +50,14 @@ These are separate diagnostic examples. Logs may include URLs and typed text.
 
 To run the server independently, use `npm run start:server`. `TERMIUM_SERVER` overrides the client discovery path and must point to `server.js`. The normal search order is that override, `../server/dist/src/server.js` relative to the resolved client binary, then `~/.termium/server/dist/src/server.js`.
 
-The current server uses `/tmp/termium.sock` by default. TCP is unencrypted and unauthenticated; keep manual experiments local. The existing browser launch also disables the Chromium sandbox, which is a public-release blocker.
+Normal clients create private per-session Unix sockets. A manually started server uses `/tmp/termium.sock` unless given `--socket`. TCP is unencrypted and unauthenticated; keep manual experiments local. Chromium launches with its sandbox enabled.
 
-## Release work
+## Release packages
 
-The existing `scripts/build-server-bundle.sh` and tag workflow are being evaluated against the [installation contract](plans/one-command-install.md). They do not currently produce a verified hands-off installation. Follow that plan before publishing a release with one-command setup claims.
+`npm run build:bundle` creates `dist/termium-<os>-<arch>.tar.gz` and its mandatory `.sha256` file. It uses the npm lockfile, the pinned Node checksums in `scripts/runtime-lock.json`, and Puppeteer's matching Chromium revision. Production dependencies are installed with lifecycle scripts disabled. No development tool runs on an end user's machine.
 
-The npm lockfile is tracked and CI uses `npm ci`. The tag workflow must pass the Linux/macOS test matrix before packaging. Pinning the separate release generators and validating the runtime bundle remain release work.
+`npm run test:installation` installs that archive into a fresh home with development commands removed from PATH, repeats setup, rejects a bad checksum, checks shell command discovery, runs the private browser, and browses through a PTY.
+
+The Package workflow builds and exercises each native archive on Linux x86-64, macOS ARM64, and macOS AMD64. A version tag runs the full tests and package checks before creating a **draft** GitHub release. Review the artifacts and clean-machine acceptance evidence before publishing it.
 
 [Documentation home](README.md)

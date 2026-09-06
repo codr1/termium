@@ -22,10 +22,13 @@
     "clean": "rm -rf server/dist server/generated client/termium",
     "clean:all": "npm run clean && rm -rf server/node_modules node_modules",
     "test:browser:install": "puppeteer browsers install chrome && node --input-type=module -e \"import {access, constants} from 'node:fs/promises'; import {executablePath} from 'puppeteer'; await access(await executablePath(), constants.X_OK)\"",
-    "lint": "go vet ./client/... && bash -n scripts/install.sh && bash -n scripts/build-server-bundle.sh",
+    "lint": "go vet ./client/... && bash -n scripts/install.sh && bash -n scripts/bundle-linux-libs.sh",
     "typecheck": "tsc --noEmit --project server/tsconfig.json",
     "build:client:test": "go build -race -o client/termium ./client",
-    "test:server": "node --test server/tests/*.test.cjs"
+    "test:server": "node --test server/tests/*.test.cjs",
+    "build:bundle": "npm run build && node scripts/build-bundle.mjs",
+    "test:installation": "go test -race -tags=installation -count=1 -timeout=5m -v ./tests/installation",
+    "install:local": "npm run build:bundle && node scripts/install-local.mjs"
   },
   "engines": {
     "node": ">=24.0.0"

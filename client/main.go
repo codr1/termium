@@ -193,6 +193,24 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to parse flags: %v\n", err)
 		os.Exit(1)
 	}
+	if cfg.Doctor {
+		if err := checkInstallation(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if cfg.InstallBundle {
+		if err := installCurrentBundle(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if cfg.FirstRun && (!term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stdout.Fd()))) {
+		fmt.Println("Termium is installed. Run termium in your terminal to browse.")
+		return
+	}
 
 	// Set up CPU profiling if requested
 	if cfg.CPUProfile != "" {
@@ -249,6 +267,19 @@ func main() {
 	}
 }
 func runInteractive() error {
+	release, err := lockInstalledSession()
+	if err != nil {
+		return err
+	}
+	defer release()
+	if cfg.ServerAddr == "" {
+		dir, err := os.MkdirTemp("", "termium-")
+		if err != nil {
+			return err
+		}
+		defer os.RemoveAll(dir)
+		activeSocketPath = dir + "/browser.sock"
+	}
 	detectTerminalAndCalibrate()
 	s := initializeScreen()
 	defer cleanShutdown(s)
@@ -410,8 +441,7 @@ func connectToGRPCServer() error {
 		Debug(fmt.Sprintf("Connecting to gRPC server via TCP at %s", target), DEBUG)
 	} else {
 		// Unix domain socket (default)
-		target = "unix:///tmp/termium.sock"
-		Debug("Connecting to gRPC server via Unix domain socket at /tmp/termium.sock", DEBUG)
+		target = "unix://" + activeSocketPath
 	}
 
 	var err error

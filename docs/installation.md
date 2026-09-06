@@ -1,39 +1,59 @@
 # Installation
 
-**Status: the one-command release is planned. The current installer is not ready for a hands-off installation.**
+Termium now has a complete native-bundle installer. The first public release using it has not been published yet; the public download command will appear here when its artifacts are available.
 
-## The intended experience
+## Run it
 
-The supported command will be published here after release testing. For now, use [development setup](development.md) to try the project; the existing installer is not a supported route.
+After installation, run this from any directory:
 
-The planned command will detect your system, download and verify the right release, prepare everything Termium needs, and open Termium when setup completes. You will see progress while it downloads. After quitting, `termium` must work again in the same terminal as well as in newly opened terminals.
+```bash
+termium
+termium example.com
+termium --renderer sixel example.com
+```
 
-You will not need to install Node.js, npm, Go, Chromium, or development tools; edit a configuration file; choose a renderer; or start a background server yourself. Setup must not ask for a password or require a system package-manager command on supported systems.
+Options come before the optional address. `--url` remains supported. The server and browser start automatically. Use `termium --doctor` to check the installed runtime, browser sandbox on Linux, input, and screenshot capture without opening the terminal UI.
 
-Setup requires an internet connection and a supported operating system and terminal. Once setup completes, launching Termium must not require another download. Websites still need their usual network access.
+## Install the development version
 
-## Platform targets
+From a checkout with the [contributor toolchain](development.md) installed, one command builds, packages, validates, and installs it:
 
-| Operating system | CPU | Installation status |
-| --- | --- | --- |
-| Linux | x86-64 / AMD64 | First-release target; Debian 12 is the first feasibility candidate, not yet supported |
-| Linux | ARM64 | Targeted; browser packaging must be resolved before support is announced |
-| macOS | Apple Silicon / ARM64 | First-release target; macOS 14 is the first feasibility candidate, not yet supported |
-| macOS | Intel / x86-64 | First-release target; macOS 14 is the first feasibility candidate, not yet supported |
-| Windows | To be confirmed | Later release |
+```bash
+npm run install:local
+```
 
-See [terminal support](terminals.md) for graphics modes. No platform is certified for the new installer yet. Other Linux distributions require their own tests; compatibility will not be inferred from a Debian result. In particular, Ubuntu's browser sandbox restrictions need separate validation. A cross-compiled binary alone does not mean installation and browsing work on that platform.
+This is a source-build command for contributors. A release recipient needs no Node, npm, Go, protoc, or Chromium: those runtime dependencies are included in the platform archive. Subsequent launches use the installed copy, independent of the checkout or current directory.
 
-## Updates and removal
+The installer puts the command at `~/.local/bin/termium` and sets up bash, zsh, and fish. Open a new terminal after running the contributor command if your current shell did not already have `~/.local/bin` on PATH. The eventual public one-line command also activates PATH in the original shell and launches the application.
 
-The planned update path is to rerun the same installation command. Setup must preserve your settings and leave the previous installation usable if the update fails.
+## What setup does
 
-Automatic background updates and a removal command are not implemented. Their behavior and exact commands will be documented when available. Removal must make it clear whether saved browsing data is retained or deleted.
+- Checks the platform and verifies the archive's SHA-256. Missing or mismatched checksums stop installation.
+- Stages a complete client, server, private Node runtime, and Chromium browser. Linux bundles include browser libraries and fonts, with glibc supplied by the host.
+- Starts a disposable browser, verifies input and screenshots, and checks Linux sandbox diagnostics before activation. Setup never disables the sandbox or requests sudo.
+- Installs a versioned application and atomically switches the stable command to it.
+- Preserves existing shell configuration and avoids duplicate setup blocks. It refuses to overwrite an unrelated `termium` command.
 
-## Trying the project today
+Each normal launch uses a private Unix socket and a separate temporary Chromium profile. Browsing sessions are not persisted between launches yet.
 
-The current build is intended for development. Existing installations can use the [getting started guide](getting-started.md); contributors can follow [development setup](development.md).
+## Platforms and limits
 
-The existing installer can stop on missing Node.js, missing browser files, or release packaging failures. These are installation gaps to fix in Termium, not steps in the intended user setup.
+| Platform | Bundle target |
+| --- | --- |
+| Linux x86-64 | glibc 2.36 or newer, with working unprivileged Chromium sandbox support |
+| macOS Apple Silicon | Native ARM64 bundle; tested through the macOS CI runner |
+| macOS Intel | Native AMD64 bundle; tested through the macOS CI runner |
+| Linux ARM64 | Not packaged yet |
+| Native Windows | Later work |
 
-[Documentation home](README.md)
+WSL2 runs the Linux build. Windows Terminal's graphics support does not imply a native Windows executable.
+
+The installer tests the actual host rather than silently disabling security features when browser startup fails. Distribution policies can restrict sandbox namespaces, notably on Ubuntu. A green hosted-runner test is not certification of every stock distribution or macOS Gatekeeper configuration. Clean native-machine distribution testing remains part of release acceptance.
+
+## Updates and storage
+
+Rerun the installer to update. Close running Termium sessions first; concurrent installers and active sessions are protected by locks. Failed validation leaves the current installation selected. Older versions remain available on disk; automatic pruning and uninstall are not implemented yet.
+
+Application files live under `${XDG_DATA_HOME:-~/.local/share}/termium`. `TERMIUM_HOME` can select another application directory; the command remains at `~/.local/bin/termium`. `TERMIUM_NO_MODIFY_PATH=1` opts out of shell integration for managed environments. All paths are user-owned; no system Node or browser installation is modified.
+
+See [getting started](getting-started.md) for controls and [terminal support](terminals.md) for renderer choices.

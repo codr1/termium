@@ -62,6 +62,15 @@ Configure the three test jobs as required checks in the repository's branch rule
 
 The suite exercises the interactive client through a pseudo-terminal, reads its current screen through vt10x, and checks tcell cells in a simulation. Historical ANSI output is retained for failure diagnostics but does not establish UI readiness. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. Native Vimium hints, find, and tab commands need additional behavioral coverage when implemented.
 
-One-command installation also needs its own release acceptance suite: install an actual artifact in a clean environment with no Go, Node, or `protoc`; launch and browse a local fixture; then test update and uninstall. Current build and shell syntax checks do **not** validate that deployment path. Track that work against the [installation plan](plans/one-command-install.md).
+Release packaging has a separate automated acceptance suite:
+
+```bash
+npm run build:bundle
+npm run test:installation
+```
+
+It installs an actual archive into a fresh home with only bootstrap commands on PATH, rejects an incorrect checksum, repeats installation, checks command discovery in a new shell, runs the bundled browser, and opens a local page through the installed client in a PTY. Unit tests cover failed upgrades, active sessions, concurrent installers, foreign commands, read-only profiles, escaping symlinks, and paths containing spaces and quotes.
+
+These checks do not substitute for clean native OS installation tests, macOS distribution/signing checks, or a real graphics-emulator matrix. See [installation](installation.md) for current platform limits.
 
 [Documentation home](README.md)

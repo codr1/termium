@@ -17,6 +17,9 @@ type Config struct {
 	CPUProfile      string
 	TraceProfile    string
 	ShowTimings     bool
+	Doctor          bool
+	InstallBundle   bool
+	FirstRun        bool
 	Palette         string
 	Renderer        string // "sixel" (default), "kitty", or "tcell"
 }
@@ -27,6 +30,9 @@ func parseFlags() (*Config, error) {
 	showVersion := false
 	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
 	flag.BoolVar(&showVersion, "v", false, "Print version and exit (shorthand)")
+	flag.BoolVar(&cfg.Doctor, "doctor", false, "Check the runtime and browser without opening the terminal UI")
+	flag.BoolVar(&cfg.InstallBundle, "install-bundle", false, "Install this verified release bundle for the current user")
+	flag.BoolVar(&cfg.FirstRun, "first-run", false, "Open after installation when attached to a terminal")
 
 	flag.StringVar(&cfg.InitialURL, "url", "about:blank", "Initial HTTP or HTTPS address")
 	// Define flags
@@ -52,7 +58,7 @@ func parseFlags() (*Config, error) {
 
 	// Custom usage message
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: termium [options] [URL]\n")
 		fmt.Fprintf(os.Stderr, "\nFlags:\n")
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nDebug Levels:\n")
@@ -65,11 +71,28 @@ func parseFlags() (*Config, error) {
 		fmt.Fprintf(os.Stderr, "  %s -d -l /var/log/termium.log -s remote:50051\n", os.Args[0])
 	}
 
-	flag.Parse()
+	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+		return nil, err
+	}
 
 	if showVersion {
 		fmt.Printf("termium %s (%s)\n", version, commit)
 		os.Exit(0)
+	}
+	urlFlag := false
+	flag.Visit(func(f *flag.Flag) { urlFlag = urlFlag || f.Name == "url" })
+	if flag.NArg() > 1 || (flag.NArg() == 1 && urlFlag) {
+		return nil, fmt.Errorf("use one URL, either positional or --url; place options before the URL")
+	}
+	if flag.NArg() == 1 {
+		cfg.InitialURL = flag.Arg(0)
+	}
+	if cfg.InitialURL != "about:blank" {
+		address, err := normalizeAddress(cfg.InitialURL)
+		if err != nil {
+			return nil, err
+		}
+		cfg.InitialURL = address
 	}
 
 	// Validate server address format

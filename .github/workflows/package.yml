@@ -1,0 +1,50 @@
+name: Package
+on:
+  pull_request:
+    paths: ['client/**', 'server/**', 'scripts/**', 'proto/**', 'tests/**', 'go.*', 'package*.json', 'third_party/**', '.github/workflows/**']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  package:
+    name: Install package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-15-intel]
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Install build tools
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then sudo apt-get update && sudo apt-get install -y protobuf-compiler zsh fish; else brew install protobuf fish; fi
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+      - run: npm ci
+      - name: Check installed shell integration
+        run: npm run build:proto && go test -race -run TestInstalledShells -v ./client
+      - name: Build complete native release
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then export TERMIUM_VERSION="$GITHUB_REF_NAME"; fi
+          npm run build:bundle
+      - name: Install without development tools on PATH and browse
+        run: npm run test:installation
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.os }}
+          path: |
+            dist/termium-*.tar.gz
+            dist/termium-*.sha256

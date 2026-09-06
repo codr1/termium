@@ -39,8 +39,8 @@ func parseFlags() (*Config, error) {
 	flag.StringVar(&cfg.CPUProfile, "cpuprofile", "", "Write CPU profile to file")
 	flag.StringVar(&cfg.TraceProfile, "trace", "", "Write execution trace to file")
 	flag.BoolVar(&cfg.ShowTimings, "timings", false, "Show timing measurements for each frame")
-	flag.StringVar(&cfg.Palette, "palette", "adaptive", "Color palette: adaptive, websafe, plan9")
-	flag.StringVar(&cfg.Palette, "p", "adaptive", "Color palette: adaptive, websafe, plan9 (short form)")
+	flag.StringVar(&cfg.Palette, "palette", "websafe", "Color palette: adaptive, websafe, plan9")
+	flag.StringVar(&cfg.Palette, "p", "websafe", "Color palette: adaptive, websafe, plan9 (short form)")
 	flag.StringVar(&cfg.Renderer, "renderer", "auto", "Rendering protocol: auto, sixel, kitty, tcell")
 	flag.StringVar(&cfg.Renderer, "r", "auto", "Rendering protocol (short form)")
 

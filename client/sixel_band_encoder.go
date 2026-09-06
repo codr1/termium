@@ -7,7 +7,7 @@ import (
 	"image/color/palette"
 	"image/draw"
 	"io"
-	
+
 	"github.com/mattn/go-sixel"
 )
 
@@ -27,11 +27,11 @@ func NewBandEncoder(paletteType sixel.PaletteType, width, height int) *BandEncod
 	// Pre-allocate buffer with reasonable capacity (estimate ~4 bytes per pixel)
 	buf := &bytes.Buffer{}
 	buf.Grow(width * SIXEL_BAND_HEIGHT * 4)
-	
+
 	encoder := sixel.NewEncoder(buf)
 	encoder.Dither = false
 	encoder.Palette = paletteType
-	
+
 	var pal color.Palette
 	switch paletteType {
 	case sixel.PaletteWebSafe:
@@ -42,10 +42,10 @@ func NewBandEncoder(paletteType sixel.PaletteType, width, height int) *BandEncod
 		// For adaptive, we'll need to handle this differently
 		pal = nil
 	}
-	
+
 	// Pre-allocate normalized image buffer for maximum band height
 	normalizedImg := image.NewRGBA(image.Rect(0, 0, width, SIXEL_BAND_HEIGHT))
-	
+
 	return &BandEncoder{
 		encoder:       encoder,
 		palette:       pal,
@@ -61,11 +61,11 @@ func NewBandEncoder(paletteType sixel.PaletteType, width, height int) *BandEncod
 func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (string, error) {
 	// Clear the buffer
 	be.buffer.Reset()
-	
+
 	// Create a sub-image for just this band
 	bandRect := image.Rect(0, bandY, be.width, bandY+bandHeight)
 	bandSubImg := img.SubImage(bandRect).(*image.RGBA)
-	
+
 	// Reuse the pre-allocated normalized image buffer
 	// Adjust bounds if band height is different (e.g., last band)
 	normalizedRect := image.Rect(0, 0, be.width, bandHeight)
@@ -74,24 +74,24 @@ func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (s
 		be.normalizedImg = image.NewRGBA(normalizedRect)
 	}
 	draw.Draw(be.normalizedImg, normalizedRect, bandSubImg, bandSubImg.Bounds().Min, draw.Src)
-	
+
 	// Temporarily set the encoder dimensions to just this band
 	be.encoder.Width = be.width
 	be.encoder.Height = bandHeight
-	
+
 	// Encode the normalized band image
 	if err := be.encoder.Encode(be.normalizedImg.SubImage(normalizedRect)); err != nil {
 		return "", err
 	}
-	
+
 	// Get the encoded string
 	encoded := be.buffer.String()
-	
+
 	// Strip the sixel header/footer since we'll compose them ourselves
 	// Sixel format: ESC P ... ESC \
 	// We want just the middle part for bands
 	stripped := stripSixelWrapper(encoded)
-	
+
 	return stripped, nil
 }
 
@@ -100,13 +100,13 @@ func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (s
 func stripSixelWrapper(sixelStr string) string {
 	// Sixel format: ESC P params q "dimensions" #palette_entries pixel_data ESC \
 	// We want ONLY the pixel data part
-	
+
 	// Strategy: Find where palette definitions end and pixel data begins
 	// Palette entries look like: #N;2;R;G;B
 	// Pixel data starts with color selections like #N followed by pixel chars
-	
+
 	lastPaletteEnd := -1
-	
+
 	// Find all palette entries (they have ;2; after the number)
 	for i := 0; i < len(sixelStr)-7; i++ {
 		if sixelStr[i] == '#' {
@@ -143,7 +143,7 @@ func stripSixelWrapper(sixelStr string) string {
 			}
 		}
 	}
-	
+
 	pixelStart := -1
 	if lastPaletteEnd != -1 {
 		pixelStart = lastPaletteEnd
@@ -172,11 +172,11 @@ func stripSixelWrapper(sixelStr string) string {
 			}
 		}
 	}
-	
+
 	if pixelStart == -1 {
 		return ""
 	}
-	
+
 	// Find end (before ESC \)
 	endIdx := len(sixelStr)
 	for i := len(sixelStr) - 2; i >= 0; i-- {
@@ -185,7 +185,7 @@ func stripSixelWrapper(sixelStr string) string {
 			break
 		}
 	}
-	
+
 	if pixelStart < endIdx {
 		return sixelStr[pixelStart:endIdx]
 	}
@@ -200,10 +200,10 @@ func ComposeFullSixel(bands []string, width, height int, pal color.Palette) stri
 	for _, band := range bands {
 		estimatedSize += len(band)
 	}
-	
+
 	var buf bytes.Buffer
 	buf.Grow(estimatedSize)
-	
+
 	// Write sixel header with dimensions
 	// Format: ESC P <P1>;<P2>;<P3> q "Pan;Pad;Ph;Pv
 	// P1=0 (aspect ratio), P2=0 (background), P3=8 (8-bit color)
@@ -211,32 +211,32 @@ func ComposeFullSixel(bands []string, width, height int, pal color.Palette) stri
 	buf.Write(intToBytes(width))
 	buf.WriteByte(';')
 	buf.Write(intToBytes(height))
-	
+
 	// Write palette definitions (if using fixed palette)
 	if pal != nil {
 		writePalette(&buf, pal)
 	}
-	
+
 	// Write each band's pixel data
 	for i, bandStr := range bands {
 		if bandStr == "" {
 			// Skip empty bands (shouldn't happen but be safe)
 			continue
 		}
-		
+
 		// Add Graphics New Line between bands to move down 6 pixels
 		if i > 0 {
 			// DECGNL - Graphics Next Line (moves cursor down 6 pixels)
 			buf.WriteByte('-')
 		}
-		
+
 		buf.WriteString(bandStr)
 	}
-	
+
 	// Write sixel terminator
 	// DECGRA ST (ESC \)
 	buf.Write([]byte{0x1b, 0x5c})
-	
+
 	return buf.String()
 }
 
@@ -248,11 +248,11 @@ func writePalette(w io.Writer, pal color.Palette) {
 		r = r * 100 / 0xFFFF
 		g = g * 100 / 0xFFFF
 		b = b * 100 / 0xFFFF
-		
+
 		// Build color definition string
 		palBuf[0] = '#'
 		idx := 1
-		idx += writeInt(palBuf[idx:], n+1)
+		idx += writeInt(palBuf[idx:], n)
 		palBuf[idx] = ';'
 		idx++
 		palBuf[idx] = '2'
@@ -276,7 +276,7 @@ func writeInt(buf []byte, n int) int {
 		buf[0] = '0'
 		return 1
 	}
-	
+
 	// Write digits in reverse, then reverse the result
 	end := 0
 	for n > 0 {
@@ -284,12 +284,12 @@ func writeInt(buf []byte, n int) int {
 		n /= 10
 		end++
 	}
-	
+
 	// Reverse the digits
 	for i := 0; i < end/2; i++ {
 		buf[i], buf[end-1-i] = buf[end-1-i], buf[i]
 	}
-	
+
 	return end
 }
 
@@ -298,11 +298,11 @@ func intToBytes(n int) []byte {
 	if n == 0 {
 		return []byte{'0'}
 	}
-	
+
 	// Pre-allocate reasonable size
 	buf := make([]byte, 0, 10)
 	tmp := make([]byte, 10)
-	
+
 	// Write digits in reverse
 	end := 0
 	for n > 0 {
@@ -310,12 +310,12 @@ func intToBytes(n int) []byte {
 		n /= 10
 		end++
 	}
-	
+
 	// Append in correct order
 	for i := end - 1; i >= 0; i-- {
 		buf = append(buf, tmp[i])
 	}
-	
+
 	return buf
 }
 

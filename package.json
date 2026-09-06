@@ -16,15 +16,16 @@
     "build": "npm run prepare && npm run build:proto && npm run build:server && npm run build:client",
     "start:server": "cd server && npm run start",
     "start:client": "cd client && ./termium",
-    "test": "npm run build && npm run build:client:test && npm run lint && npm run test:go && npm run test:integration",
+    "test": "npm run build && npm run build:client:test && npm run lint && npm run test:server && npm run test:go && npm run test:integration",
     "test:go": "go test -race -count=1 -shuffle=on -timeout=2m -v ./client/...",
-    "test:integration": "npm run test:browser:install && go test -race -tags=integration -count=1 -timeout=5m -v ./tests/integration",
+    "test:integration": "npm run test:browser:install && node --test server/tests/*.integration.cjs && go test -race -tags=integration -count=1 -timeout=5m -v ./tests/integration",
     "clean": "rm -rf server/dist server/generated client/termium",
     "clean:all": "npm run clean && rm -rf server/node_modules node_modules",
     "test:browser:install": "puppeteer browsers install chrome && node --input-type=module -e \"import {access, constants} from 'node:fs/promises'; import {executablePath} from 'puppeteer'; await access(await executablePath(), constants.X_OK)\"",
     "lint": "go vet ./client/... && bash -n scripts/install.sh && bash -n scripts/build-server-bundle.sh",
     "typecheck": "tsc --noEmit --project server/tsconfig.json",
-    "build:client:test": "go build -race -o client/termium ./client"
+    "build:client:test": "go build -race -o client/termium ./client",
+    "test:server": "node --test server/tests/*.test.cjs"
   },
   "engines": {
     "node": ">=24.0.0"

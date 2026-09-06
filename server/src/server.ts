@@ -1,5 +1,6 @@
 import * as grpc from '@grpc/grpc-js';
 import { BrowserControls } from './browser-controls';
+import { streamScreenshots } from './screenshot-stream';
 import * as puppeteer from 'puppeteer';
 import { Command } from 'commander';
 import * as fs from 'fs';
@@ -72,7 +73,7 @@ const options = program.opts();
 // Setup debugging
 if (options.debug !== undefined) {
     debugFactory.enable('server:debug');
-    if (options.debug) {
+    if (typeof options.debug === 'string' && options.debug) {
         // If a filename is provided, log to file
         const logStream = fs.createWriteStream(path.resolve(options.debug), { flags: 'a' });
         logDebug.log = (...args: any[]) => logStream.write(args.join(' ') + '\n');
@@ -178,6 +179,26 @@ async function launchBrowser() {
     }
 }
 
+const maxScreenshotBytes = 32 * 1024 * 1024;
+let pendingCaptures = 0;
+async function captureScreenshot(format: string, cancelled: () => boolean): Promise<Screenshot> {
+    if (format && format !== 'png' && format !== 'jpeg') throw Object.assign(new Error('Use png or jpeg'), { code: grpc.status.INVALID_ARGUMENT });
+    if (pendingCaptures >= 2) throw Object.assign(new Error('Capture is busy'), { code: grpc.status.RESOURCE_EXHAUSTED });
+    pendingCaptures++;
+    try {
+        return await withViewport(async () => {
+            if (cancelled()) throw Object.assign(new Error('Capture cancelled'), { code: grpc.status.CANCELLED });
+            await ensurePage();
+            await controls.prepareCapture();
+            const generation = controls.generation;
+            const data = await controls.capture(format === 'png' ? 'png' : 'jpeg');
+            if (data.length > maxScreenshotBytes) throw Object.assign(new Error('Screenshot exceeds 32 MiB'), { code: grpc.status.RESOURCE_EXHAUSTED });
+            if (generation !== controls.generation) throw Object.assign(new Error('Page changed during capture'), { code: grpc.status.FAILED_PRECONDITION });
+            return { data, generation };
+        });
+    } finally { pendingCaptures--; }
+}
+
 const browserControlHandlers: BrowserControlServer = {
     openTab: async (_call, callback) => {
         try {
@@ -211,7 +232,7 @@ const browserControlHandlers: BrowserControlServer = {
         } catch (error) {
             logDebug('Error in setViewport:', (error as Error).message);
             callback({
-                code: grpc.status.INTERNAL,
+                code: (error as any).code ?? grpc.status.INTERNAL,
                 message: `Failed to set viewport: ${(error as Error).message}`,
             });
         }
@@ -306,155 +327,12 @@ const browserControlHandlers: BrowserControlServer = {
     },
 
 
-    streamScreenshots: async (call: ServerWritableStream<ScreenshotRequest, Screenshot>) => {
-        const fps = call.request.fps || 10;
-        const format = call.request.format || 'jpeg';
-        const interval = 1000 / fps;
-        logDebug(`Starting screenshot stream at ${fps} FPS, format: ${format}`);
-
-        let intervalId: NodeJS.Timeout | null = null;
-        let isCancelled = false;
-        let frameCount = 0;
-        let errorCount = 0;
-        let lastPageUrl = '';
-        let isScreenshotInProgress = false;
-
-        intervalId = setInterval(async () => {
-            // Check if stream is cancelled before attempting to write
-            if (isCancelled || !intervalId) {
-                return;
-            }
-
-            // Skip if a screenshot is already in progress
-            if (isScreenshotInProgress) {
-                // Don't log this - it's too noisy
-                return;
-            }
-
-            try {
-                if (!page || page.isClosed()) {
-                    logDebug('Page is closed or invalid, stopping stream');
-                    if (intervalId) {
-                        clearInterval(intervalId);
-                        intervalId = null;
-                    }
-                    isCancelled = true;
-                    call.end();
-                    return;
-                }
-
-                // Check if URL changed (navigation happened)
-                const currentUrl = page.url();
-                if (currentUrl !== lastPageUrl) {
-                    logDebug(`Page URL changed from '${lastPageUrl}' to '${currentUrl}'`);
-                    lastPageUrl = currentUrl;
-                }
-
-                // Mark screenshot as in progress
-                isScreenshotInProgress = true;
-                const startTime = Date.now();
-
-                // Create a promise that times out after 1 second
-                const screenshotOptions: any = format === 'png'
-                    ? { type: 'png' }
-                    : { type: 'jpeg', quality: 60 };
-                const generation = controls.generation;
-                // Do not race capture against a timer and release this slot while
-                // the capture still runs: that races the next resize and queues
-                // overlapping work. Browser shutdown aborts an outstanding CDP call.
-                const screenshot = await withViewport(async () => {
-                    if (isCancelled) return new Uint8Array();
-                    await controls.prepareCapture();
- return page!.screenshot(screenshotOptions);
-                });
-                isScreenshotInProgress = false;
-                const elapsed = Date.now() - startTime;
-                if (elapsed > 100) logDebug(`Screenshot took ${elapsed}ms`);
-                const screenshotBuffer = Buffer.from(screenshot);
-
-                // Only write if not cancelled
-                if (!isCancelled && generation === controls.generation) {
-                    const success = call.write({ data: screenshotBuffer, generation });
-                    if (!success) {
-                        logDebug('Stream backpressure detected');
-                    } else {
-                        frameCount++;
-                        // Reset error count on success
-                        if (errorCount > 0) {
-                            errorCount = 0;
-                            logDebug('Screenshot errors cleared after successful frame');
-                        }
-                        // Log successful screenshot periodically (every 24 frames = 1 second at 24fps)
-                        if (frameCount % 24 === 0) {
-                            logDebug(`Screenshots sent: ${frameCount}`);
-                        }
-                    }
-                }
-            } catch (error) {
-                // Clear the in-progress flag on error
-                isScreenshotInProgress = false;
-                
-                errorCount++;
-                logDebug(`Error in streamScreenshots (error #${errorCount}): ${(error as Error).message}`);
-                
-                // If screenshot failed, list all open pages
-                if (browser) {
-                    try {
-                        const pages = await browser.pages();
-                        logDebug(`Currently open pages (${pages.length} total):`);
-                        for (let i = 0; i < pages.length; i++) {
-                            const pageUrl = pages[i].url();
-                            const isCurrent = pages[i] === page;
-                            logDebug(`  Page ${i}: ${pageUrl}${isCurrent ? ' (current)' : ''}`);
-                        }
-                    } catch (listError) {
-                        logDebug(`Failed to list pages: ${(listError as Error).message}`);
-                    }
-                }
-                
-                // Don't stop on first error - try to continue
-                if (errorCount > 10) {
-                    logDebug('Too many screenshot errors, stopping stream');
-                    if (intervalId) {
-                        clearInterval(intervalId);
-                        intervalId = null;
-                    }
-                    if (!isCancelled) {
-                        call.destroy(error as Error);
-                    }
-                }
-            }
-        }, interval);
-
-        // Handle stream cancellation
-        call.on('cancelled', () => {
-            logDebug('Stream cancelled by client');
-            isCancelled = true;
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-        });
-
-        call.on('error', (err) => {
-            logDebug('Stream error:', err.message);
-            isCancelled = true;
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-        });
-
-        // Handle stream end
-        call.on('end', () => {
-            logDebug('Stream ended by client');
-            isCancelled = true;
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-        });
+    captureScreenshot: async (call, callback) => {
+        try { callback(null, await captureScreenshot(call.request.format, () => call.cancelled)); }
+        catch (error) { callback(error as Error); }
     },
+
+    streamScreenshots: call => streamScreenshots(call, captureScreenshot),
 
     streamDialogs: (call) => {
         logDebug('Dialog stream connected');

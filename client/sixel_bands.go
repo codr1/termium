@@ -18,12 +18,12 @@ type SixelColumn struct {
 
 // SixelBand represents a horizontal band of the image (6 pixels high)
 type SixelBand struct {
-	Y          int           // Starting Y coordinate
-	Height     int           // Height (usually 6, may be less for last band)
-	Hash       uint32        // Hash for quick comparison (CRC32)
-	Columns    []SixelColumn // Column data (only if dirty)
-	CachedRLE  string        // Pre-encoded sixel string for this band
-	IsDirty    bool          // Whether this band needs re-encoding
+	Y         int           // Starting Y coordinate
+	Height    int           // Height (usually 6, may be less for last band)
+	Hash      uint32        // Hash for quick comparison (CRC32)
+	Columns   []SixelColumn // Column data (only if dirty)
+	CachedRLE string        // Pre-encoded sixel string for this band
+	IsDirty   bool          // Whether this band needs re-encoding
 }
 
 // BandManager manages all sixel bands for efficient partial updates
@@ -39,14 +39,14 @@ type BandManager struct {
 func NewBandManager(width, height int) *BandManager {
 	numBands := (height + SIXEL_BAND_HEIGHT - 1) / SIXEL_BAND_HEIGHT
 	bands := make([]SixelBand, numBands)
-	
+
 	for i := 0; i < numBands; i++ {
 		y := i * SIXEL_BAND_HEIGHT
 		bandHeight := SIXEL_BAND_HEIGHT
 		if y+bandHeight > height {
 			bandHeight = height - y
 		}
-		
+
 		bands[i] = SixelBand{
 			Y:       y,
 			Height:  bandHeight,
@@ -54,7 +54,7 @@ func NewBandManager(width, height int) *BandManager {
 			IsDirty: true, // Initially all bands are dirty
 		}
 	}
-	
+
 	return &BandManager{
 		Width:    width,
 		Height:   height,
@@ -73,10 +73,10 @@ func HashBand(img *image.RGBA, y, height, width int) uint32 {
 	bounds := img.Bounds()
 	maxY := bounds.Dy()
 	maxX := bounds.Dx()
-	
+
 	// Work directly with the image's pixel slice
 	var crc uint32 = 0
-	
+
 	for row := y; row < y+height && row < maxY; row++ {
 		// Get the row's pixel data directly
 		rowStart := img.PixOffset(0, row)
@@ -89,7 +89,7 @@ func HashBand(img *image.RGBA, y, height, width int) uint32 {
 			crc = crc32.Update(crc, crcTable, img.Pix[rowStart:rowEnd])
 		}
 	}
-	
+
 	return crc
 }
 
@@ -97,25 +97,20 @@ func HashBand(img *image.RGBA, y, height, width int) uint32 {
 func (bm *BandManager) DetectDirtyBands(newFrame *image.RGBA) {
 	for i := range bm.Bands {
 		band := &bm.Bands[i]
-		
+
 		// Compute hash for this band in the new frame
 		newHash := HashBand(newFrame, band.Y, band.Height, bm.Width)
-		
+
 		// Check if band has changed
-		if newHash != band.Hash {
+		if newHash != band.Hash || band.CachedRLE == "" {
 			band.IsDirty = true
 			band.Hash = newHash
 		} else {
 			band.IsDirty = false
 		}
-		
-		// Rolling refresh: force one band per frame to refresh
-		if bm.FrameNumber > 0 && int(bm.FrameNumber%uint64(bm.NumBands)) == i {
-			band.IsDirty = true
-			Debug("Force refreshing band due to rolling update", DEBUG)
-		}
+
 	}
-	
+
 	bm.FrameNumber++
 }
 
@@ -135,23 +130,23 @@ func (bm *BandManager) ComposeSixelOutput() string {
 	if len(bm.Bands) == 0 {
 		return ""
 	}
-	
+
 	var output strings.Builder
-	
+
 	// Estimate capacity to avoid reallocations
 	estimatedSize := len(bm.Bands) * len(bm.Bands[0].CachedRLE)
 	output.Grow(estimatedSize)
-	
+
 	// Concatenate all band strings
 	for i, band := range bm.Bands {
 		output.WriteString(band.CachedRLE)
-		
+
 		// Add carriage return between bands (except after last)
 		if i < len(bm.Bands)-1 {
 			output.WriteString("-") // Sixel graphics newline
 		}
 	}
-	
+
 	return output.String()
 }
 
@@ -161,4 +156,3 @@ func (bm *BandManager) MarkAllDirty() {
 		bm.Bands[i].IsDirty = true
 	}
 }
-

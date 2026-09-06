@@ -49,12 +49,12 @@ func TestWriteKittyChunkedMultiChunk(t *testing.T) {
 	}
 
 	// Should have middle chunk(s) with m=1
-	if !bytes.Contains([]byte(output), []byte("\033_Gm=1;")) {
+	if !bytes.Contains([]byte(output), []byte("\033_Gm=1,q=2;")) {
 		t.Error("missing middle chunk with m=1")
 	}
 
 	// Final chunk should have m=0
-	if !bytes.Contains([]byte(output), []byte("\033_Gm=0;")) {
+	if !bytes.Contains([]byte(output), []byte("\033_Gm=0,q=2;")) {
 		t.Error("missing final chunk with m=0")
 	}
 }

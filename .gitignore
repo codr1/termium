@@ -48,8 +48,6 @@ client/termium
 client/client
 client/hi
 
-# Local go-sixel checkout (now pulled via go mod from github.com/codr1/go-sixel)
-third_party/go-sixel
 
 # Profiling data
 *.prof

@@ -17,5 +17,6 @@ Start with [installation](installation.md), then [getting started](getting-start
 - [Architecture](architecture.md): browser control and rendering.
 - [One-command installation plan](plans/one-command-install.md): installer responsibilities and acceptance criteria.
 - [Browser UI plan](plans/browser-ui.md): native Vimium-style commands, navigation controls, and keyboard routing.
+- [Graphics audit](plans/rendering-audit.md): Kitty/Sixel correctness, measured encoding costs, performance priorities, and help UI integration.
 
 Pages marked **planned** describe work that has not shipped. The usage guides describe the current development build.

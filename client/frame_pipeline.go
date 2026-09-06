@@ -15,6 +15,7 @@ import (
 
 const maxFramePixels = 16 * 1024 * 1024
 const maxFrameBytes = 32 * 1024 * 1024
+const maxFrameDimension = 16384
 
 // The receiver, preparer, and presenter each own at most one current frame.
 // Pending work is replaceable; published frames and their pixels are immutable.
@@ -91,8 +92,8 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if err != nil {
 		return nil, err
 	}
-	if dim.Width < 1 || dim.Height < 1 || int64(dim.Width)*int64(dim.Height) > maxFramePixels {
-		return nil, fmt.Errorf("Screenshot exceeds the 16 megapixel limit")
+	if dim.Width < 1 || dim.Height < 1 || dim.Width > maxFrameDimension || dim.Height > maxFrameDimension || int64(dim.Width)*int64(dim.Height) > maxFramePixels {
+		return nil, fmt.Errorf("Screenshot dimensions exceed 16384 pixels per side or 16 megapixels")
 	}
 	f := &Frame{Data: raw.Data, Generation: raw.Generation, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp}
 	if p.renderer == "kitty" {

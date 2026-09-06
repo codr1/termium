@@ -73,7 +73,8 @@ export class BrowserControls {
 
     async capture(format: 'png' | 'jpeg'): Promise<Buffer> {
         const page = await this.ensurePage();
-        if (this.loading) fail(grpc.status.UNAVAILABLE, 'Page is loading');
+        // Render committed content even while images/scripts keep load pending.
+        // Document changes are handled by aborting the capture session below.
         const generation = this.generation;
         // A navigation can strand a capture waiting for the old compositor.
         // Give capture its own session: detaching aborts its pending CDP call

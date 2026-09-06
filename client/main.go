@@ -559,7 +559,9 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 	}
 }
 func invalidateGraphics(s tcell.Screen) {
-	if cfg != nil && cfg.Renderer == "kitty" && displayedFrame != nil {
+	if cfg != nil && cfg.Renderer == "kitty" {
+		// The splash and a partially written frame can own this placement even
+		// when no browser frame has been recorded as successfully displayed.
 		fmt.Fprint(graphicsOutput, kittyDelete)
 	}
 	displayedFrame = nil
@@ -579,7 +581,7 @@ func redraw(s tcell.Screen) {
 		}
 	}
 	overlay := keyboardHandler.hasOverlay() || currentDialog != nil
-	pipeline.paused.Store(overlay || keyboardHandler.awaitingNavigation || keyboardHandler.state.Loading)
+	pipeline.paused.Store(overlay || keyboardHandler.awaitingNavigation)
 	identity := overlayState{keyboardHandler.menu, keyboardHandler.help, keyboardHandler.quitConfirm, currentDialog}
 	if overlay != graphicsHidden || identity != lastOverlay {
 		invalidateGraphics(s)

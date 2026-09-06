@@ -3,13 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/color/palette"
 	"image/png"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,6 +127,12 @@ func TestImageDamageIndependentOfChromeAndRestoredAfterOverlay(t *testing.T) {
 		t.Fatal("Kitty error replies may enter keyboard input")
 	}
 	out.Reset()
+	keyboardHandler.state.Loading = true
+	redraw(s)
+	if pipeline.paused.Load() {
+		t.Fatal("loading subresources hid a committed page")
+	}
+	keyboardHandler.state.Loading = false
 	keyboardHandler.openAddress()
 	for i := 0; i < 20; i++ {
 		keyboardHandler.Draw(s)
@@ -154,6 +163,41 @@ func TestImageDamageIndependentOfChromeAndRestoredAfterOverlay(t *testing.T) {
 	redraw(s)
 	if out.Len() != 0 {
 		t.Fatal("stale image was repainted")
+	}
+}
+
+func TestInvalidationDeletesKittySplashWithoutBrowserFrame(t *testing.T) {
+	s := uiScreen(t, 80, 24)
+	oldCfg, oldOutput, oldDisplayed := cfg, graphicsOutput, displayedFrame
+	t.Cleanup(func() { cfg, graphicsOutput, displayedFrame = oldCfg, oldOutput, oldDisplayed })
+	cfg, displayedFrame = &Config{Renderer: "kitty"}, nil
+	var out bytes.Buffer
+	graphicsOutput = &out
+	kittyWriter.Reset(&out)
+	if err := displayWithKittyRGBA(image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	invalidateGraphics(s)
+	if out.String() != kittyDelete {
+		t.Fatal("splash placement survived graphics invalidation")
+	}
+}
+
+func TestPreparationRejectsOversizedDimensionsBeforePixelAllocation(t *testing.T) {
+	for _, size := range [][2]uint32{{16385, 1}, {1, 16385}, {4097, 4096}} {
+		// A valid IHDR with mismatched pixel data distinguishes the
+		// dimension guard from a later decode failure without allocating pixels.
+		raw := pngFrame(t, image.NewRGBA(image.Rect(0, 0, 1, 1)), 1)
+		binary.BigEndian.PutUint32(raw.Data[16:20], size[0])
+		binary.BigEndian.PutUint32(raw.Data[20:24], size[1])
+		binary.BigEndian.PutUint32(raw.Data[29:33], crc32.ChecksumIEEE(raw.Data[12:29]))
+		for _, renderer := range []string{"kitty", "sixel", "tcell"} {
+			p := &framePreparer{renderer: renderer, palette: "websafe"}
+			if _, err := p.prepare(raw); err == nil || !strings.Contains(err.Error(), "dimensions") {
+				t.Fatalf("%s accepted oversized dimensions %v or reached pixel decoding: %v", renderer, size, err)
+			}
+		}
 	}
 }
 

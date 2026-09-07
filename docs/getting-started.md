@@ -17,8 +17,8 @@ termium example.com
 ```
 
 ```text
+1 Example Domain ×                                   [≡]  [+]
 [Back] [Forward] [Reload]  https://example.com              [Menu]
-────────────────────────────────────────────────────────────────
                          Webpage
 ────────────────────────────────────────────────────────────────
 Ready · Ctrl+L: address · F10: menu
@@ -35,6 +35,7 @@ Press **Ctrl+L** or click the address field. Its contents are selected, so start
 | Shortcut | Action |
 | --- | --- |
 | Ctrl+L | Edit address |
+| Ctrl+T / Ctrl+W | New tab / close tab |
 | Alt+Left / Alt+Right | Back / Forward |
 | Ctrl+R or F5 | Reload / Stop |
 | F10 | Open or close Menu |
@@ -43,15 +44,15 @@ Press **Ctrl+L** or click the address field. Its contents are selected, so start
 | Ctrl+Q | Quit confirmation |
 | Escape three times rapidly | Emergency exit, including during dialogs |
 
-Use Menu when a terminal intercepts a shortcut. Menu supports mouse clicks, Up/Down, Tab/Shift+Tab, Enter, and Escape. It contains navigation, address, keyboard pointer, help, and Quit.
+Use Menu when a terminal intercepts a shortcut. Menu supports mouse clicks, Up/Down, Tab/Shift+Tab, Enter, and Escape. It contains tab controls, navigation, address, keyboard pointer, help, and Quit.
 
 ## Interact with a page
 
-Click a field and type normally. Page keys include arrows, Tab/Shift+Tab, Enter, Backspace/Delete, Home/End, Page Up/Down, and modifier combinations that your terminal can report. The application shortcuts above remain reserved. Printable letters pass through to the page; native Vimium hinting, find, modes, and tab commands are [future work](vimium.md).
+Click a field and type normally. Page keys include arrows, Tab/Shift+Tab, Enter, Backspace/Delete, Home/End, Page Up/Down, and modifier combinations that your terminal can report. The application shortcuts above remain reserved. Outside text fields, bundled [Vimium](vimium.md) handles navigation: **f** shows link hints, **j/k** scroll, **t** opens a tab, **J/K** switch tabs, and **x/X** close/reopen a tab. Press **?** for Vimium help or **F1** for Termium help.
 
 Mouse support includes left/right/middle buttons, hover, double/triple clicks, held-button dragging, wheel scrolling, and back/forward buttons when reported by the terminal. Shift+wheel scrolls horizontally. Drags remain captured until release, including a release outside the page area. Pointer accuracy is limited to the center of a terminal cell.
 
-Use your terminal's paste command. Bracketed paste inserts literal text; pasted text cannot activate Termium shortcuts. Termium does not yet provide clipboard copy commands or handle native browser file choosers and additional windows. Middle-click links may create a Chromium tab that this single-page UI cannot select yet.
+Use your terminal's paste command. Bracketed paste inserts literal text; pasted text cannot activate Termium shortcuts. Middle-click opens links in tabs; select them from the top row or all-tabs picker. Host clipboard integration and native browser file choosers remain limited; see [Vimium limitations](vimium.md#help-and-limits).
 
 ## Use a keyboard as a mouse
 

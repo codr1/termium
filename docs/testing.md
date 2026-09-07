@@ -19,6 +19,7 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | Graphics regression tests | Palette pixel round-trips, exact Sixel dimensions, allocation limits, output errors, unchanged-frame reuse, overlay restoration, splash/stale-image deletion, bounded pending work, and capture pacing. |
 | Server flow-control tests | Slow captures stay exclusive, writable backpressure pauses production, cancellation prevents late writes, and navigation/watchdog cancellation preserves the input session and releases listeners. |
 | Executable tests | The built binary exits with the expected status and diagnostic for help, version, unknown flags, and invalid renderers. |
+| Vimium and tabs | The actual bundled extension produces hints, preserves literal form input, scrolls, opens background links, switches duplicate-URL tabs, closes/restores tabs, rejects stale input, and renders the selected page. |
 | Browser integration | Real gRPC calls produce redirects, Unicode form input, special keys, mouse clicks, and recoverable navigation failures. |
 | Navigation and input | History/redirect state, reload, stopping a stalled navigation and recovering, literal paste, modifiers, held-button dragging, right-click, wheel input, and rejection of stale-document input. |
 | Terminal integration | The actual client runs in a pseudo-terminal and submits Unicode form input through SGR mouse events and bracketed paste, edits an address, uses Back, resizes during a prompt, submits Unicode prompt text, verifies the new browser viewport, and quits. |
@@ -60,7 +61,7 @@ Configure the three test jobs as required checks in the repository's branch rule
 
 ## What a green run does not prove
 
-The suite exercises the interactive client through a pseudo-terminal, reads its current screen through vt10x, and checks tcell cells in a simulation. Historical ANSI output is retained for failure diagnostics but does not establish UI readiness. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. Native Vimium hints, find, and tab commands need additional behavioral coverage when implemented.
+The suite exercises the interactive client through a pseudo-terminal, reads its current screen through vt10x, and checks tcell cells in a simulation. Historical ANSI output is retained for failure diagnostics but does not establish UI readiness. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. The bundled Vimium tests cover core commands, not every upstream binding or every website. Keep manual checks for hint readability and find/help overlays on each graphics terminal.
 
 Release packaging has a separate automated acceptance suite:
 

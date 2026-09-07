@@ -43,6 +43,10 @@ func fixture(t *testing.T) (string, <-chan string) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write([]byte(fixtureHTML))
 	})
+	mux.HandleFunc("/hint", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<title>Hint test</title><button onclick="fetch('/event?value=hint-click')">Only hint</button>`))
+	})
 	mux.HandleFunc("/redirect", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/page?redirected=1", http.StatusFound)
 	})

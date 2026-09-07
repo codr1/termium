@@ -23,6 +23,9 @@ export class BrowserControls {
 
     constructor(private readonly ensurePage: () => Promise<Page>) { }
 
+    isLoading() { return this.loading; }
+    async resetInput() { await this.releasePointer(); }
+
     async attach(page: Page) {
         this.page = page;
         this.target = undefined;
@@ -84,6 +87,7 @@ export class BrowserControls {
         const abort = () => { void session.detach().catch(() => {}); };
         const navigated = (frame: Frame) => { if (frame === page.mainFrame()) abort(); };
         page.on('framenavigated', navigated);
+        page.on('close', abort);
         const timer = setTimeout(abort, 3000);
         try {
             if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
@@ -98,6 +102,7 @@ export class BrowserControls {
         } finally {
             clearTimeout(timer);
             page.off('framenavigated', navigated);
+            page.off('close', abort);
             await session.detach().catch(() => {});
         }
     }
@@ -123,6 +128,7 @@ export class BrowserControls {
             canBack: history.currentIndex > 0,
             canForward: history.currentIndex < history.entries.length - 1,
             loading: this.loading, generation: this.generation, error: this.error,
+            tabs: [], activeTabId: '', vimiumStatus: '',
         };
     }
 

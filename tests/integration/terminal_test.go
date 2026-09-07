@@ -75,7 +75,7 @@ func TestTerminalBrowser(t *testing.T) {
 	waitDisplay("Ready", url+"/second")
 	// Click the toolbar Back button, then edit the original form again.
 	output.Reset()
-	write("\x1b[<0;3;1M\x1b[<0;3;1m")
+	write("\x1b[<0;3;2M\x1b[<0;3;2m")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/" && !s.Loading })
 	waitDisplay("Ready", url+"/")
 	output.Reset()
@@ -103,6 +103,26 @@ func TestTerminalBrowser(t *testing.T) {
 		}
 	}
 	cancel()
+	// Cross the real terminal -> input queue -> Vimium -> browser boundary.
+	// A one-target page has the first upstream hint label, S.
+	write("\x14") // Ctrl+T, also works on protected pages.
+	waitState(t, c, func(s *pb.BrowserState) bool { return len(s.Tabs) == 2 && !s.Loading })
+	waitDisplay("2 New tab", "")
+	write("\x0c" + url + "/hint\r")
+	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/hint" && !s.Loading })
+	waitDisplay("Ready", url+"/hint")
+	write("fs")
+	expectEvent(t, events, "hint-click")
+	write("J")
+	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/" && len(s.Tabs) == 2 })
+	waitDisplay("Ready", url+"/")
+	// Selecting the second tab by mouse must agree with Vimium's active tab.
+	write("\x1b[<0;30;1M\x1b[<0;30;1m")
+	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/hint" })
+	waitDisplay("Ready", url+"/hint")
+	write("\x17") // Ctrl+W
+	waitState(t, c, func(s *pb.BrowserState) bool { return len(s.Tabs) == 1 && s.Url == url+"/" })
+	waitDisplay("Ready", url+"/")
 	// Ctrl+Q must remain a local command and restore the terminal on exit.
 	write("\x11\r")
 	select {

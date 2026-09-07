@@ -531,7 +531,7 @@ func screenshotLoop(s tcell.Screen) {
 				continue
 			}
 			if !pipeline.paused.Load() {
-				pipeline.offer(&Frame{Data: response.Data, Generation: response.Generation, Timestamp: start})
+				pipeline.offer(&Frame{Data: response.Data, Generation: response.Generation, State: response.State, Timestamp: start})
 			}
 		}
 		delay := max(time.Millisecond, pipeline.interval()-time.Since(start))
@@ -604,6 +604,9 @@ func invalidateGraphics(s tcell.Screen) {
 func redraw(s tcell.Screen) {
 	if f := frames.GetDisplayFrame(); f != nil {
 		latestFrame = f
+		if f.State != nil {
+			keyboardHandler.applyState(f.State)
+		}
 		if f.Generation > keyboardHandler.state.Generation {
 			keyboardHandler.state.Generation = f.Generation
 			keyboardHandler.pointerHeld = 0
@@ -674,8 +677,7 @@ func runMainLoop(s tcell.Screen) error {
 					keyboardHandler.applyState(value.state)
 				}
 			case *pb.DialogEvent:
-				currentDialog = NewDialog(value)
-				currentDialog.mouseDown = keyboardHandler.mouseButtons&tcell.Button1 != 0
+				receiveDialog(value)
 				keyboardHandler.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
 			}
 		case *tcell.EventPaste:

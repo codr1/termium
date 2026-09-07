@@ -56,10 +56,10 @@ func (kh *KeyboardHandler) HandleMouseEvent(s tcell.Screen, ev *tcell.EventMouse
 	if kh.menu {
 		rect := kh.menuRect()
 		index := y - rect.Min.Y - 1 + kh.menuStart()
-		if cell.In(rect) && y > rect.Min.Y && y < rect.Max.Y-1 && index >= 0 && index < len(menuIDs) {
+		if cell.In(rect) && y > rect.Min.Y && y < rect.Max.Y-1 && index >= 0 && index < len(kh.menuActions()) {
 			kh.menuIndex = index
 			if pressed&tcell.Button1 != 0 {
-				kh.action(menuIDs[index])
+				kh.action(kh.menuActions()[index])
 			}
 		} else if pressed&tcell.Button1 != 0 {
 			kh.menu = false
@@ -67,11 +67,15 @@ func (kh *KeyboardHandler) HandleMouseEvent(s tcell.Screen, ev *tcell.EventMouse
 		return
 	}
 
-	if !kh.capturePage && y == 0 {
+	if !kh.capturePage && (y == 0 || y == 1) {
 		if pressed&tcell.Button1 != 0 {
 			kh.captureUI = true
 			width, _ := s.Size()
-			for _, control := range kh.controls(width) {
+			controls := kh.controls(width)
+			if y == 0 {
+				controls = kh.tabControls(width)
+			}
+			for _, control := range controls {
 				if cell.In(control.rect) && control.enabled {
 					kh.action(control.id)
 					break

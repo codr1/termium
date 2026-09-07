@@ -31,6 +31,7 @@ type KeyboardHandler struct {
 	pendingAddress          string
 	awaitingNavigation      bool
 	pointerMode             bool
+	tabsMenu                bool
 	pointer                 image.Point
 	pointerHeld             uint32
 	mouseButtons            tcell.ButtonMask
@@ -81,6 +82,7 @@ func (kh *KeyboardHandler) queue(o browserOperation) {
 }
 func (kh *KeyboardHandler) input(event *pb.InputEvent) {
 	event.Generation = kh.state.Generation
+	event.TabId = kh.state.ActiveTabId
 	kh.queue(browserOperation{input: event})
 }
 func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
@@ -91,7 +93,10 @@ func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 		kh.pointerHeld = 0
 		kh.capturePage = false
 	}
-	kh.state = pb.BrowserState{Url: state.Url, Title: state.Title, CanBack: state.CanBack, CanForward: state.CanForward, Loading: state.Loading, Generation: state.Generation, Error: state.Error}
+	kh.state = pb.BrowserState{Url: state.Url, Title: state.Title, CanBack: state.CanBack, CanForward: state.CanForward, Loading: state.Loading, Generation: state.Generation, Error: state.Error, Tabs: state.Tabs, ActiveTabId: state.ActiveTabId, VimiumStatus: state.VimiumStatus}
+	if kh.tabsMenu {
+		kh.menuIndex = min(kh.menuIndex, len(kh.menuActions())-1)
+	}
 	if state.Error != "" {
 		kh.status = state.Error
 		if kh.pendingAddress != "" && kh.focus == "page" {
@@ -149,13 +154,13 @@ func (kh *KeyboardHandler) controls(width int) []navControl {
 			if id == "forward" {
 				enabled = kh.state.CanForward && !kh.state.Loading
 			}
-			controls = append(controls, navControl{id, labels[i], image.Rect(x, 0, x+len(labels[i]), 1), enabled})
+			controls = append(controls, navControl{id, labels[i], image.Rect(x, 1, x+len(labels[i]), 2), enabled})
 			x += len(labels[i]) + 1
 		}
 	}
 	end := max(x, width-menuWidth-1)
-	controls = append(controls, navControl{"address", "", image.Rect(x, 0, end, 1), true})
-	controls = append(controls, navControl{"menu", "[Menu]", image.Rect(max(0, width-menuWidth), 0, width, 1), true})
+	controls = append(controls, navControl{"address", "", image.Rect(x, 1, end, 2), true})
+	controls = append(controls, navControl{"menu", "[Menu]", image.Rect(max(0, width-menuWidth), 1, width, 2), true})
 	return controls
 }
 func (kh *KeyboardHandler) openAddress() {
@@ -191,7 +196,7 @@ func normalizeAddress(value string) (string, error) {
 	return parsed.String(), nil
 }
 func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {
-	if kh.submit == nil || !kh.submit(browserOperation{navigation: &pb.NavigationRequest{Action: action, Url: address}}) {
+	if kh.submit == nil || !kh.submit(browserOperation{navigation: &pb.NavigationRequest{Action: action, Url: address, TabId: kh.state.ActiveTabId, Generation: kh.state.Generation}}) {
 		kh.status = "Input queue is busy; try again"
 		return
 	}
@@ -204,6 +209,9 @@ func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) 
 	}
 }
 func (kh *KeyboardHandler) action(id string) {
+	if kh.tabAction(id) {
+		return
+	}
 	switch id {
 	case "address":
 		kh.openAddress()
@@ -222,6 +230,7 @@ func (kh *KeyboardHandler) action(id string) {
 			kh.navigate(pb.NavigationAction_RELOAD, "")
 		}
 	case "menu":
+		kh.tabsMenu = false
 		kh.help = false
 		kh.menu = !kh.menu
 		kh.menuIndex = 0
@@ -283,6 +292,10 @@ func (kh *KeyboardHandler) globalKey(ev *tcell.EventKey, modal bool) (bool, bool
 		kh.action("help")
 	case ev.Key() == tcell.KeyF6:
 		kh.action("pointer")
+	case ctrl(ev, tcell.KeyCtrlT, 't'):
+		kh.action("newtab")
+	case ctrl(ev, tcell.KeyCtrlW, 'w'):
+		kh.action("closetab")
 	case ev.Key() == tcell.KeyF5 || ctrl(ev, tcell.KeyCtrlR, 'r'):
 		kh.action("reload")
 	case ev.Key() == tcell.KeyLeft && ev.Modifiers()&tcell.ModAlt != 0:
@@ -331,11 +344,11 @@ func (kh *KeyboardHandler) HandleKeyEvent(s tcell.Screen, ev *tcell.EventKey) bo
 		case tcell.KeyEscape:
 			kh.menu = false
 		case tcell.KeyUp, tcell.KeyBacktab:
-			kh.menuIndex = (kh.menuIndex + len(menuIDs) - 1) % len(menuIDs)
+			kh.menuIndex = (kh.menuIndex + len(kh.menuActions()) - 1) % len(kh.menuActions())
 		case tcell.KeyDown, tcell.KeyTab:
-			kh.menuIndex = (kh.menuIndex + 1) % len(menuIDs)
+			kh.menuIndex = (kh.menuIndex + 1) % len(kh.menuActions())
 		case tcell.KeyEnter:
-			kh.action(menuIDs[kh.menuIndex])
+			kh.action(kh.menuActions()[kh.menuIndex])
 		}
 		return false
 	}

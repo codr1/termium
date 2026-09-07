@@ -87,7 +87,11 @@ func (d *inputDispatcher) run() {
 			result := operationResult{operation: o}
 			switch {
 			case o.input != nil:
-				_, result.err = d.client.SendInput(ctx, o.input)
+				var reply *pb.Message
+				reply, result.err = d.client.SendInput(ctx, o.input)
+				if reply != nil {
+					result.state = reply.State
+				}
 			case o.navigation != nil:
 				result.state, result.err = d.client.BrowserCommand(ctx, o.navigation)
 			case o.viewport != nil:

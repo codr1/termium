@@ -17,7 +17,7 @@
     "commander": "^12.1.0",
     "daemonize2": "^0.4.2",
     "debug": "^4.3.7",
-    "puppeteer": "^25.10.0"
+    "puppeteer": "25.10.0"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",

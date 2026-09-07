@@ -3,12 +3,14 @@ package main
 import (
 	"image"
 	"sync"
+	pb "termium/client/pb"
 	"time"
 )
 
 type Frame struct {
 	Data          []byte
 	Generation    uint64
+	State         *pb.BrowserState
 	Width, Height int
 	Timestamp     time.Time
 	Image         *image.RGBA

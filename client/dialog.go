@@ -11,7 +11,7 @@ import (
 type Dialog struct {
 	ID                                                                 string
 	Type                                                               pb.DialogType
-	Message, DefaultValue, InputText                                   string
+	Source, Message, DefaultValue, InputText                           string
 	FocusedButton                                                      int // -1=input, 0=OK, 1=Cancel
 	Active                                                             bool
 	x, y, width, height                                                int
@@ -47,7 +47,7 @@ func (d *Dialog) Draw(s tcell.Screen) {
 	d.calculateLayout(s.Size())
 	style := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite)
 	fillRect(s, image.Rect(d.x, d.y, d.x+d.width, d.y+d.height), style)
-	drawText(s, d.x+1, d.y, d.width-2, d.getTitle(), style.Bold(true))
+	drawText(s, d.x+1, d.y, d.width-2, d.getTitle()+d.Source, style.Bold(true))
 	for i, line := range strings.Split(d.Message, "\n") {
 		y := d.y + 2 + i
 		limit := d.buttonOKY - 1

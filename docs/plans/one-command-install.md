@@ -63,7 +63,7 @@ Build and validate native artifacts for Linux AMD64, macOS ARM64, and macOS AMD6
 
 Publish only the exact OS versions and architectures promoted through the feasibility gate and full installer tests. Bundling shared libraries does not remove kernel, libc, sandbox, or OS compatibility requirements. Unsupported hosts must fail early with a clear explanation.
 
-Bundle dependency notices and use a repeatable browser/runtime update process. Browser provisioning must support the DOM helpers and browser-control APIs needed for upcoming [native Vimium-style navigation](browser-ui.md). The default experience does not depend on installing a Vimium extension.
+Bundle dependency notices and use a repeatable browser/runtime update process. Browser provisioning must support the DOM helpers and browser-control APIs needed for upcoming [bundled Vimium navigation](browser-ui.md). The default bundle includes the pinned Vimium extension and its license; the user does not install it separately.
 
 ## Updates and recovery
 

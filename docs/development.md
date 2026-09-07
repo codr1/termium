@@ -61,7 +61,7 @@ Normal clients create private per-session Unix sockets. A manually started serve
 
 ## Release packages
 
-`npm run build:bundle` creates `dist/termium-<os>-<arch>.tar.gz` and its mandatory `.sha256` file. It uses the npm lockfile, the pinned Node checksums in `scripts/runtime-lock.json`, and Puppeteer's matching Chromium revision. Production dependencies are installed with lifecycle scripts disabled. `scripts/build-dependency-manifest.mjs` records upstream Chromium and Vimium ZIP URLs and checksums in `bundle.json`. The final app archive omits those dependencies and keeps Termium’s welcome-page overlay; the installer downloads and verifies the dependencies before validation and activation. No development tool runs on an end user's machine.
+`npm run build:bundle` creates `dist/termium-<os>-<arch>.tar.gz` and its mandatory `.sha256` file. It uses the npm lockfile, the pinned Node checksums in `scripts/runtime-lock.json`, and Puppeteer's matching Chromium revision. Production dependencies are installed with lifecycle scripts disabled. `scripts/build-dependency-manifest.mjs` records upstream Chromium and Vimium ZIP URLs and checksums in `bundle.json`. It also fingerprints the reviewed Vimium source files; installation requires an exact byte match and excludes unreviewed archive files. The final app archive omits those dependencies and keeps Termium’s welcome-page overlay; the installer downloads and verifies the dependencies before validation and activation. No development tool runs on an end user's machine.
 
 `npm run test:installation` installs that archive into a fresh home with development commands removed from PATH, repeats setup, rejects a bad checksum, checks shell command discovery, runs the private browser, and browses through a PTY.
 

@@ -15,11 +15,12 @@ import (
 )
 
 type runtimeDependency struct {
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	URL         string `json:"url"`
-	SHA256      string `json:"sha256"`
-	StripPrefix string `json:"stripPrefix"`
+	Name        string            `json:"name"`
+	Version     string            `json:"version"`
+	URL         string            `json:"url"`
+	SHA256      string            `json:"sha256"`
+	StripPrefix string            `json:"stripPrefix"`
+	Files       map[string]string `json:"files,omitempty"`
 }
 
 const maxDependencyArchive = 512 * 1024 * 1024
@@ -37,6 +38,9 @@ func installDependencies(root, cache string, dependencies []runtimeDependency) e
 		destination := "browser"
 		if dep.Name == "vimium" {
 			destination = "server/dist/extensions/vimium"
+			if len(dep.Files) == 0 {
+				return fmt.Errorf("missing reviewed Vimium file checksums")
+			}
 		} else if dep.Name != "browser" {
 			return fmt.Errorf("unknown dependency %q", dep.Name)
 		}
@@ -51,7 +55,7 @@ func installDependencies(root, cache string, dependencies []runtimeDependency) e
 		if err != nil {
 			return err
 		}
-		if err := extractDependency(archive, filepath.Join(root, destination), dep.StripPrefix); err != nil {
+		if err := extractVerifiedDependency(archive, filepath.Join(root, destination), dep.StripPrefix, dep.Files); err != nil {
 			return fmt.Errorf("extract %s: %w", dep.Name, err)
 		}
 	}
@@ -138,6 +142,36 @@ func downloadDependency(ctx context.Context, client *http.Client, cache string, 
 }
 
 func extractDependency(archive, root, prefix string) error {
+	return extractVerifiedDependency(archive, root, prefix, nil)
+}
+
+func dependencyDirectory(root, directory string) error {
+	rel, err := filepath.Rel(root, directory)
+	if err != nil || (rel != "." && !filepath.IsLocal(rel)) {
+		return fmt.Errorf("dependency directory escapes root")
+	}
+	current := root
+	parts := append([]string{"."}, strings.Split(rel, string(filepath.Separator))...)
+	for _, part := range parts {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if os.IsNotExist(err) {
+			if err := os.Mkdir(current, 0755); err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("unsafe dependency directory: %s", current)
+		}
+	}
+	return nil
+}
+
+func extractVerifiedDependency(archive, root, prefix string, expected map[string]string) error {
 	z, err := zip.OpenReader(archive)
 	if err != nil {
 		return err
@@ -149,8 +183,16 @@ func extractDependency(archive, root, prefix string) error {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return err
 	}
+	if err := dependencyDirectory(root, root); err != nil {
+		return err
+	}
+	canonicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return err
+	}
 	var total uint64
 	links := map[string]string{}
+	written := map[string]bool{}
 	for _, file := range z.File {
 		if !strings.HasPrefix(file.Name, prefix) {
 			return fmt.Errorf("unexpected archive prefix")
@@ -167,18 +209,28 @@ func extractDependency(archive, root, prefix string) error {
 				return fmt.Errorf("dependency path traversal")
 			}
 		}
+		// Install only the extension files reviewed and exercised in this
+		// release's source tree. Preserve the separately packaged welcome overlay.
+		if expected != nil {
+			if _, included := expected[name]; !included {
+				continue
+			}
+			if !archiveHash.MatchString(expected[name]) || !file.Mode().IsRegular() {
+				return fmt.Errorf("invalid reviewed dependency file: %s", name)
+			}
+		}
 		if file.UncompressedSize64 > maxDependencyExtracted-total {
 			return fmt.Errorf("expanded dependency exceeds size limit")
 		}
 		total += file.UncompressedSize64
 		destination := filepath.Join(root, name)
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(destination, 0755); err != nil {
+			if err := dependencyDirectory(root, destination); err != nil {
 				return err
 			}
 			continue
 		}
-		if err := os.MkdirAll(filepath.Dir(destination), 0755); err != nil {
+		if err := dependencyDirectory(root, filepath.Dir(destination)); err != nil {
 			return err
 		}
 		if file.Mode()&os.ModeSymlink != 0 {
@@ -193,6 +245,9 @@ func extractDependency(archive, root, prefix string) error {
 			r.Close()
 			if err != nil {
 				return err
+			}
+			if uint64(len(data)) != file.UncompressedSize64 {
+				return fmt.Errorf("dependency symlink size mismatch")
 			}
 			target := string(data)
 			if filepath.IsAbs(target) || !filepath.IsLocal(filepath.Join(filepath.Dir(name), target)) {
@@ -220,7 +275,12 @@ func extractDependency(archive, root, prefix string) error {
 			r.Close()
 			return err
 		}
-		n, copyErr := io.Copy(w, io.LimitReader(r, int64(file.UncompressedSize64)+1))
+		hash := sha256.New()
+		var output io.Writer = w
+		if expected != nil {
+			output = io.MultiWriter(w, hash)
+		}
+		n, copyErr := io.Copy(output, io.LimitReader(r, int64(file.UncompressedSize64)+1))
 		r.Close()
 		closeErr := w.Close()
 		if copyErr != nil {
@@ -232,11 +292,32 @@ func extractDependency(archive, root, prefix string) error {
 		if uint64(n) != file.UncompressedSize64 {
 			return fmt.Errorf("dependency file size mismatch")
 		}
+		if expected != nil && fmt.Sprintf("%x", hash.Sum(nil)) != expected[name] {
+			return fmt.Errorf("downloaded dependency differs from reviewed source: %s", name)
+		}
+		written[name] = true
 	}
 	// Create links last so ZIP order cannot route file writes through a symlink.
 	for name, target := range links {
 		if err := os.Symlink(target, name); err != nil {
 			return err
+		}
+	}
+	// Lexical '..' checks alone miss escapes through other links in the ZIP.
+	// Resolve the complete graph after creation, rejecting escapes and cycles.
+	for name := range links {
+		resolved, err := filepath.EvalSymlinks(name)
+		if err != nil {
+			return fmt.Errorf("invalid dependency symlink: %w", err)
+		}
+		rel, err := filepath.Rel(canonicalRoot, resolved)
+		if err != nil || (rel != "." && !filepath.IsLocal(rel)) {
+			return fmt.Errorf("dependency symlink resolves outside installation")
+		}
+	}
+	for name := range expected {
+		if !written[name] {
+			return fmt.Errorf("reviewed dependency file missing: %s", name)
 		}
 	}
 	return nil

@@ -10,6 +10,22 @@ async function sha256(file) {
     return hash.digest('hex');
 }
 
+export async function reviewedVimiumFiles(directory) {
+    const files = {};
+    async function walk(relative = '') {
+        for (const entry of await fs.readdir(path.join(directory, relative), { withFileTypes: true })) {
+            const name = path.posix.join(relative, entry.name);
+            if (['TERMIUM.md', 'pages/termium.js'].includes(name)) continue;
+            if (entry.isDirectory()) await walk(name);
+            else if (entry.isFile()) files[name] = await sha256(path.join(directory, name));
+            else throw Error(`Unsupported Vimium source entry: ${name}`);
+        }
+    }
+    await walk();
+    if (!files['manifest.json']) throw Error('Vimium manifest is missing');
+    return files;
+}
+
 // Checksums are produced by the release build and authenticated with the app
 // archive. Installation never trusts a checksum fetched beside an upstream ZIP.
 export async function buildDependencyManifest(root, cache, chromeVersion) {
@@ -27,6 +43,6 @@ export async function buildDependencyManifest(root, cache, chromeVersion) {
     await fs.writeFile(vimium, Buffer.from(await response.arrayBuffer()));
     return [
         { name: 'browser', version: chromeVersion, url: getDownloadUrl(Browser.CHROME, platform, chromeVersion).href, sha256: await sha256(chrome), stripPrefix: '' },
-        { name: 'vimium', version: revision, url: vimiumURL, sha256: await sha256(vimium), stripPrefix: `vimium-${revision}/` },
+        { name: 'vimium', version: revision, url: vimiumURL, sha256: await sha256(vimium), stripPrefix: `vimium-${revision}/`, files: await reviewedVimiumFiles(path.join(root, 'third_party/vimium')) },
     ];
 }

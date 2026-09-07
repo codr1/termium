@@ -130,18 +130,36 @@ func TestDependencyExtractionAndTraversal(t *testing.T) {
 		{"absolute", []zipEntry{{"/outside", "bad", 0644}}},
 		{"wrong prefix", []zipEntry{{"another/file", "bad", 0644}}},
 		{"escaping link", []zipEntry{{"upstream/link", "../outside", os.ModeSymlink | 0777}}},
+		{"chained escaping link", []zipEntry{{"upstream/dir/anchor", "..", os.ModeSymlink | 0777}, {"upstream/escape", "dir/anchor/../outside", os.ModeSymlink | 0777}}},
 		{"link used as parent", []zipEntry{{"upstream/link", "dir", os.ModeSymlink | 0777}, {"upstream/link/file", "bad", 0644}}},
 		{"duplicate file", []zipEntry{{"upstream/file", "one", 0644}, {"upstream/file", "two", 0644}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			base := t.TempDir()
+			if err := os.WriteFile(filepath.Join(base, "outside"), []byte("keep"), 0644); err != nil {
+				t.Fatal(err)
+			}
 			if err := extractDependency(dependencyZip(t, tc.entries...), filepath.Join(base, "runtime"), "upstream/"); err == nil {
 				t.Fatal("unsafe archive accepted")
 			}
-			if _, err := os.Stat(filepath.Join(base, "outside")); !os.IsNotExist(err) {
-				t.Fatal("archive escaped extraction root")
+			if got, _ := os.ReadFile(filepath.Join(base, "outside")); string(got) != "keep" {
+				t.Fatal("archive changed a file outside extraction root")
 			}
 		})
+	}
+}
+
+func TestDependencyExtractionRejectsExistingSymlinkParent(t *testing.T) {
+	root, outside := t.TempDir(), t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(root, "dir")); err != nil {
+		t.Fatal(err)
+	}
+	archive := dependencyZip(t, zipEntry{"dir/file", "escaped", 0644})
+	if err := extractDependency(archive, root, ""); err == nil {
+		t.Fatal("wrote through existing symlink parent")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "file")); !os.IsNotExist(err) {
+		t.Fatal("modified outside directory")
 	}
 }
 
@@ -164,5 +182,40 @@ func TestDependencyFailurePreservesInstallation(t *testing.T) {
 	got, _ := os.ReadFile(filepath.Join(user, ".bashrc"))
 	if before != after || !bytes.Equal(profile, got) {
 		t.Fatal("download failure damaged installed app")
+	}
+}
+
+func TestDownloadedExtensionMatchesReviewedSource(t *testing.T) {
+	manifest, script := "reviewed manifest", "reviewed script"
+	expected := map[string]string{"manifest.json": fmt.Sprintf("%x", sha256.Sum256([]byte(manifest))), "script.js": fmt.Sprintf("%x", sha256.Sum256([]byte(script)))}
+	for _, tc := range []struct {
+		name, script  string
+		missing, fail bool
+	}{
+		{"matching", script, false, false},
+		{"different upstream code", "unreviewed change", false, true},
+		{"missing reviewed file", script, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entries := []zipEntry{{"upstream/manifest.json", manifest, 0644}, {"upstream/extra.js", "unreviewed extra file", 0644}}
+			if !tc.missing {
+				entries = append(entries, zipEntry{"upstream/script.js", tc.script, 0644})
+			}
+			archive := dependencyZip(t, entries...)
+			root := t.TempDir()
+			if err := os.WriteFile(filepath.Join(root, "termium.js"), []byte("trusted overlay"), 0644); err != nil {
+				t.Fatal(err)
+			}
+			err := extractVerifiedDependency(archive, root, "upstream/", expected)
+			if (err != nil) != tc.fail {
+				t.Fatalf("source verification: %v", err)
+			}
+			if _, err := os.Stat(filepath.Join(root, "extra.js")); !os.IsNotExist(err) {
+				t.Fatal("unreviewed file installed")
+			}
+			if got, _ := os.ReadFile(filepath.Join(root, "termium.js")); string(got) != "trusted overlay" {
+				t.Fatal("trusted overlay changed")
+			}
+		})
 	}
 }

@@ -30,7 +30,7 @@ The first run needs internet access to download dependencies and Chrome. Later b
 
 The browser tests use a local HTTP fixture and verify effects independently of the RPC response text. For example, typing must submit the expected Unicode string to the fixture; a screenshot must decode to the right pixels. Tests use OS-assigned loopback ports and temporary browser profiles. They never remove `/tmp/termium.sock` or connect to a running development server. Failed browser assertions include captured server logs. A transparent executable wrapper records Chrome's PID before executing the real browser. Cleanup has a deadline and kills both the server's process group and Chrome's separate process group if necessary; profiles are kept under the test's temporary directory.
 
-Dependency installation tests cover HTTPS downloads, checksum verification, cache reuse and corruption recovery, cancelled/failed downloads, archive traversal and symlinks, and preserving an installed version when an upgrade fails. The package test uses the actual upstream archives with no development tools or browser on PATH.
+Dependency installation tests cover HTTPS downloads, checksum verification, cache reuse and corruption recovery, cancelled/failed downloads, archive traversal, escaping symlink chains and existing symlink parents, exact matching against reviewed Vimium source, and preserving an installed version when an upgrade fails. The package test uses the actual upstream archives with no development tools or browser on PATH.
 
 ## Faster development loops
 

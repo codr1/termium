@@ -31,6 +31,7 @@ type KeyboardHandler struct {
 	staleNotice             bool
 	pendingAddress          string
 	awaitingNavigation      bool
+	pendingNavigation       *pb.NavigationRequest
 	pointerMode             bool
 	tabsMenu                bool
 	pointer                 image.Point
@@ -115,7 +116,12 @@ func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 }
 func (kh *KeyboardHandler) result(result operationResult) {
 	if result.operation.navigation != nil {
+		if kh.pendingNavigation != nil && kh.pendingNavigation != result.operation.navigation {
+			// A newer address/tab command owns the editor and loading state.
+			return
+		}
 		kh.awaitingNavigation = false
+		kh.pendingNavigation = nil
 	}
 	if result.err != nil {
 		kh.staleNotice = false
@@ -218,12 +224,19 @@ func normalizeAddress(value string) (string, error) {
 	}
 	return parsed.String(), nil
 }
-func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {
-	if kh.submit == nil || !kh.submit(browserOperation{navigation: &pb.NavigationRequest{Action: action, Url: address, TabId: kh.state.ActiveTabId, Generation: kh.state.Generation}}) {
+func (kh *KeyboardHandler) queueNavigation(request *pb.NavigationRequest) bool {
+	if kh.submit == nil || !kh.submit(browserOperation{navigation: request}) {
 		kh.status = "Input queue is busy; try again"
+		return false
+	}
+	kh.pendingNavigation = request
+	kh.awaitingNavigation = true
+	return true
+}
+func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {
+	if !kh.queueNavigation(&pb.NavigationRequest{Action: action, Url: address, TabId: kh.state.ActiveTabId, Generation: kh.state.Generation}) {
 		return
 	}
-	kh.awaitingNavigation = true
 	kh.focus = "page"
 	kh.menu = false
 	if action != pb.NavigationAction_STOP {

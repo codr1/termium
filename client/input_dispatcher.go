@@ -73,6 +73,7 @@ func (d *inputDispatcher) enqueue(o browserOperation) bool {
 	return true
 }
 func (d *inputDispatcher) run() {
+	var known *pb.BrowserState
 	for {
 		select {
 		case <-d.ctx.Done():
@@ -80,6 +81,9 @@ func (d *inputDispatcher) run() {
 		case <-d.wake:
 		}
 		for {
+			if d.ctx.Err() != nil {
+				return
+			}
 			d.mu.Lock()
 			if len(d.pending) == 0 {
 				d.mu.Unlock()
@@ -89,6 +93,19 @@ func (d *inputDispatcher) run() {
 			d.pending[0] = browserOperation{}
 			d.pending = d.pending[1:]
 			d.mu.Unlock()
+			var generation uint64
+			if o.input != nil {
+				generation = o.input.Generation
+			}
+			if o.navigation != nil {
+				generation = o.navigation.Generation
+			}
+			if known != nil && generation != 0 && generation < known.Generation {
+				// The read which recovered the first cancellation already proves
+				// these queued actions are stale. Report them without N more RPCs.
+				d.notify(operationResult{operation: o, state: known, stale: true})
+				continue
+			}
 			ctx, cancel := context.WithTimeout(d.ctx, 5*time.Second)
 			result := operationResult{operation: o}
 			var trailer metadata.MD
@@ -115,6 +132,9 @@ func (d *inputDispatcher) run() {
 			}
 			if d.ctx.Err() != nil {
 				return
+			}
+			if result.state != nil && (known == nil || result.state.Generation >= known.Generation) {
+				known = result.state
 			}
 			d.notify(result)
 		}

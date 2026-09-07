@@ -22,14 +22,103 @@ type cancelledInputServer struct {
 	code          codes.Code
 	refreshError  bool
 	writes, reads atomic.Int32
+	entered       chan struct{}
+	release       chan struct{}
 }
 
 func (s *cancelledInputServer) reject(ctx context.Context) error {
 	s.writes.Add(1)
+	if s.entered != nil {
+		select {
+		case s.entered <- struct{}{}:
+		default:
+		}
+		select {
+		case <-s.release:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	if s.reason != "" {
 		grpc.SetTrailer(ctx, metadata.Pairs("termium-reason", s.reason))
 	}
 	return status.Error(s.code, "test rejection")
+}
+
+func TestStaleQueueNeedsOnlyOneRecoveryRead(t *testing.T) {
+	listener := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer()
+	impl := &cancelledInputServer{reason: "stale-target", code: codes.FailedPrecondition, entered: make(chan struct{}, 1), release: make(chan struct{})}
+	pb.RegisterBrowserControlServer(server, impl)
+	go server.Serve(listener)
+	defer server.Stop()
+	defer listener.Close()
+	conn, err := grpc.NewClient("passthrough:///fixture", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return listener.Dial() }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	results := make(chan operationResult, 40)
+	d := newInputDispatcher(ctx, pb.NewBrowserControlClient(conn), func(v any) { results <- v.(operationResult) })
+	old := browserOperation{input: &pb.InputEvent{Kind: pb.InputKind_KEY_INPUT, Key: "x", Generation: 8, TabId: "old"}}
+	d.enqueue(old)
+	select {
+	case <-impl.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("first input never sent")
+	}
+	for i := 0; i < 30; i++ {
+		if !d.enqueue(old) {
+			t.Fatal("queue rejected")
+		}
+	}
+	close(impl.release)
+	for i := 0; i < 31; i++ {
+		select {
+		case result := <-results:
+			if !result.stale || result.err != nil || result.state.GetGeneration() != 9 {
+				t.Fatal("lost cancellation notification", result)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("stale queue stalled")
+		}
+	}
+	if impl.writes.Load() != 1 || impl.reads.Load() != 1 {
+		t.Fatalf("repeated stale RPCs: writes=%d reads=%d", impl.writes.Load(), impl.reads.Load())
+	}
+	// Fresh input and the protocol's generation-zero wildcard must still reach
+	// the server; local cancellation is only justified by an older generation.
+	for _, generation := range []uint64{9, 0} {
+		d.enqueue(browserOperation{input: &pb.InputEvent{Kind: pb.InputKind_KEY_INPUT, Generation: generation, TabId: "replacement"}})
+		select {
+		case <-results:
+		case <-time.After(3 * time.Second):
+			t.Fatal("fresh input stalled")
+		}
+	}
+	if impl.writes.Load() != 3 {
+		t.Fatal("fresh input was discarded locally")
+	}
+}
+
+func TestLateNavigationResultPreservesNewerSubmission(t *testing.T) {
+	kh, ops := recorder()
+	kh.editor.set("https://one.example/", false)
+	kh.navigate(pb.NavigationAction_NAVIGATE, kh.editor.value())
+	first := (*ops)[0]
+	kh.editor.set("https://two.example/", false)
+	kh.navigate(pb.NavigationAction_NAVIGATE, kh.editor.value())
+	second := (*ops)[1]
+	kh.result(operationResult{operation: first, stale: true, state: &pb.BrowserState{Generation: 9}})
+	if !kh.awaitingNavigation || kh.focus != "page" || kh.editor.value() != "https://two.example/" {
+		t.Fatal("older cancellation overwrote newer navigation")
+	}
+	kh.result(operationResult{operation: second, stale: true, state: &pb.BrowserState{Generation: 9}})
+	if kh.awaitingNavigation || kh.focus != "address" || kh.editor.value() != "https://two.example/" {
+		t.Fatal("latest cancelled address was not restored")
+	}
 }
 func (s *cancelledInputServer) SendInput(ctx context.Context, _ *pb.InputEvent) (*pb.Message, error) {
 	return nil, s.reject(ctx)

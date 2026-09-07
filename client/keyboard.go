@@ -88,7 +88,7 @@ func (kh *KeyboardHandler) input(event *pb.InputEvent) {
 	kh.queue(browserOperation{input: event})
 }
 func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
-	if state == nil || state.Generation < kh.state.Generation {
+	if kh.awaitingNavigation || state == nil || state.Generation < kh.state.Generation {
 		return
 	}
 	if state.Generation != kh.state.Generation {
@@ -230,6 +230,7 @@ func (kh *KeyboardHandler) queueNavigation(request *pb.NavigationRequest) bool {
 		return false
 	}
 	kh.pendingNavigation = request
+	kh.pendingAddress = ""
 	kh.awaitingNavigation = true
 	return true
 }

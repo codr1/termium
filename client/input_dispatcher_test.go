@@ -120,6 +120,18 @@ func TestLateNavigationResultPreservesNewerSubmission(t *testing.T) {
 		t.Fatal("latest cancelled address was not restored")
 	}
 }
+
+func TestOldFrameStateCannotInterruptPendingNavigation(t *testing.T) {
+	kh, _ := recorder()
+	kh.pendingAddress = "https://old.example/"
+	kh.editor.set("https://new.example/", false)
+	kh.navigate(pb.NavigationAction_NAVIGATE, kh.editor.value())
+	// A capture begun before the command may deliver its old error afterward.
+	kh.applyState(&pb.BrowserState{Generation: 9, Error: "old navigation failed"})
+	if kh.focus != "page" || kh.editor.value() != "https://new.example/" || !kh.state.Loading || kh.state.Error != "" {
+		t.Fatal("old snapshot interrupted the pending navigation")
+	}
+}
 func (s *cancelledInputServer) SendInput(ctx context.Context, _ *pb.InputEvent) (*pb.Message, error) {
 	return nil, s.reject(ctx)
 }

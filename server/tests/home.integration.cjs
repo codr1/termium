@@ -40,11 +40,15 @@ test('welcome shares website assets, fits terminal viewports, and keeps offline 
  assert.equal(await page.$eval('.ascii-mark',e=>e.getAttribute('role')),'img');
  assert.equal(await page.$$eval('.key-grid>div',es=>es.length),6);
  // Verify the actual page layout, not CSS text or a screenshot's existence.
- for (const [width,height] of [[624,320],[984,640],[320,600]]) {
+ for (const [width,height] of [[624,320],[984,640],[320,600],[280,600]]) {
   await session.setViewport(width,height);
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'horizontal overflow');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`horizontal overflow at ${width}×${height}`);
   assert.ok(await page.$eval('h1',e=>e.getBoundingClientRect().bottom>0));
   if (width>=624) assert.ok(await page.$eval('footer>p',e=>e.getBoundingClientRect().bottom<=innerHeight),'core help fell below terminal viewport');
+  // Exercise wider fallback glyphs, as found on machines with different fonts.
+  const style = await page.addStyleTag({content:'h1,dd {font-family:monospace!important}'});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`fallback-font overflow at ${width}×${height}`);
+  await style.evaluate(e=>e.remove());
  }
  const website=url=>session.vimium.evaluate(url=>globalThis.chrome.storage.local.set({termiumWebsite:url}),url);
  const settled=()=>page.evaluate(async()=>{await import('./termium.js');});

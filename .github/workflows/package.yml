@@ -33,8 +33,7 @@ jobs:
         shell: bash
         run: |
           if [ "$RUNNER_OS" = Linux ]; then sudo apt-get update && sudo apt-get install -y protobuf-compiler zsh fish; else brew install protobuf fish; fi
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          npm run setup:proto
       - run: npm ci
       - name: Check installed shell integration
         run: npm run build:proto && go test -race -run TestInstalledShells -v ./client

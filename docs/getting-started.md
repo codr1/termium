@@ -1,6 +1,6 @@
 # Getting started
 
-This guide describes the current development build. For installation availability, see [installation](installation.md).
+New here? Start with [Quickstart](quickstart.md). This guide covers everyday browsing in more detail.
 
 ## Open Termium
 
@@ -10,7 +10,7 @@ For an existing working installation:
 termium
 ```
 
-To install a contributor build from a source checkout, use `npm run install:local`; afterward, `termium` works from any directory. Termium opens its welcome page with an ASCII browser logo, navigation keys, and links to the project. The tab and navigation bars stay at the top. To open a particular page immediately:
+After [installation](installation.md), `termium` works from any directory. Termium opens its welcome page with an ASCII browser logo, navigation keys, and links to the project. The tab and navigation bars stay at the top. To open a particular page immediately:
 
 ```bash
 termium example.com

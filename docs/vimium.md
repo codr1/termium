@@ -1,6 +1,6 @@
 # Vimium and tabs
 
-The development build bundles upstream **Vimium 2.4.2** with Chromium. There is no extension to install or configure. Vimium handles webpage navigation; Termium supplies the tab strip, address bar, terminal help, and mouse keys.
+Setup installs upstream **Vimium** alongside Chromium. There is no extension to install or configure. Vimium handles webpage navigation; Termium supplies the tab strip, address bar, terminal help, and mouse keys.
 
 ## Start here
 

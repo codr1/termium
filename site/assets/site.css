@@ -151,5 +151,8 @@ summary { cursor: pointer; font-size: 15px; font-weight: 500; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
 
+.install-command { position: relative; margin: 22px 0 0; padding: 16px; max-width: 100%; border: 1px solid #2d4054; border-radius: 5px; background: #121d28; white-space: pre-wrap; overflow-wrap: anywhere; }
+.install-command code { font: 11px/1.8 var(--mono); color: #c9e4d5; }
+
 .github-cta { display: inline-flex; align-items: center; gap: 8px; }
 .github-icon { flex: 0 0 16px; width: 16px; height: 16px; }

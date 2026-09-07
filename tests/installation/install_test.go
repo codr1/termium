@@ -72,6 +72,14 @@ func TestPackagedInstallation(t *testing.T) {
 		}
 	}
 	bin := filepath.Join(user, ".local", "bin", "termium")
+	installedBinary, err := filepath.EvalSymlinks(bin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installedLicense, err := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(installedBinary)), "LICENSE"))
+	if err != nil || !strings.Contains(string(installedLicense), "MIT License") || !strings.Contains(string(installedLicense), "Termium contributors") {
+		t.Fatalf("release is missing the project license: %v", err)
+	}
 	cmd := exec.Command(bin, "--doctor")
 	cmd.Env, cmd.Dir = env, base
 	if output, err := cmd.CombinedOutput(); err != nil {

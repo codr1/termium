@@ -1,6 +1,6 @@
 # One-command installation plan
 
-Status: the native-bundle installer is implemented on the installation branch. Public release publication and clean native-machine certification remain open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
+Status: the native-bundle installer is merged. Linux x86-64, macOS ARM64, and macOS Intel pass native test and installation CI. Public availability is listed in [GitHub Releases](https://github.com/codr1/termium/releases); broader clean-machine certification remains open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
 
 ## Product requirement
 
@@ -11,10 +11,10 @@ The reference is the familiar shell-installer entry point demonstrated by [Claud
 The entry point below is ready for release testing against the new installer and `--first-run` option. It must not be advertised as a live public install until matching release artifacts are published:
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/codr1/termium/main/scripts/install.sh | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
+bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
 ```
 
-A shorter project-owned URL can be added once a domain is chosen and controlled. The command remains one pasted line: dependency setup, parent-shell PATH activation, and launch all happen without another user step. The shell tail is required; shortening this to a bare pipe would break repeat launches in the original shell.
+The project-owned endpoint serves the checked-in installer verbatim. The command remains one pasted line: dependency setup, parent-shell PATH activation, and launch all happen without another user step. The shell tail is required; shortening this to a bare pipe would break repeat launches in the original shell.
 
 ## Installer responsibilities
 
@@ -34,7 +34,7 @@ Use `$HOME/.local/bin` for the stable launcher even when `TERMIUM_HOME` relocate
 
 The proposed syntax targets bash, zsh, and fish. Fish provides an [export compatibility function](https://fishshell.com/docs/current/cmds/export.html) that accepts quoted PATH values. Before publishing support, verify minimum shell versions, default startup files, custom zsh configuration directories, command caches, and both login/non-login startup. Repeating the command must not duplicate installed files or managed configuration blocks; the literal current-shell PATH prepend may contain a repeated directory without changing command resolution.
 
-Review verification: the exact proposed command was exercised with a mocked download/installer/launcher in an isolated Ubuntu 24.04 container using bash 5.2.21, zsh 5.9, and fish 3.7.0. All 12 scenarios passed: fresh PATH without the launcher directory, an existing cached binary, repeat invocation, and failed download for each shell. This proves the shell sequencing and same-shell lookup mechanism. It does not validate a real release, persistent startup-file integration, interactive TUI attachment, native macOS, or browser startup.
+Review verification: the exact proposed command was exercised with a mocked download/installer/launcher in an isolated Ubuntu 24.04 container using bash, zsh, and fish. All 12 scenarios passed: fresh PATH without the launcher directory, an existing cached binary, repeat invocation, and failed download for each shell. This proves the shell sequencing and same-shell lookup mechanism. It does not validate a real release, persistent startup-file integration, interactive TUI attachment, native macOS, or browser startup.
 
 ## Feasibility gate before installer implementation
 

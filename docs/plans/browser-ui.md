@@ -12,7 +12,7 @@ Termium owns terminal input, local help/dialogs, the tab strip, address bar, mou
 
 `BrowserSession` maintains a `BrowserControls` instance per Chromium page and a single ordered input/command queue. Chrome's tab targets expose `embedderData.tabActive` and `tabStripIndex` through `Target.getTargets`. This metadata is pulled; Puppeteer's `targetchanged` does not report tab activation. URL equality never establishes identity.
 
-The adapter maps Puppeteer's internal `_tabId` to native tab targets. Puppeteer is pinned to 25.10.0, and runtime checks reject missing identity/metadata. Updating Puppeteer or Chromium requires real tab integration tests and bundle doctor checks. Remote browsers need compatible tab metadata and extension loading enabled; the packaged browser is the supported default.
+The adapter maps Puppeteer's internal `_tabId` to native tab targets. Puppeteer is pinned in `server/package.json`, and runtime checks reject missing identity/metadata. Updating Puppeteer or Chromium requires real tab integration tests and bundle doctor checks. Remote browsers need compatible tab metadata and extension loading enabled; the packaged browser is the supported default.
 
 State and screenshots carry the active tab ID and a session generation that changes with selection or document changes. Inputs carry both and stale inputs are rejected without replay. State reads verify they did not straddle a document change. Captures are discarded if selection changes while capturing. Switching releases held pointer buttons on the previous page. Only the selected page is captured; background pages may still run JavaScript and consume memory.
 

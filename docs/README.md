@@ -1,11 +1,12 @@
 # Termium documentation
 
-Start with [installation](installation.md), then [getting started](getting-started.md).
+Start with [Quickstart](quickstart.md): install, open your first page, and learn the essential keys.
 
 ## User guides
 
+- [Quickstart](quickstart.md): one command to your first page.
 - [Installation](installation.md): availability and one-command setup.
-- [Getting started](getting-started.md): controls in the current development build.
+- [Getting started](getting-started.md): everyday controls.
 - [Terminal support](terminals.md): choosing a display mode when troubleshooting.
 - [Troubleshooting](troubleshooting.md): resolving problems and reporting bugs.
 - [Vimium and tabs](vimium.md): keyboard navigation, real tabs, and mouse coexistence.
@@ -20,4 +21,4 @@ Start with [installation](installation.md), then [getting started](getting-start
 - [Browser UI architecture](plans/browser-ui.md): bundled Vimium, tab identity, and keyboard routing.
 - [Graphics audit](plans/rendering-audit.md): Kitty/Sixel correctness, measured encoding costs, performance priorities, and help UI integration.
 
-Pages marked **planned** describe work that has not shipped. The usage guides describe the current development build.
+Pages marked **planned** describe work that has not shipped. The usage guides describe the current application.

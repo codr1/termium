@@ -47,7 +47,7 @@ test('public site is complete, links resolve, and the welcome page stays separat
       if (url.hash) anchors.push([url.pathname, decodeURIComponent(url.hash.slice(1))]);
     }
   }
-  assert.equal(visited.size, 10, 'Expected product page, docs index, and eight guides');
+  assert.equal(visited.size, 11, 'Expected product page, docs index, and nine guides');
   for (const [route, id] of anchors) {
     await page.goto(origin + route);
     assert.ok(await page.evaluate(id => !!document.getElementById(id), id), `Broken fragment ${route}#${id}`);
@@ -104,4 +104,31 @@ test('copy controls work under the site CSP and Vimium can navigate the public s
   await active.keyboard.type('f');
   await active.waitForSelector('.vimiumHintMarker', { visible: true, timeout: 5000 });
   assert.ok(await active.$$eval('.vimiumHintMarker', es => es.length) >= 3);
+});
+
+
+test('public setup serves the bootstrap and copies the same one-line command everywhere', { timeout: 30000 }, async t => {
+  const { browser, origin } = await fixture(t);
+  const response = await fetch(origin + '/install');
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /text\/plain/);
+  assert.equal(await response.text(), fs.readFileSync(path.resolve(__dirname, '../../scripts/install.sh'), 'utf8'));
+  const page = await browser.newPage();
+  await browser.defaultBrowserContext().overridePermissions(origin, ['clipboard-read', 'clipboard-write', 'clipboard-sanitized-write']);
+  await page.goto(origin + '/');
+  const command = await page.$eval('.install-command code', e => e.textContent);
+  assert.equal(command.split('\n').length, 1);
+  assert.match(command, /https:\/\/termium\.dev\/install/);
+  assert.match(command, /pipefail/);
+  assert.ok(command.endsWith('--first-run'));
+  await page.click('.install-command .copy-button');
+  await page.waitForFunction(() => document.querySelector('.install-command .copy-button').textContent === 'Copied');
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), command);
+  assert.equal(await page.$$eval('.github-cta img', es => es.length), 2);
+  assert.ok(await page.$$eval('.github-cta img', es => es.every(e => e.complete && e.naturalWidth > 0)));
+  await page.goto(origin + '/docs/installation/');
+  assert.equal(await page.$eval('pre code.language-bash', e => e.textContent.trim()), command);
+  assert.ok(fs.readFileSync(path.resolve(__dirname, '../../README.md'), 'utf8').includes(command));
+  await page.goto(origin + '/docs/quickstart/');
+  assert.equal(await page.$eval('pre code.language-bash', e => e.textContent.trim()), command);
 });

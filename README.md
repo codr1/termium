@@ -2,19 +2,21 @@
 
 Browse the web inside your terminal.
 
-[Website](https://termium.dev/) · [User guides](https://termium.dev/docs/) · [Installation](https://termium.dev/docs/installation/)
+[Website](https://termium.dev/) · [Quickstart](https://termium.dev/docs/quickstart/) · [User guides](https://termium.dev/docs/) · [Installation](https://termium.dev/docs/installation/)
 
 Termium renders a real Chromium browser in your terminal, with keyboard and mouse interaction. It supports Kitty and sixel graphics, plus a character-based display mode.
 
-## Install
+## Quickstart
 
-The native installer packages Termium, Node, and Linux browser libraries/fonts. It automatically downloads pinned Chromium and Vimium during installation, verifies their checksums, checks browser startup, and installs a permanent `termium` command. The first public release using this installer has not been published yet.
-
-Contributors with the [build toolchain](docs/development.md) can build and install the current checkout with:
+Paste this into your terminal on Linux x86-64 or macOS (Apple Silicon or Intel):
 
 ```bash
-npm run install:local
+bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
 ```
+
+Setup downloads Termium, Chromium, and Vimium, verifies them, and opens the browser. No Node, Go, browser installation, or sudo required. The permanent `termium` command works from any directory.
+
+This is an early release. Linux requires glibc and working Chromium sandbox support; the installer checks compatibility; native Windows and Linux ARM64 packages are not available yet.
 
 See [installation](docs/installation.md) for platform requirements, updates, and storage.
 
@@ -47,11 +49,11 @@ Read the [getting started guide](docs/getting-started.md) for controls and displ
 
 ## What's next
 
-1. **One-command setup:** no manual dependency installation, configuration edits, or separate server startup on supported Linux and macOS systems.
+1. **Distribution polish:** expand clean-machine testing and automate compatible dependency updates.
 2. **Browser polish:** expand terminal compatibility testing, persistent browsing sessions, and clipboard integration around bundled Vimium and tabs.
 3. **Windows:** add native installation and terminal support after Linux and macOS.
 
-The [installation plan](docs/plans/one-command-install.md) and [browser UI plan](docs/plans/browser-ui.md) define the work and release checks. The development build includes the installer, tab UI, and Vimium; public release availability is tracked separately.
+The [installation plan](docs/plans/one-command-install.md) and [browser UI plan](docs/plans/browser-ui.md) define the work and release checks. See [GitHub Releases](https://github.com/codr1/termium/releases) for native packages and release notes.
 
 ## Development
 
@@ -61,4 +63,4 @@ Found a bug? Follow the [reporting guide](docs/troubleshooting.md#report-a-probl
 
 ## License
 
-The project's current declared license is CC BY-ND. An OSS-compatible license and a standalone license file are release prerequisites; this documentation update does not change the license.
+[MIT](LICENSE). Third-party components retain their own licenses, included with their sources and release packages.

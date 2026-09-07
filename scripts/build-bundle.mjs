@@ -87,6 +87,7 @@ try {
     const goroot = execFileSync('go', ['env', 'GOROOT'], { cwd: root, encoding: 'utf8' }).trim();
     await fs.copyFile(path.join(goroot, 'LICENSE'), path.join(bundle, 'notices/Go-LICENSE'));
     await fs.copyFile(path.join(root, 'README.md'), path.join(bundle, 'README.md'));
+    await fs.copyFile(path.join(root, 'LICENSE'), path.join(bundle, 'LICENSE'));
     if (process.platform === 'linux') {
         run('docker', ['run', '--rm', '-e', `TERMIUM_BUILD_UID=${process.getuid()}`, '-e', `TERMIUM_BUILD_GID=${process.getgid()}`, '-v', `${bundle}:/bundle`, '-v', `${root}/scripts/bundle-linux-libs.sh:/build-libs:ro`, lock.linuxImage, 'sh', '/build-libs']);
     }

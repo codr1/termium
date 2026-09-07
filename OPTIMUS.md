@@ -1,6 +1,37 @@
 # OPTIMUS.md
 
-This is a list of optimizations we want to consider. We will be deleting them one at a time as we implement them.
+Implemented changes are recorded first, followed by historical investigations and ideas. Historical timings describe their original probes, not current performance guarantees.
+
+## Implemented: skip redundant browser-image output
+
+Recorded 2026-09-07. See [frame preparation](client/frame_pipeline.go), [presentation](client/main.go), and [regression tests](client/frame_pipeline_test.go).
+
+### What was being resent
+
+The browser screenshot was being sent to the terminal again when only the local interface needed repainting: editing an address, moving the Mouse keys cursor, or refreshing help/status controls. The Sixel band cache reduced encoding work but still assembled and wrote a complete image. Even unchanged browser frames could keep producing graphics bytes.
+
+### What changed
+
+- Browser-image updates and local UI redraws are tracked separately. Redrawing the address bar or local cursor does not by itself retransmit the browser image.
+- Preparation reuses an existing frame when its screenshot bytes, document identity, and browser metadata are unchanged. For Sixel/character rendering, an exact decoded-pixel comparison also catches identical images with different compressed bytes. Reuse avoids another quantization/encoding pass.
+- The presenter remembers the frame already displayed. The same frame does not trigger another graphics write, while tcell can still update toolbar text, focus, and cursor cells.
+- Kitty passes Chromium’s PNG bytes through directly. Sixel caches encoded bands for reuse and encodes changed bands as needed.
+- Resizing, changing documents, opening/closing overlays, and failed output invalidate the displayed image when necessary. Closing help restores the browser image; skipping redundant output must never leave missing or stale graphics behind.
+- A bounded worker keeps only the newest pending capture. Capture pacing follows the slower of preparation and terminal output, and pauses while an overlay hides the browser.
+
+### Evidence and limits
+
+`TestImageDamageIndependentOfChromeAndRestoredAfterOverlay` draws an image, then performs twenty local UI redraws and requires zero additional graphics bytes. It also requires image restoration after help closes and rejects repainting an obsolete document. Other frame-pipeline tests cover exact frame/pixel reuse, changing metadata, band encoding, and queue/cancellation behavior.
+
+The older synthetic Sixel probe below measured roughly 68 KB resent per unchanged frame. The fix removes that redundant full-image traffic for an unchanged displayed frame; it is not a measured whole-browser FPS multiplier. Browser capture and RPC transfer can still occur while watching for changes. A changed page still needs new graphics output, and changed browser metadata may produce a new presentation frame even when the pixel buffer is reused. Partial-image terminal updates and end-to-end latency measurements remain follow-up work.
+
+## Implemented: avoid repeated stale-input recovery RPCs
+
+When a tab or document changes, queued input stamped for the old document is cancelled rather than replayed. Previously, each queued event could make another failing write and state-refresh read. The input dispatcher now uses the first successful recovery read to cancel the remaining obsolete queue locally. A regression test checks that thirty-one stale events require only one rejected write and one recovery read, while fresh input still reaches Chromium. This is separate from the graphics optimization above.
+
+## Historical investigation and backlog
+
+The remaining sections preserve earlier measurements and proposals. References to the old fixed ticker, debug screenshot writes, repeated full-image transmission, or dialog compositing describe the pre-refactor implementation; consult the implemented record above and current code before treating them as open work.
 
 ## Performance Investigation Results (COMPLETED)
 

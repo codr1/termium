@@ -1,6 +1,6 @@
 # Vimium and tabs
 
-The development build bundles upstream **Vimium 2.4.2** with Chromium. There is no extension to install or configure. Vimium handles webpage navigation; Termium supplies the tab strip, address bar, terminal help, and keyboard pointer.
+The development build bundles upstream **Vimium 2.4.2** with Chromium. There is no extension to install or configure. Vimium handles webpage navigation; Termium supplies the tab strip, address bar, terminal help, and mouse keys.
 
 ## Start here
 
@@ -30,9 +30,9 @@ The top row shows numbered titles, a highlighted selected tab, close targets, an
 
 Each tab keeps its own Chromium page, form contents, scroll position, and history. Background links stay in the background. Only the selected tab is captured for terminal rendering. Closing the last tab opens your home page. The default welcome page has a bundled offline copy; [you can save your own home page](getting-started.md#choose-your-home-page). Reopening uses Chromium's session restore; unsaved form recovery is not guaranteed. Tabs and browsing data do not persist after quitting Termium.
 
-## Mouse and keyboard pointer
+## Mouse and mouse keys
 
-Mouse clicks, dragging, scrolling, and OS Mouse Keys continue to work. **F6** toggles Termium's visible keyboard pointer; it is a toggle, not a key to hold down. In pointer mode, h/j/k/l and arrows move the pointer, Enter clicks, Space holds/releases the left button, and u/d scroll. Escape or F6 leaves pointer mode. See [getting started](getting-started.md) for the complete pointer controls.
+Mouse clicks, dragging, scrolling, and OS Mouse Keys continue to work. **F6** toggles Termium's mouse keys; it is a toggle, not a key to hold down. In mouse keys mode, h/j/k/l and arrows move the pointer, Enter clicks, Space holds/releases the left button, and u/d scroll. Escape or F6 leaves mouse keys mode. See [getting started](getting-started.md) for the complete pointer controls.
 
 ## Help and limits
 

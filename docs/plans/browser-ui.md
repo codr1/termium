@@ -6,7 +6,7 @@ Implemented in the development build. This supersedes the original plan to emula
 
 Upstream Vimium owns webpage modes, hints, find, scrolling, and browser tab commands. Its runtime source is vendored unchanged at the revision recorded in `third_party/vimium/TERMIUM.md`, with the MIT notice. Termium adds an offline welcome page and configures immediate scrolling and static hints through extension settings.
 
-Termium owns terminal input, local help/dialogs, the tab strip, address bar, keyboard pointer, and screenshot presentation. Puppeteer loads the extension with an explicitly awaited `browser.installExtension`; managed Chromium launches headless over a pipe with extension support. No extension installation is required from the user.
+Termium owns terminal input, local help/dialogs, the tab strip, address bar, mouse keys, and screenshot presentation. Puppeteer loads the extension with an explicitly awaited `browser.installExtension`; managed Chromium launches headless over a pipe with extension support. No extension installation is required from the user.
 
 ## Tab identity and consistency
 
@@ -20,7 +20,7 @@ The tab row uses terminal row zero and the address bar uses row one. The page ke
 
 ## Input and rendering
 
-Page input is dispatched through Chromium as trusted keyboard/mouse events. Readiness is checked in Vimium's isolated extension contexts before key delivery; cached focus does not classify a key as navigation or typing. Bracketed paste stays literal. F6 pointer mode and local application shortcuts are handled before page input.
+Page input is dispatched through Chromium as trusted keyboard/mouse events. Readiness is checked in Vimium's isolated extension contexts before key delivery; cached focus does not classify a key as navigation or typing. Bracketed paste stays literal. F6 mouse keys mode and local application shortcuts are handled before page input.
 
 Local overlays pause screenshot presentation and clear terminal graphics before drawing. Vimium's own overlays are rendered within Chromium and captured normally. No additional terminal UI framework controls the sixel/Kitty output stream.
 

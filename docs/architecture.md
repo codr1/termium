@@ -58,7 +58,7 @@ Shutdown attempts to close the browser, server, connection, and terminal screen.
 | `client/config.go` | Flags and renderer selection |
 | `client/server_launcher.go` | Server discovery and child process lifecycle |
 | `client/keyboard.go`, `client/navigation_ui.go`, `client/text_editor.go` | Keyboard routing, navigation bar, menu, and Unicode editing |
-| `client/mouse.go`, `client/input_dispatcher.go` | Mouse capture, keyboard pointer, and ordered input |
+| `client/mouse.go`, `client/input_dispatcher.go` | Mouse capture, mouse keys, and ordered input |
 | `client/ui_layout.go`, `client/framebuffer.go` | Shared viewport geometry and immutable frame handoff |
 | `client/frame_pipeline.go` | Bounded preparation, deduplication, Sixel encoding, and capture pacing |
 | `client/kitty_renderer.go` | Kitty graphics encoding |

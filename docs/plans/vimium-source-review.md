@@ -26,7 +26,7 @@ Observed through actual Puppeteer keyboard input and a local HTTP fixture:
 
 The probe needed to wait for asynchronous keymap initialization before sending the first command. An immediate help-close-to-hints sequence did not pass reliably in the exploratory probe; the isolated frame check passed after navigating to a fresh fixture. Preserve this transition as a regression case and diagnose it before claiming full integration. These are Linux browser-level smoke checks, not the complete Termium PTY path, a terminal graphics benchmark, or macOS acceptance.
 
-Remaining integration work includes selecting the page Vimium makes active, following newly created/closed tabs, preserving per-tab viewport and dialog behavior, handling focus/readiness transitions, configuring static UI and immediate scrolling, bundling the extension and notices, and testing reserved Termium shortcuts and F6 pointer interaction.
+Remaining integration work includes selecting the page Vimium makes active, following newly created/closed tabs, preserving per-tab viewport and dialog behavior, handling focus/readiness transitions, configuring static UI and immediate scrolling, bundling the extension and notices, and testing reserved Termium shortcuts and F6 mouse keys interaction.
 
 ### Tabs and extension API follow-up (2026-09-07)
 
@@ -36,7 +36,7 @@ A second disposable Linux probe verified that explicit awaited installation regi
 
 Puppeteer's [browser events](https://pptr.dev/api/puppeteer.browserevent) report target creation, destruction, and URL changes. `targetchanged` is not a tab-activation notification. Chromium's extension [`tabs` API](https://developer.chrome.com/docs/extensions/reference/api/tabs) provides tab IDs, tab order, active state, and activation events. The integration needs to preserve that identity across the browser/terminal boundary; URLs and indices are not sufficient identifiers. The implementation now pulls Chrome tab-target `embedderData.tabActive` and `tabStripIndex`, mapping the stable tab target to Puppeteer’s `_tabId`. This avoids a companion extension. Puppeteer is pinned and the mapping is covered by real browser tests. Define and test its mapping to Puppeteer pages without requiring changes to upstream Vimium's command implementation or exposing a generic command API to web content.
 
-Recommended first tab UI: one compact tab row above the address/navigation row, with titles, a clear active marker, close targets, and a new-tab button. Keep the active tab visible when the list overflows; provide an overflow picker for narrow terminals. Mouse and F6 pointer coexist with Vimium's tab commands. Reserve the row consistently so opening the second tab does not unexpectedly move page coordinates.
+Recommended first tab UI: one compact tab row above the address/navigation row, with titles, a clear active marker, close targets, and a new-tab button. Keep the active tab visible when the list overflows; provide an overflow picker for narrow terminals. Mouse and F6 mouse keys coexist with Vimium's tab commands. Reserve the row consistently so opening the second tab does not unexpectedly move page coordinates.
 
 Required state and lifecycle work:
 
@@ -111,7 +111,7 @@ Our acceptance tests should exercise actual Chromium input and independently obs
 - Selecting a field's hint must not insert the final hint character into that field. Keyup must not trigger a second site action after mode exit.
 - Page-created synthetic keyboard events cannot issue browser commands. Paste remains literal, and composition must not invoke shortcuts.
 - Navigation, detached frames, resize, scrolling, removed targets, and failed helpers cancel safely. No stale target activation or stuck input mode.
-- Pointer clicks and F6 keyboard pointer continue working; they cancel or reconcile hints without duplicate clicks or held buttons.
+- Pointer clicks and F6 mouse keys continue working; they cancel or reconcile hints without duplicate clicks or held buttons.
 - A real client in a PTY opens hints, selects a target, browses, and quits; terminal restoration is checked separately from page Escape handling.
 
 ## Implementation status

@@ -28,7 +28,7 @@ Run `termium` from any directory, or `termium example.com` to open a page direct
 - Press **f** for link hints, **j/k** to scroll, and **?** for Vimium help.
 - Use **t**, **J/K**, and **x/X** to create, switch, close, and reopen tabs.
 - Click a page field to focus it, then type normally.
-- Press **F6** for keyboard pointer control; press it again to return to typing.
+- Press **F6** for mouse keys; press it again to return to typing.
 - Press **Ctrl+Q**, then **Enter** to quit.
 
 Save a custom startup and new-tab page with `termium --set-homepage https://example.com`.

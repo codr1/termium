@@ -143,6 +143,9 @@ func installBundle(source, home, userHome, digest string, validate func(string) 
 	if err := copyBundle(source, stage); err != nil {
 		return err
 	}
+	if err := installDependencies(stage, filepath.Join(home, "downloads"), manifest.Dependencies); err != nil {
+		return fmt.Errorf("dependency installation failed; previous version preserved: %w", err)
+	}
 	if err := validate(stage); err != nil {
 		return fmt.Errorf("installation check failed; previous version preserved: %w", err)
 	}

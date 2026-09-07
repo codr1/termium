@@ -34,7 +34,7 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
         const s = await session.state();
         return session.input(InputEvent.fromPartial({ generation: s.generation, tabId: s.activeTabId, ...fields }));
     };
-    const text = value => send({ kind: InputKind.TEXT_INPUT, text: value });
+    const text = async value => { try { return await send({ kind: InputKind.TEXT_INPUT, text: value }); } catch (error) { error.message = `While typing ${JSON.stringify(value)}: ${error.message}`; throw error; } };
     const key = key => send({ kind: InputKind.KEY_INPUT, key });
     const url = `http://127.0.0.1:${fixture.address().port}`;
     await session.ensurePage();
@@ -138,6 +138,22 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     assert.ok(Date.now()-started < 3000, 'new tab monopolized input while loading');
     await command(A.STOP);
     assert.equal((await session.state()).loading,false);
+    // Reproduce a late key acknowledgement with stale Puppeteer isClosed.
+    // The real x closes its real tab; only acknowledgement timing is injected.
+    await command(A.NEW_TAB);
+    const closingPage = await session.ensurePage();
+    const closedId = (await session.state()).activeTabId;
+    const originalType = closingPage.keyboard.type.bind(closingPage.keyboard);
+    const originalClosed = closingPage.isClosed.bind(closingPage);
+    closingPage.keyboard.type = async value => {
+        await originalType(value);
+        await waitFor(() => originalClosed(), 'fault-injection tab did not close');
+        throw Error('Protocol error (Input.dispatchKeyEvent): Target closed');
+    };
+    closingPage.isClosed = () => false;
+    await text('x');
+    closingPage.isClosed = originalClosed;
+    assert.ok(!(await session.state()).tabs.some(tab => tab.id === closedId));
     // Closing every tab leaves a usable welcome page instead of a dead session.
     for (const p of await browser.pages()) await p.close();
     const replacement = await session.state();

@@ -191,7 +191,15 @@ export class BrowserSession {
             catch (error) {
                 // x may close its own target before the key-up acknowledges.
                 // Never retry that input on the replacement tab.
-                if (!s.active.page.isClosed()) throw error;
+                if (!s.active.page.isClosed()) {
+                    if (!/Target closed|Session closed/.test((error as Error).message)) throw error;
+                    // CDP can report closure before Puppeteer updates isClosed.
+                    // Confirm the tab disappeared using a fresh read; never
+                    // replay the event or mask an error on a surviving tab.
+                    const after = await this.state();
+                    if (after.tabs.some(tab => tab.id === s.active.id)) throw error;
+                    return after;
+                }
             }
             return this.state();
         });

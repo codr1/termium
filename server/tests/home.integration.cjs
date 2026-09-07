@@ -16,7 +16,7 @@ async function fixture(t) {
   if (req.url==='/published') {res.end('<meta name="termium-welcome" content="1"><title>Hosted welcome</title><h1>Hosted welcome</h1>');return;}
   if (req.url==='/unbranded') {res.end('<h1>Domain parking</h1>');return;}
   if (req.url==='/custom') {res.end('<title>My own home</title><input aria-label="Search"><a href="/next">Next</a>');return;}
-  const files={'/':'index.html','/assets/welcome.css':'assets/welcome.css','/assets/mark.svg':'assets/mark.svg'};
+  const files={'/':'index.html','/welcome/':'welcome/index.html','/assets/welcome.css':'assets/welcome.css','/assets/mark.svg':'assets/mark.svg'};
   if (!files[req.url]) {res.writeHead(404);res.end();return;}
   if (req.url.endsWith('.css'))res.setHeader('content-type','text/css');
   if (req.url.endsWith('.svg'))res.setHeader('content-type','image/svg+xml');
@@ -52,6 +52,8 @@ test('welcome shares website assets, fits terminal viewports, and keeps offline 
  }
  const website=url=>session.vimium.evaluate(url=>globalThis.chrome.storage.local.set({termiumWebsite:url}),url);
  const settled=()=>page.evaluate(async()=>{await import('./termium.js');});
+ await website(f.url+'/');await home();await settled();
+ assert.match(page.url(),/^chrome-extension:/,'public product website replaced compact welcome');
  await website(f.url+'/unbranded');await home();await settled();
  assert.match(page.url(),/^chrome-extension:/,'parking page replaced welcome');
  await website(f.url+'/slow');await home();await f.slowRequest;

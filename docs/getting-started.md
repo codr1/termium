@@ -28,7 +28,7 @@ The bar shows the current URL, including redirects. Back and Forward reflect Chr
 
 ## Choose your home page
 
-By default, startup and new tabs open the Termium welcome page. It uses the same design as `termium.dev` and navigates to the live website when that site is available. A bundled copy keeps the key legend usable offline. Once you type, click, or scroll, an arriving website response cannot take you away from the page.
+By default, startup and new tabs open the Termium welcome page. It opens the compact browser page at `termium.dev/welcome`, separate from the public product website, when that page is available. A bundled copy keeps the key legend usable offline. Once you type, click, or scroll, an arriving website response cannot take you away from the page.
 
 Save your own home page once:
 

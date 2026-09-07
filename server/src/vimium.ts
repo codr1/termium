@@ -15,7 +15,9 @@ export class Vimium {
         this.id = await this.browser.installExtension(path.resolve(__dirname, '../extensions/vimium'));
         this.welcome = `chrome-extension://${this.id}/pages/termium.html`;
         const builtin = this.homepage === 'about:termium';
-        const hosted = this.homepage === 'https://termium.dev/' || this.homepage === 'https://termium.dev';
+        // Preserve the original default for installations that saved it before /welcome.
+        const hosted = ['https://termium.dev', 'https://termium.dev/',
+            'https://termium.dev/welcome', 'https://termium.dev/welcome/'].includes(this.homepage);
         if (!builtin && !hosted && this.homepage !== 'about:blank') {
             const url = new URL(this.homepage);
             if (!['http:', 'https:'].includes(url.protocol)) throw Error('Home page must use HTTP or HTTPS');
@@ -31,7 +33,7 @@ export class Vimium {
                 openVomnibarOnNewTabPage: false,
                 userDefinedLinkHintCss: '.vimiumHintMarker { background: #ffe58a !important; border: 1px solid #473a12 !important; box-shadow: none !important; } .vimiumHintMarker span { color: #161616 !important; font-size: 14px !important; font-weight: bold !important; }',
             })) await settings.set(key, value);
-        }, { home: this.home, website: hosted ? 'https://termium.dev/' : '' });
+        }, { home: this.home, website: hosted ? 'https://termium.dev/welcome/' : '' });
         this.installed = true;
     }
 

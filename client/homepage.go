@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const defaultHomepage = "https://termium.dev/"
+const defaultHomepage = "https://termium.dev/welcome/"
 
 func normalizeHomepage(value string) (string, error) {
 	value = strings.TrimSpace(value)

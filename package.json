@@ -16,7 +16,7 @@
     "build": "npm run prepare && npm run build:proto && npm run build:server && npm run build:client",
     "start:server": "cd server && npm run start",
     "start:client": "cd client && ./termium",
-    "test": "npm run build && npm run build:client:test && npm run lint && npm run test:server && npm run test:go && npm run test:integration",
+    "test": "npm run build && npm run build:client:test && npm run lint && npm run test:server && npm run test:go && npm run test:integration && npm run test:website",
     "test:go": "go test -race -count=1 -shuffle=on -timeout=2m -v ./client/...",
     "test:integration": "npm run test:browser:install && node --test server/tests/*.integration.cjs && go test -race -tags=integration -count=1 -timeout=5m -v ./tests/integration",
     "clean": "rm -rf server/dist server/generated client/termium",
@@ -28,9 +28,17 @@
     "test:server": "node --test server/tests/*.test.cjs",
     "build:bundle": "npm run build && node scripts/build-bundle.mjs",
     "test:installation": "go test -race -tags=installation -count=1 -timeout=5m -v ./tests/installation",
-    "install:local": "npm run build:bundle && node scripts/install-local.mjs"
+    "install:local": "npm run build:bundle && node scripts/install-local.mjs",
+    "build:website": "node scripts/build-website.mjs",
+    "preview:website": "npm run build:website && wrangler pages dev dist/website --port 8787",
+    "deploy:website": "npm run build:website && wrangler pages deploy dist/website --project-name termium",
+    "test:website": "npm run build:website && node --test tests/website/*.test.cjs"
   },
   "engines": {
     "node": ">=24.0.0"
+  },
+  "devDependencies": {
+    "marked": "18.0.11",
+    "wrangler": "4.129.0"
   }
 }

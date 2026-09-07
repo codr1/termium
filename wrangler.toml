@@ -1,3 +1,3 @@
 name = "termium"
 compatibility_date = "2026-09-07"
-pages_build_output_dir = "./site"
+pages_build_output_dir = "./dist/website"

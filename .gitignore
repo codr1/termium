@@ -59,3 +59,6 @@ client/log
 # Vendored extension runtime and its assets are release inputs.
 !third_party/vimium/**/*.js
 !third_party/vimium/**/*.png
+
+# Wrangler local state.
+.wrangler/

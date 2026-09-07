@@ -20,7 +20,7 @@ The protocol lives in `proto/bc.proto`; Go and TypeScript bindings are generated
 
 ## Home page and website
 
-`site/` is the static website and the source of the bundled welcome design. `scripts/build-extensions.mjs` copies its HTML, CSS, and vector mark into the extension bundle and adds only the trusted local Vimium bootstrap. The default bootstrap checks `https://termium.dev/` for a Termium marker before navigating to that ordinary web origin. A 1.5-second timeout, non-Termium response, or trusted input keeps the local page. Remote HTML is never injected into the extension origin.
+`site/index.html` is the public product website template; `site/welcome/index.html` is the separate browser home page. The public website never links to the browser home page. `scripts/build-extensions.mjs` copies its HTML, CSS, and vector mark into the extension bundle and adds only the trusted local Vimium bootstrap. The default bootstrap checks `https://termium.dev/welcome/` for a Termium marker before navigating to that ordinary web origin. A 1.5-second timeout, non-Termium response, or trusted input keeps the local page. Remote HTML is never injected into the extension origin.
 
 Custom home pages open directly. The client persists the setting atomically, supports session/environment overrides, and passes it to its managed server. `BrowserSession` and Vimium use the same destination for native and extension tab commands. The Home command reuses the current tab. A positional URL overrides only the initial navigation.
 

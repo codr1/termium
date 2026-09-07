@@ -36,7 +36,7 @@ If the shell's display remains garbled after Termium exits, run `reset` in that 
 
 ## A second window controls the same page
 
-The current build shares one local browser server. Multiple independent Termium sessions are not yet isolated. Use one session at a time while this is being fixed.
+Normal launches use separate managed browser sessions and private sockets. If two terminals control the same browser, check whether you explicitly selected the same shared `--tcp` server. Run `termium` without that option for an independent session.
 
 ## Report a problem
 

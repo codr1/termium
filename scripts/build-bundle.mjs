@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { install, Browser } from '@puppeteer/browsers';
 import { PUPPETEER_REVISIONS } from 'puppeteer-core';
+import { buildDependencyManifest } from './build-dependency-manifest.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const lock = JSON.parse(await fs.readFile(path.join(root, 'scripts/runtime-lock.json'), 'utf8'));
@@ -66,7 +67,8 @@ try {
     const chrome = await install({ browser: Browser.CHROME, buildId: PUPPETEER_REVISIONS.chrome, cacheDir: path.join(cache, 'browsers') });
     await fs.cp(chrome.path, path.join(bundle, 'browser'), { recursive: true, verbatimSymlinks: true });
     const browserPath = path.join('browser', path.relative(chrome.path, chrome.executablePath));
-    await fs.writeFile(path.join(bundle, 'bundle.json'), JSON.stringify({ version, commit, platform, node: lock.node, chrome: PUPPETEER_REVISIONS.chrome, browser: browserPath }, null, 2)+'\n');
+    const dependencies = await buildDependencyManifest(root, cache, PUPPETEER_REVISIONS.chrome);
+    await fs.writeFile(path.join(bundle, 'bundle.json'), JSON.stringify({ version, commit, platform, node: lock.node, chrome: PUPPETEER_REVISIONS.chrome, browser: browserPath, dependencies }, null, 2)+'\n');
     await fs.writeFile(path.join(bundle, 'fonts.conf'), '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd"><fontconfig><dir prefix="relative">fonts</dir><cachedir prefix="xdg">termium/fontconfig</cachedir></fontconfig>\n');
     await fs.cp(path.join(root, 'third_party/go-sixel'), path.join(bundle, 'notices/go-sixel'), { recursive: true });
     const modules = execFileSync('go', ['list', '-m', '-f', '{{if .Dir}}{{.Path}}|{{.Dir}}{{end}}', 'all'], { cwd: root, encoding: 'utf8' });
@@ -89,6 +91,17 @@ try {
         run('docker', ['run', '--rm', '-e', `TERMIUM_BUILD_UID=${process.getuid()}`, '-e', `TERMIUM_BUILD_GID=${process.getgid()}`, '-v', `${bundle}:/bundle`, '-v', `${root}/scripts/bundle-linux-libs.sh:/build-libs:ro`, lock.linuxImage, 'sh', '/build-libs']);
     }
     run(path.join(bundle, 'bin/termium'), ['--doctor']);
+    // End users fetch the pinned dependencies during installation. Keep only
+    // Termium's welcome-page overlay in the extension directory of the app.
+    await fs.rm(path.join(bundle, 'browser'), { recursive: true });
+    const extension = path.join(bundle, 'server/dist/extensions/vimium');
+    const overlay = new Map();
+    for (const file of ['termium.js', 'termium.html', 'termium.css', 'termium-mark.svg']) {
+        overlay.set(file, await fs.readFile(path.join(extension, 'pages', file)));
+    }
+    await fs.rm(extension, { recursive: true });
+    await fs.mkdir(path.join(extension, 'pages'), { recursive: true });
+    for (const [file, data] of overlay) await fs.writeFile(path.join(extension, 'pages', file), data);
     const artifact = `termium-${platform}.tar.gz`;
     run('tar', ['czf', path.join(root, 'dist', artifact), '-C', bundle, '.']);
     await fs.writeFile(path.join(root, 'dist', `${artifact}.sha256`), `${await hash(path.join(root, 'dist', artifact))}  ${artifact}\n`);

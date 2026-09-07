@@ -8,7 +8,7 @@ Termium renders a real Chromium browser in your terminal, with keyboard and mous
 
 ## Install
 
-The native installer packages Termium, Node, Chromium, and Linux browser libraries/fonts. It verifies the release, checks browser startup, and installs a permanent `termium` command. The first public release using this installer has not been published yet.
+The native installer packages Termium, Node, and Linux browser libraries/fonts. It automatically downloads pinned Chromium and Vimium during installation, verifies their checksums, checks browser startup, and installs a permanent `termium` command. The first public release using this installer has not been published yet.
 
 Contributors with the [build toolchain](docs/development.md) can build and install the current checkout with:
 

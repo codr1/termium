@@ -13,9 +13,10 @@ import (
 )
 
 type bundleManifest struct {
-	Version  string `json:"version"`
-	Platform string `json:"platform"`
-	Browser  string `json:"browser"`
+	Version      string              `json:"version"`
+	Platform     string              `json:"platform"`
+	Browser      string              `json:"browser"`
+	Dependencies []runtimeDependency `json:"dependencies,omitempty"`
 }
 
 // Release dependencies are resolved beside the application, independent of cwd

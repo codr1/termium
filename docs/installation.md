@@ -22,14 +22,17 @@ From a checkout with the [contributor toolchain](development.md) installed, one 
 npm run install:local
 ```
 
-This is a source-build command for contributors. A release recipient needs no Node, npm, Go, protoc, or Chromium: those runtime dependencies are included in the platform archive. Subsequent launches use the installed copy, independent of the checkout or current directory.
+This is a source-build command for contributors. A release recipient needs no Node, npm, Go, protoc, or Chromium: the installer supplies those runtime dependencies automatically. The platform archive includes Node and the Linux browser libraries/fonts; Chromium and Vimium download during installation. Subsequent launches use the installed copy, independent of the checkout or current directory.
 
 The installer puts the command at `~/.local/bin/termium` and sets up bash, zsh, and fish. Open a new terminal after running the contributor command if your current shell did not already have `~/.local/bin` on PATH. The eventual public one-line command also activates PATH in the original shell and launches the application.
 
 ## What setup does
 
 - Checks the platform and verifies the archive's SHA-256. Missing or mismatched checksums stop installation.
-- Stages a complete client, server, private Node runtime, and Chromium browser. Linux bundles include browser libraries and fonts, with glibc supplied by the host.
+- Stages the client, server, private Node runtime, and Linux browser libraries/fonts, with glibc supplied by the host.
+- Downloads the exact Chromium and Vimium archives approved by the release build over HTTPS. Their SHA-256 checksums are pinned inside the verified app archive.
+- Verifies downloads before extraction and caches them under the installation directory’s `downloads/` folder. Repeat installations reuse matching cached archives; corrupt cache entries download again.
+- Completes browser and Vimium checks before activating the installation. Download, extraction, or validation failure preserves the previous working version.
 - Starts a disposable browser, verifies input and screenshots, and checks Linux sandbox diagnostics before activation. Setup never disables the sandbox or requests sudo.
 - Installs a versioned application and atomically switches the stable command to it.
 - Preserves existing shell configuration and avoids duplicate setup blocks. It refuses to overwrite an unrelated `termium` command.

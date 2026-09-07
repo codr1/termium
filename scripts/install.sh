@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bootstrap only: downloads and verifies a complete native release. The verified
+# Bootstrap only: downloads and verifies the native app. The verified
 # Go binary owns validation, activation, locking, and shell integration.
 set -euo pipefail
 
@@ -48,7 +48,7 @@ if [ -z "$archive" ]; then
     base='https://github.com/codr1/termium/releases/latest/download'
     if [ "$version" != latest ]; then base="https://github.com/codr1/termium/releases/download/$version"; fi
     name="termium-$platform.tar.gz"
-    info "Downloading Termium for $platform (includes Node and Chromium)"
+    info "Downloading Termium for $platform (Chromium and Vimium follow automatically)"
     curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --connect-timeout 15 "$base/$name.sha256" -o "$work/checksum"
     checksum=$(awk -v name="$name" '$2 == name && length($1) == 64 { print $1 }' "$work/checksum")
     archive="$work/$name"

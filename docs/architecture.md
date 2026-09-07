@@ -40,9 +40,9 @@ Captures have an independent CDP session that is detached on navigation or after
 
 The server applies desktop viewport metrics directly to the active Chromium target. It serializes capture and resize, and reapplies the viewport after target replacement. This avoids Puppeteer's additional touch-emulation operations, which hung after modal dialogs in native macOS tests.
 
-Each normal client gets a private directory and Unix socket. A manually started server still defaults to `/tmp/termium.sock`, with optional `--socket` or TCP. Each server maintains one page and dialog stream; clients explicitly sharing a TCP server still share that state.
+Each normal client gets a private directory and Unix socket. A manually started server still defaults to `/tmp/termium.sock`, with optional `--socket` or TCP. Each server maintains Chromium tabs, one active selection, and one dialog stream; clients explicitly sharing a TCP server still share that state.
 
-Shutdown attempts to close the browser, server, connection, and terminal screen. Terminal probes have bounded deadlines. The event loop alone draws or finalizes the screen; workers post events and publish immutable frames into a latest-frame slot. A single client worker orders navigation, keys, mouse transitions, and resize requests. Browser input carries a document generation so queued input cannot act on a replacement page. Installed sessions hold shared version locks; the installer requires an exclusive lock before updating.
+Shutdown attempts to close the browser, server, connection, and terminal screen. Terminal probes have bounded deadlines. The event loop alone draws or finalizes the screen; workers post events and publish immutable frames into a latest-frame slot. A single client worker orders navigation, keys, mouse transitions, and resize requests. Browser input carries a tab identity and session/document generation so queued input cannot act on a replacement page. Installed sessions hold shared version locks; the installer requires an exclusive lock before updating.
 
 ## Code map
 
@@ -59,6 +59,8 @@ Shutdown attempts to close the browser, server, connection, and terminal screen.
 | `client/sixel_bands.go`, `client/sixel_band_encoder.go` | Sixel band processing and caching |
 | `client/dialog.go`, `client/dialog_stream.go` | Browser and local dialogs |
 | `server/src/server.ts`, `server/src/browser-controls.ts` | Puppeteer lifecycle, history/loading state, ordered input, and gRPC handlers |
+| `server/src/browser-session.ts`, `server/src/vimium.ts` | Real tab identity/selection, per-tab controllers, bundled extension loading and readiness |
+| `client/tabs.go`, `third_party/vimium` | Tab strip/picker and pinned upstream keyboard navigation |
 | `proto/bc.proto` | Client/server protocol |
 
 [Documentation home](README.md)

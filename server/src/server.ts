@@ -1,5 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
-import { BrowserControls } from './browser-controls';
+import { BrowserSession } from './browser-session';
 import { streamScreenshots } from './screenshot-stream';
 import * as puppeteer from 'puppeteer';
 import { Command } from 'commander';
@@ -21,22 +21,14 @@ let page: puppeteer.Page | null = null;
 let browserLaunch: Promise<void> | null = null;
 let shuttingDown = false;
 const browserAbort = new AbortController();
-let pageCreation: Promise<puppeteer.Page> | null = null;
-const controls = new BrowserControls(ensurePage);
+const controls = new BrowserSession(async () => {
+    await launchOrConnectToBrowser();
+    return browser!;
+}, setupDialogHandler);
 
 async function ensurePage(): Promise<puppeteer.Page> {
-    if (page && !page.isClosed()) return page;
-    if (!pageCreation) {
-        pageCreation = (async () => {
-            await launchOrConnectToBrowser();
-            const created = await browser!.newPage();
-            page = created;
-            setupDialogHandler(created);
-            await controls.attach(created);
-            return created;
-        })().finally(() => { pageCreation = null; });
-    }
-    return pageCreation;
+    page = await controls.ensurePage();
+    return page;
 }
 
 // Chromium capture and viewport emulation both affect the compositor surface.
@@ -97,7 +89,7 @@ if (options.daemon) {
 }
 
 // Helper function to set up dialog handler on a page
-function setupDialogHandler(page: puppeteer.Page) {
+function setupDialogHandler(page: puppeteer.Page, tabId: string) {
     page.on('dialog', async (dialog) => {
         const dialogType = dialog.type();
         const message = dialog.message();
@@ -124,7 +116,7 @@ function setupDialogHandler(page: puppeteer.Page) {
                         id: dialogId,
                         type: protoType,
                         message,
-                        defaultValue: defaultValue || ''
+                        defaultValue: defaultValue || '', tabId
                     });
                 });
             } catch (error) {
@@ -166,6 +158,8 @@ async function launchBrowser() {
             handleSIGTERM: false,
             signal: browserAbort.signal,
             headless: true,
+            pipe: true,
+            enableExtensions: true,
             // We apply desktop metrics to the active target directly. Puppeteer's
             // viewport helper also changes touch emulation and can hang after a
             // modal on macOS. It must not maintain competing emulation state.
@@ -187,13 +181,9 @@ async function captureScreenshot(format: string, cancelled: () => boolean): Prom
     try {
         return await withViewport(async () => {
             if (cancelled()) throw Object.assign(new Error('Capture cancelled'), { code: grpc.status.CANCELLED });
-            await ensurePage();
-            await controls.prepareCapture();
-            const generation = controls.generation;
-            const data = await controls.capture(format === 'png' ? 'png' : 'jpeg');
-            if (data.length > maxScreenshotBytes) throw Object.assign(new Error('Screenshot exceeds 32 MiB'), { code: grpc.status.RESOURCE_EXHAUSTED });
-            if (generation !== controls.generation) throw Object.assign(new Error('Page changed during capture'), { code: grpc.status.FAILED_PRECONDITION });
-            return { data, generation };
+            const frame = await controls.capture(format === 'png' ? 'png' : 'jpeg');
+            if (frame.data.length > maxScreenshotBytes) throw Object.assign(new Error('Screenshot exceeds 32 MiB'), { code: grpc.status.RESOURCE_EXHAUSTED });
+            return frame;
         });
     } finally { pendingCaptures--; }
 }
@@ -217,13 +207,13 @@ const browserControlHandlers: BrowserControlServer = {
         catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
     },
     sendInput: async (call, callback) => {
-        try { await controls.input(call.request); callback(null, { text:'Input dispatched' }); }
+        try { const state = await controls.input(call.request); callback(null, { text:'Input dispatched', state }); }
         catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
     },
 
     setViewport: async (call: ServerUnaryCall<ViewportSize, Message>, callback: sendUnaryData<Message>) => {
         try {
-            if (!page) throw new Error('No active page');
+            await ensurePage();
             const { width, height } = call.request;
             await withViewport(() => controls.setViewport(width,height));
  logDebug(`Viewport set to ${width}x${height}`);
@@ -239,7 +229,7 @@ const browserControlHandlers: BrowserControlServer = {
 
     clickMouse: async (call: ServerUnaryCall<Coordinate, Message>, callback: sendUnaryData<Message>) => {
         try {
-            if (!page || page.isClosed()) throw new Error('No active page or page is closed');
+            const page = await ensurePage();
             const { x, y } = call.request;
             await page.mouse.click(x, y);
             callback(null, { text: 'Mouse clicked' });
@@ -254,7 +244,7 @@ const browserControlHandlers: BrowserControlServer = {
 
     sendKeyboardInput: async (call: ServerUnaryCall<Text, Message>, callback: sendUnaryData<Message>) => {
         try {
-            if (!page || page.isClosed()) throw new Error('No active page or page is closed');
+            const page = await ensurePage();
             const content = call.request.content;
             
             // Check if this is a special key (format: __KEY__KeyName)
@@ -313,7 +303,7 @@ const browserControlHandlers: BrowserControlServer = {
 
     getCurrentUrl: async (_call: ServerUnaryCall<Empty, Url>, callback: sendUnaryData<Url>) => {
         try {
-            if (!page || page.isClosed()) throw new Error('No active page or page is closed');
+            const page = await ensurePage();
             const currentUrl = page.url();
             callback(null, { url: currentUrl });
         } catch (error) {

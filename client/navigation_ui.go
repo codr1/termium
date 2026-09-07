@@ -6,9 +6,20 @@ import (
 	"image"
 )
 
-var menuIDs = []string{"back", "forward", "reload", "address", "pointer", "help", "quit"}
+var menuIDs = []string{"newtab", "closetab", "reopentab", "tabs", "back", "forward", "reload", "address", "pointer", "help", "quit"}
 
 func (kh *KeyboardHandler) menuLabels() []string {
+	if kh.tabsMenu {
+		labels := []string{}
+		for i, t := range kh.state.Tabs {
+			marker := "  "
+			if t.Id == kh.state.ActiveTabId {
+				marker = "● "
+			}
+			labels = append(labels, fmt.Sprintf("%s%d %s", marker, i+1, t.Title))
+		}
+		return append(labels, "New tab                Ctrl+T", "Reopen closed tab      X")
+	}
 	reload := "Reload                 Ctrl+R"
 	if kh.state.Loading {
 		reload = "Stop loading"
@@ -17,12 +28,12 @@ func (kh *KeyboardHandler) menuLabels() []string {
 	if kh.pointerMode {
 		pointer = "Keyboard pointer: on   F6"
 	}
-	return []string{"Back                   Alt+Left", "Forward                Alt+Right", reload, "Open address           Ctrl+L", pointer, "Shortcut help          F1", "Quit                   Ctrl+Q"}
+	return []string{"New tab                Ctrl+T", "Close tab              Ctrl+W", "Reopen closed tab      X", "All tabs", "Back                   Alt+Left", "Forward                Alt+Right", reload, "Open address           Ctrl+L", pointer, "Shortcut help          F1", "Quit                   Ctrl+Q"}
 }
 func (kh *KeyboardHandler) menuRect() image.Rectangle {
 	width := min(34, sDims.Width)
-	height := min(len(menuIDs)+2, sDims.Height)
-	return image.Rect(max(0, sDims.Width-width), min(1, sDims.Height-height), sDims.Width, min(1, sDims.Height-height)+height)
+	height := min(len(kh.menuActions())+2, sDims.Height)
+	return image.Rect(max(0, sDims.Width-width), min(2, sDims.Height-height), sDims.Width, min(2, sDims.Height-height)+height)
 }
 func (kh *KeyboardHandler) hasOverlay() bool { return kh.menu || kh.help || kh.quitConfirm }
 func (kh *KeyboardHandler) Draw(s tcell.Screen) {
@@ -32,7 +43,15 @@ func (kh *KeyboardHandler) Draw(s tcell.Screen) {
 	}
 	s.HideCursor()
 	base := tcell.StyleDefault.Background(tcell.ColorNavy).Foreground(tcell.ColorWhite)
-	fillRect(s, image.Rect(0, 0, width, 1), base)
+	fillRect(s, image.Rect(0, 0, width, 2), base)
+	for _, c := range kh.tabControls(width) {
+		style := base.Background(tcell.ColorBlack)
+		if c.id == "tab:"+kh.state.ActiveTabId || c.id == "close:"+kh.state.ActiveTabId {
+			style = style.Background(tcell.ColorDarkSlateGray).Bold(true)
+		}
+		fillRect(s, c.rect, style)
+		drawText(s, c.rect.Min.X, 0, c.rect.Dx(), c.label, style)
+	}
 	for _, c := range kh.controls(width) {
 		style := base
 		if !c.enabled {
@@ -46,21 +65,24 @@ func (kh *KeyboardHandler) Draw(s tcell.Screen) {
 			style = style.Background(tcell.ColorDarkSlateGray).Foreground(tcell.ColorWhite)
 			fillRect(s, c.rect, style)
 			if kh.focus == "address" {
-				kh.editor.draw(s, c.rect.Min.X, 0, c.rect.Dx(), true, style)
+				kh.editor.draw(s, c.rect.Min.X, 1, c.rect.Dx(), true, style)
 			} else {
 				text := kh.state.Url
 				if text == "" || text == "about:blank" {
 					text = "Ctrl+L: enter an address"
 				}
-				drawText(s, c.rect.Min.X, 0, c.rect.Dx(), text, style)
+				drawText(s, c.rect.Min.X, 1, c.rect.Dx(), text, style)
 			}
 		} else {
-			drawText(s, c.rect.Min.X, 0, c.rect.Dx(), c.label, style)
+			drawText(s, c.rect.Min.X, 1, c.rect.Dx(), c.label, style)
 		}
 	}
 	if height > 1 {
 		fillRect(s, image.Rect(0, height-1, width, height), base)
 		status := kh.status
+		if kh.state.VimiumStatus != "" && kh.state.VimiumStatus != "Vimium" {
+			status = kh.state.VimiumStatus
+		}
 		if kh.state.Loading {
 			status = "Loading…  Reload becomes Stop"
 		}
@@ -95,7 +117,7 @@ func (kh *KeyboardHandler) Draw(s tcell.Screen) {
 		}
 	}
 	if kh.help {
-		lines := []string{"Termium shortcuts", "", "Ctrl+L  Address (select all)", "Alt+Left / Alt+Right  Back / Forward", "Ctrl+R or F5  Reload / Stop", "F10  Menu     F6  Keyboard pointer", "Ctrl+Q  Quit   Escape x3  Emergency exit", "", "Page keys, modifiers and paste go to the page.", "Mouse: click, drag, wheel, right/middle buttons.", "Pointer: arrows/hjkl, Enter click, Space drag,", "r right-click, m middle-click, u/d scroll.", "", "Enter or Escape to close"}
+		lines := []string{"Termium shortcuts", "", "Ctrl+L  Address (select all)", "Alt+Left / Alt+Right  Back / Forward", "Ctrl+R or F5  Reload / Stop", "F10  Menu     F6  Keyboard pointer", "Ctrl+Q  Quit   Escape x3  Emergency exit", "", "Vimium: f/F links · hjkl scroll · i insert", "t new tab · J/K switch · x close · X reopen", "? Vimium help · Escape cancels a mode", "Ctrl+T new tab · Ctrl+W close tab", "Mouse: click, drag, wheel, right/middle buttons.", "Pointer: arrows/hjkl, Enter click, Space drag,", "r right-click, m middle-click, u/d scroll.", "", "Enter or Escape to close"}
 		drawOverlay(s, lines)
 	}
 	if kh.quitConfirm {

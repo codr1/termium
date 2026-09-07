@@ -295,8 +295,8 @@ func TestMenuMouseCaptureDoesNotEatNextPageClick(t *testing.T) {
 	s := uiScreen(t, 80, 24)
 	kh, ops := recorder()
 	mouse := func(x, y int, b tcell.ButtonMask) { kh.HandleMouseEvent(s, tcell.NewEventMouse(x, y, b, 0)) }
-	mouse(77, 0, tcell.Button1)
-	mouse(77, 0, 0)
+	mouse(77, 1, tcell.Button1)
+	mouse(77, 1, 0)
 	if !kh.menu || kh.captureUI {
 		t.Fatal("toolbar capture survived release")
 	}
@@ -339,7 +339,7 @@ func TestPointerDoesNotStealAddressCursorAndOverlaysAreExclusive(t *testing.T) {
 	kh.openAddress()
 	kh.Draw(s)
 	_, y, visible := s.GetCursor()
-	if !visible || y != 0 {
+	if !visible || y != 1 {
 		t.Fatal("pointer stole address caret")
 	}
 	kh.action("help")
@@ -378,5 +378,62 @@ func TestLostResizeNotificationStillUpdatesBrowserViewport(t *testing.T) {
 	ensureLayout(s)
 	if len(*ops) != 2 {
 		t.Fatal("unchanged geometry resent resize")
+	}
+}
+
+func TestTabStripOverflowAndMouseOwnership(t *testing.T) {
+	s := uiScreen(t, 80, 24)
+	kh, ops := recorder()
+	kh.state = pb.BrowserState{Generation: 7, ActiveTabId: "last", Tabs: []*pb.TabState{
+		{Id: "first", Title: "First"}, {Id: "two", Title: "界界界"}, {Id: "three", Title: "Third"}, {Id: "last", Title: "Last"},
+	}}
+	for width := 1; width <= 100; width++ {
+		controls := kh.tabControls(width)
+		visible := false
+		for i, c := range controls {
+			if c.rect.Min.X < 0 || c.rect.Max.X > width || c.rect.Empty() {
+				t.Fatalf("bad tab bounds at width %d: %+v", width, c)
+			}
+			if c.id == "tab:last" {
+				visible = true
+			}
+			for _, other := range controls[:i] {
+				if c.rect.Overlaps(other.rect) {
+					t.Fatalf("overlapping tab targets at width %d", width)
+				}
+			}
+		}
+		if width >= 16 && !visible {
+			t.Fatalf("active tab hidden at width %d", width)
+		}
+	}
+	var close navControl
+	for _, c := range kh.tabControls(80) {
+		if c.id == "close:last" {
+			close = c
+		}
+	}
+	kh.HandleMouseEvent(s, tcell.NewEventMouse(close.rect.Min.X, 0, tcell.Button1, 0))
+	kh.HandleMouseEvent(s, tcell.NewEventMouse(12, 8, 0, 0)) // Release over page stays captured by tab UI.
+	if len(*ops) != 2 || (*ops)[0].input.Kind != pb.InputKind_RESET_INPUT {
+		t.Fatalf("tab close leaked pointer input: %+v", *ops)
+	}
+	nav := (*ops)[1].navigation
+	if nav == nil || nav.Action != pb.NavigationAction_CLOSE_TAB || nav.TabId != "last" || nav.Generation != 7 {
+		t.Fatalf("wrong close target: %+v", nav)
+	}
+}
+
+func TestConcurrentDialogsRetainTheirOwningTab(t *testing.T) {
+	oldKH, oldDialog, oldPending := keyboardHandler, currentDialog, pendingUIDialogs
+	t.Cleanup(func() { keyboardHandler = oldKH; currentDialog = oldDialog; pendingUIDialogs = oldPending })
+	keyboardHandler, _ = recorder()
+	keyboardHandler.state.Tabs = []*pb.TabState{{Id: "one", Title: "Original"}, {Id: "two", Title: "Background"}}
+	currentDialog = nil
+	pendingUIDialogs = nil
+	receiveDialog(&pb.DialogEvent{Id: "first", TabId: "one", Message: "First"})
+	receiveDialog(&pb.DialogEvent{Id: "second", TabId: "two", Message: "Second"})
+	if currentDialog.ID != "first" || currentDialog.Source != " · Tab 1: Original" || len(pendingUIDialogs) != 1 || pendingUIDialogs[0].TabId != "two" {
+		t.Fatal("concurrent dialog replaced its predecessor or lost tab ownership")
 	}
 }

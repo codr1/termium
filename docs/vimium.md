@@ -1,60 +1,45 @@
-# Vimium-style navigation and browser controls
+# Vimium and tabs
 
-**Vimium command coverage remains planned.** The development build now has a top address bar, history controls, Reload/Stop, Menu, and explicit keyboard pointer control. Page keys currently pass through directly; `h/j/k/l` move a pointer only after F6. The full normal/insert/hint/find and tab model below is not implemented. See [getting started](getting-started.md) for today's controls.
+The development build bundles upstream **Vimium 2.4.2** with Chromium. There is no extension to install or configure. Vimium handles webpage navigation; Termium supplies the tab strip, address bar, terminal help, and keyboard pointer.
 
-Termium will provide built-in keyboard navigation using familiar Vimium shortcuts. It will be ready when Termium opens, without installing a browser extension. The first UI release has a defined core command set; broader command coverage follows later.
+## Start here
 
-## Keyboard browsing
+On a webpage, press **f** to show labels on links, buttons, and fields. Type a label to activate it. **Escape** cancels. Click or hint a text field and type normally; press Escape to return to navigation. Pasted text is inserted literally.
 
-The planned first-release shortcuts are inspired by [Vimium's default bindings](https://github.com/philc/vimium#keyboard-bindings), with Termium-specific application controls:
-
-| Keys | Intended action |
+| Keys | Action |
 | --- | --- |
-| `h` / `j` / `k` / `l` | Scroll left / down / up / right |
-| `d` / `u` | Scroll half a page down / up |
-| `gg` / `G` | Go to the top / bottom |
-| `f` / `F` | Follow a labeled link here / in another tab |
-| `H` / `L` | Go back / forward |
-| `r` | Reload |
-| `/`, then `n` / `N` | Find text and move between matches |
-| `o` / `O` | Enter a URL here / in a new foreground tab |
-| Ctrl+L | Edit the current URL |
-| `i` / `Escape` | Enter / leave insert mode |
-| `?` | Show shortcut help |
-| `t` / `x` / `X` | Open a tab / close it / reopen the last closed URL |
-| `J` / `K` | Select the previous / next tab |
-| F10 | Open the menu |
-| Ctrl+Q | Quit Termium |
+| f / F | Activate a hint here / open a link in a background tab |
+| h / j / k / l | Scroll left / down / up / right |
+| d / u | Scroll down / up half a page |
+| gg / G | Top / bottom |
+| H / L | Back / forward |
+| /, then Enter | Find text |
+| n / N | Next / previous match |
+| o / O | Search or open an address here / in a new tab |
+| t | New tab |
+| J / K | Previous / next tab |
+| x / X | Close / reopen a tab |
+| i | Pass keys to the page until Escape |
+| ? | Vimium's full shortcut help |
 
-These are required for the first UI release. Counts such as `3j` repeat scrolling, history movement, and tab selection. `F` opens navigable links in background tabs; use `f` for buttons and input fields. Reopening a tab restores its URL, not unsaved forms. The address field initially accepts URLs only; it does not search bookmarks, history, or a search engine.
+These are upstream bindings. Counts such as `3j` are supported. Vimium's search box (`o`) supports searching; Termium's **Ctrl+L** address bar accepts URLs.
 
-Marks, visual selection, clipboard commands, bookmarks/history search, custom mappings, site exclusions, and browser-window management follow in later releases. They are not part of the first-release command list.
+## Tabs
 
-When a text field has focus, typing must enter text normally. Escape must cancel the active mode or UI without unexpectedly closing Termium.
+The top row shows numbered titles, a highlighted selected tab, close targets, an all-tabs picker **[≡]**, and **[+]**. Click a title to select it. The selected tab stays visible when space is tight; the picker lists every tab. **Ctrl+T** opens a tab and **Ctrl+W** closes the selected tab, including on pages where Vimium cannot run. Menu includes reopening closed tabs.
 
-In normal mode, unbound letters are ignored. Press `i` to pass keys through to a website, and Escape to return to normal mode. Ctrl+L, F10, and Ctrl+Q remain reserved for Termium. Quit respects a website's unsaved-changes confirmation; canceling that confirmation keeps the session open.
+Each tab keeps its own Chromium page, form contents, scroll position, and history. Background links stay in the background. Only the selected tab is captured for terminal rendering. Closing the last tab opens an offline welcome page. Reopening uses Chromium's session restore; unsaved form recovery is not guaranteed. Tabs and browsing data do not persist after quitting Termium.
 
-## Browser controls
+## Mouse and keyboard pointer
 
-The current development interface has a compact bar above the page:
+Mouse clicks, dragging, scrolling, and OS Mouse Keys continue to work. **F6** toggles Termium's visible keyboard pointer; it is a toggle, not a key to hold down. In pointer mode, h/j/k/l and arrows move the pointer, Enter clicks, Space holds/releases the left button, and u/d scroll. Escape or F6 leaves pointer mode. See [getting started](getting-started.md) for the complete pointer controls.
 
-```text
-[Back] [Forward] [Reload]  [ https://example.com             ] [Menu]
-```
+## Help and limits
 
-This establishes the navigation controls; the full Vimium release remains subject to the command matrix below.
+**F1** opens terminal help and **F10** opens Menu. These remain usable on browser-owned pages. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, F1, F5, F6, and F10. A terminal may intercept keys before Termium receives them.
 
-- The address field shows the current page and is reachable by keyboard or mouse.
-- Back and Forward are available when the page has a history entry in that direction.
-- The current menu contains navigation, address, pointer mode, shortcut help, and Quit. New tab, Close tab, and Reopen tab remain planned; keybinding settings follow customization.
-- Page content keeps the remaining space; narrow windows keep essential controls reachable.
+Vimium cannot inject into Chromium's protected pages, including `chrome://` pages. Termium shows an unavailable status there; use Ctrl+L or Menu. The bundled welcome page supports Vimium. Native file choosers, host clipboard integration, persistent profiles, and full popup-window behavior are not supported commitments yet. Vimium clipboard commands target Chromium's environment, which may differ from the terminal host over SSH or WSL.
 
-Keyboard navigation and the visible controls must stay in sync. Following a link or moving through history must update the displayed address.
+Smooth scrolling is disabled and hints use static, high-contrast styling to reduce graphics work. The webpage and Vimium overlays still travel through Chromium screenshots and the selected Kitty, sixel, or character renderer. Character mode cannot make screenshot text as readable as a graphics terminal.
 
-## Compatibility expectations
-
-“As full as possible” means expanding coverage of Vimium's commands and naming exceptions. This is a native Termium implementation; importing Vimium configuration files is not currently promised. Ordinary page/frame hints and text search are required. Closed shadow roots, specialized editors, browser-owned pages, native file dialogs, clipboard access, and multiple windows need additional investigation. Limitations in these areas cannot waive a required core command on an ordinary webpage.
-
-The [implementation plan](plans/browser-ui.md) records the technical work. Keyboard navigation is part of the same one-command Termium installation.
-
-[Documentation home](README.md)
+[Upstream provenance and license](../third_party/vimium/TERMIUM.md) · [Architecture](plans/browser-ui.md) · [Documentation home](README.md)

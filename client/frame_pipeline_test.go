@@ -13,6 +13,7 @@ import (
 	"image/png"
 	"io"
 	"strings"
+	pb "termium/client/pb"
 	"testing"
 	"time"
 
@@ -357,5 +358,24 @@ func TestBandCacheConfirmsHashMatchesWithPixels(t *testing.T) {
 	}
 	if bytes.Equal(first.Sixel, second.Sixel) {
 		t.Fatal("hash match concealed changed pixels")
+	}
+}
+
+func TestUnchangedPixelsKeepFreshTabState(t *testing.T) {
+	p := framePreparer{renderer: "kitty"}
+	raw := pngFrame(t, image.NewRGBA(image.Rect(0, 0, 8, 8)), 1)
+	raw.State = &pb.BrowserState{Generation: 1, Title: "Loading", Loading: true}
+	first, err := p.prepare(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := *raw
+	next.State = &pb.BrowserState{Generation: 1, Title: "Done"}
+	second, err := p.prepare(&next)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.State.Title != "Done" || second.State.Loading || first.State.Title != "Loading" {
+		t.Fatal("cached pixels overwrote state or mutated a published frame")
 	}
 }

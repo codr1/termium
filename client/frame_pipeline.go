@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mattn/go-sixel"
+	"google.golang.org/protobuf/proto"
 )
 
 const maxFramePixels = 16 * 1024 * 1024
@@ -86,7 +87,7 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 		return nil, fmt.Errorf("Screenshot exceeds the 32 MiB limit")
 	}
 	if p.last != nil && raw.Generation == p.last.Generation && bytes.Equal(raw.Data, p.last.Data) {
-		return p.last, nil
+		return p.reuse(raw), nil
 	}
 	dim, _, err := image.DecodeConfig(bytes.NewReader(raw.Data))
 	if err != nil {
@@ -95,7 +96,7 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if dim.Width < 1 || dim.Height < 1 || dim.Width > maxFrameDimension || dim.Height > maxFrameDimension || int64(dim.Width)*int64(dim.Height) > maxFramePixels {
 		return nil, fmt.Errorf("Screenshot dimensions exceed 16384 pixels per side or 16 megapixels")
 	}
-	f := &Frame{Data: raw.Data, Generation: raw.Generation, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp}
+	f := &Frame{Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp}
 	if p.renderer == "kitty" {
 		// PNG is already encoded by Chromium. Keep its bytes intact.
 		p.last = f
@@ -109,7 +110,7 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	draw.Draw(rgba, rgba.Bounds(), img, img.Bounds().Min, draw.Src)
 	if p.last != nil && p.last.Image != nil && rgba.Bounds() == p.last.Image.Bounds() && bytes.Equal(rgba.Pix, p.last.Image.Pix) {
 		if f.Generation == p.last.Generation {
-			return p.last, nil
+			return p.reuse(raw), nil
 		}
 		f.Image, f.Sixel = p.last.Image, p.last.Sixel
 	} else {
@@ -123,6 +124,17 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	}
 	p.last = f
 	return f, nil
+}
+
+// Pixel reuse must not replay old loading, title, or tab-strip metadata.
+func (p *framePreparer) reuse(raw *Frame) *Frame {
+	if proto.Equal(raw.State, p.last.State) {
+		return p.last
+	}
+	frame := *p.last
+	frame.State, frame.Timestamp = raw.State, raw.Timestamp
+	p.last = &frame
+	return p.last
 }
 
 func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {

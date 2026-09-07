@@ -85,6 +85,7 @@ enum NavigationAction {
   SELECT_TAB = 6;
   CLOSE_TAB = 7;
   REOPEN_TAB = 8;
+  HOME = 9;
 }
 
 message NavigationRequest {

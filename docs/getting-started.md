@@ -10,7 +10,7 @@ For an existing working installation:
 termium
 ```
 
-To install a contributor build from a source checkout, use `npm run install:local`; afterward, `termium` works from any directory. Termium opens a blank page with its navigation bar at the top. To open a particular page immediately:
+To install a contributor build from a source checkout, use `npm run install:local`; afterward, `termium` works from any directory. Termium opens its welcome page with an ASCII browser logo, navigation keys, and links to the project. The tab and navigation bars stay at the top. To open a particular page immediately:
 
 ```bash
 termium example.com
@@ -26,6 +26,22 @@ Ready · Ctrl+L: address · F10: menu
 
 The bar shows the current URL, including redirects. Back and Forward reflect Chromium's history; Reload becomes Stop during navigation. On narrow terminals the buttons become compact, then secondary controls move into Menu.
 
+## Choose your home page
+
+By default, startup and new tabs open the Termium welcome page. It uses the same design as `termium.dev` and navigates to the live website when that site is available. A bundled copy keeps the key legend usable offline. Once you type, click, or scroll, an arriving website response cannot take you away from the page.
+
+Save your own home page once:
+
+```bash
+termium --set-homepage https://example.com
+```
+
+This applies to startup, new tabs, and **Menu → Home** / **Alt+Home**. Use `termium --set-homepage default` to restore Termium's page, `about:termium` for the bundled page without a website request, or `about:blank` for a blank page. Custom websites open directly and have ordinary browser network-error behavior.
+
+`termium example.com` opens that address once without changing your saved home page. `--homepage URL` overrides the home page for one session; `TERMIUM_HOMEPAGE` can supply it through the environment. Precedence is flag, environment, saved setting, default.
+
+Settings are saved in `~/.config/termium/settings.json` on Linux (respecting `XDG_CONFIG_HOME`) and `~/Library/Application Support/termium/settings.json` on macOS. The command creates the file for you. For an explicitly shared `--tcp` server, configure its home page using the server's `--homepage` option.
+
 ## Visit a website
 
 Press **Ctrl+L** or click the address field. Its contents are selected, so start typing to replace them. Enter an address such as `example.com`, then press **Enter**. Termium adds `https://` when you omit the scheme; use `http://` explicitly for a local HTTP service. The field accepts URLs, not search queries.
@@ -37,6 +53,7 @@ Press **Ctrl+L** or click the address field. Its contents are selected, so start
 | Ctrl+L | Edit address |
 | Ctrl+T / Ctrl+W | New tab / close tab |
 | Alt+Left / Alt+Right | Back / Forward |
+| Alt+Home | Open your home page |
 | Ctrl+R or F5 | Reload / Stop |
 | F10 | Open or close Menu |
 | F1 | Shortcut help |

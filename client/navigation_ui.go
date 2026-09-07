@@ -6,7 +6,7 @@ import (
 	"image"
 )
 
-var menuIDs = []string{"newtab", "closetab", "reopentab", "tabs", "back", "forward", "reload", "address", "pointer", "help", "quit"}
+var menuIDs = []string{"newtab", "closetab", "reopentab", "tabs", "home", "back", "forward", "reload", "address", "pointer", "help", "quit"}
 
 func (kh *KeyboardHandler) menuLabels() []string {
 	if kh.tabsMenu {
@@ -28,7 +28,7 @@ func (kh *KeyboardHandler) menuLabels() []string {
 	if kh.pointerMode {
 		pointer = "Keyboard pointer: on   F6"
 	}
-	return []string{"New tab                Ctrl+T", "Close tab              Ctrl+W", "Reopen closed tab      X", "All tabs", "Back                   Alt+Left", "Forward                Alt+Right", reload, "Open address           Ctrl+L", pointer, "Shortcut help          F1", "Quit                   Ctrl+Q"}
+	return []string{"New tab                Ctrl+T", "Close tab              Ctrl+W", "Reopen closed tab      X", "All tabs", "Home                   Alt+Home", "Back                   Alt+Left", "Forward                Alt+Right", reload, "Open address           Ctrl+L", pointer, "Shortcut help          F1", "Quit                   Ctrl+Q"}
 }
 func (kh *KeyboardHandler) menuRect() image.Rectangle {
 	width := min(34, sDims.Width)
@@ -117,7 +117,7 @@ func (kh *KeyboardHandler) Draw(s tcell.Screen) {
 		}
 	}
 	if kh.help {
-		lines := []string{"Termium shortcuts", "", "Ctrl+L  Address (select all)", "Alt+Left / Alt+Right  Back / Forward", "Ctrl+R or F5  Reload / Stop", "F10  Menu     F6  Keyboard pointer", "Ctrl+Q  Quit   Escape x3  Emergency exit", "", "Vimium: f/F links · hjkl scroll · i insert", "t new tab · J/K switch · x close · X reopen", "? Vimium help · Escape cancels a mode", "Ctrl+T new tab · Ctrl+W close tab", "Mouse: click, drag, wheel, right/middle buttons.", "Pointer: arrows/hjkl, Enter click, Space drag,", "r right-click, m middle-click, u/d scroll.", "", "Enter or Escape to close"}
+		lines := []string{"Termium shortcuts", "", "Ctrl+L  Address (select all)", "Alt+Left / Alt+Right  Back / Forward", "Alt+Home  Home page", "Ctrl+R or F5  Reload / Stop", "F10  Menu     F6  Keyboard pointer", "Ctrl+Q  Quit   Escape x3  Emergency exit", "", "Vimium: f/F links · hjkl scroll · i insert", "t new tab · J/K switch · x close · X reopen", "? Vimium help · Escape cancels a mode", "Ctrl+T new tab · Ctrl+W close tab", "Mouse: click, drag, wheel, right/middle buttons.", "Pointer: arrows/hjkl, Enter click, Space drag,", "r right-click, m middle-click, u/d scroll.", "", "Enter or Escape to close"}
 		drawOverlay(s, lines)
 	}
 	if kh.quitConfirm {

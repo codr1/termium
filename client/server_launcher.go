@@ -116,6 +116,9 @@ func startServer() error {
 	}
 
 	args := []string{loc.scriptPath}
+	if cfg.Homepage != "" {
+		args = append(args, "--homepage", cfg.Homepage)
+	}
 	if cfg.ServerAddr != "" {
 		args = append(args, "--tcp", cfg.ServerAddr)
 	} else {

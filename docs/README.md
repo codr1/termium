@@ -15,6 +15,7 @@ Start with [installation](installation.md), then [getting started](getting-start
 - [Development](development.md): build, test, and debug the project.
 - [Testing](testing.md): one-command automated checks, CI coverage, and remaining manual checks.
 - [Architecture](architecture.md): browser control and rendering.
+- [Website and welcome page](website.md): shared assets, offline behavior, and Cloudflare Pages configuration.
 - [One-command installation plan](plans/one-command-install.md): installer responsibilities and acceptance criteria.
 - [Browser UI architecture](plans/browser-ui.md): bundled Vimium, tab identity, and keyboard routing.
 - [Graphics audit](plans/rendering-audit.md): Kitty/Sixel correctness, measured encoding costs, performance priorities, and help UI integration.

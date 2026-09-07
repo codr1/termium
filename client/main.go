@@ -193,6 +193,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to parse flags: %v\n", err)
 		os.Exit(1)
 	}
+	if cfg.SetHomepage != "" {
+		if err := saveHomepage(cfg.SetHomepage); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Printf("Home page saved: %s\nStartup and new tabs will use it.\n", cfg.SetHomepage)
+		return
+	}
 	if cfg.Doctor {
 		if err := checkInstallation(); err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -304,7 +312,9 @@ func runInteractive() error {
 		return err
 	}
 	keyboardHandler.start(appCtx, s)
-	if cfg.InitialURL != "" && cfg.InitialURL != "about:blank" {
+	if cfg.InitialURL == "" {
+		keyboardHandler.navigate(pb.NavigationAction_HOME, "")
+	} else if cfg.InitialURL != "about:blank" {
 		address, err := normalizeAddress(cfg.InitialURL)
 		if err != nil {
 			return err

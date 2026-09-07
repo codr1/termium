@@ -24,7 +24,7 @@ const browserAbort = new AbortController();
 const controls = new BrowserSession(async () => {
     await launchOrConnectToBrowser();
     return browser!;
-}, setupDialogHandler);
+}, setupDialogHandler, () => options.homepage);
 
 async function ensurePage(): Promise<puppeteer.Page> {
     page = await controls.ensurePage();
@@ -52,6 +52,7 @@ let dialogIdCounter = 0;
 
 // CLI setup with Commander
 program
+    .option('--homepage <url>', 'Startup and new-tab page', 'https://termium.dev/')
     .option('-b, --browser <ip:port>', 'Connect to an existing browser instance (ip:port)', '')
     .option('-d, --debug [filename]', 'Enable debug mode (log to stdout or optional file)', '')
     .option('--daemon', 'Run server as a daemon')

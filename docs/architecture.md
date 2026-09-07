@@ -18,6 +18,12 @@ flowchart LR
 
 The protocol lives in `proto/bc.proto`; Go and TypeScript bindings are generated during the build. Dialog events use a bidirectional stream.
 
+## Home page and website
+
+`site/` is the static website and the source of the bundled welcome design. `scripts/build-extensions.mjs` copies its HTML, CSS, and vector mark into the extension bundle and adds only the trusted local Vimium bootstrap. The default bootstrap checks `https://termium.dev/` for a Termium marker before navigating to that ordinary web origin. A 1.5-second timeout, non-Termium response, or trusted input keeps the local page. Remote HTML is never injected into the extension origin.
+
+Custom home pages open directly. The client persists the setting atomically, supports session/environment overrides, and passes it to its managed server. `BrowserSession` and Vimium use the same destination for native and extension tab commands. The Home command reuses the current tab. A positional URL overrides only the initial navigation.
+
 ## Renderers
 
 - **Kitty:** requests PNG screenshots and sends the encoded image bytes through the Kitty graphics protocol. The preparation worker reads image dimensions to reject stale resize frames, then passes PNG bytes through without decoding pixels or re-encoding. Capture is capped at 24 frames per second and slows to measured preparation/output throughput.

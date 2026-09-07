@@ -1,8 +1,0 @@
-html { color-scheme: dark; background: #111923; color: #dde6f0; font: 16px system-ui,sans-serif; }
-body { margin: 0; } main { max-width: 680px; margin: 8vh auto; padding: 0 24px; }
-.eyebrow { color: #78dcca; font-size: 11px; letter-spacing: 2px; }
-h1 { font-size: 48px; letter-spacing: -2px; margin: 16px 0 0; }
-.lead { color: #abbacb; margin-bottom: 30px; }
-.keys { border-top: 1px solid #344353; border-bottom: 1px solid #344353; padding: 10px 0; }
-kbd { display: inline-block; padding: 3px 7px; border: 1px solid #4d6074; border-radius: 4px; background: #202e3b; color: #fff3b5; font: 13px monospace; }
-span { color: #697d91; margin: 0 8px; } footer { color: #abbacb; margin-top: 28px; font-size: 13px; }

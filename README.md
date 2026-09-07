@@ -20,6 +20,7 @@ See [installation](docs/installation.md) for platform requirements, updates, and
 
 Run `termium` from any directory, or `termium example.com` to open a page directly.
 
+- The welcome page puts the key legend at your fingertips.
 - Press **Ctrl+L**, type an address, and press **Enter**.
 - Use the top bar for Back, Forward, Reload/Stop, and Menu.
 - Press **f** for link hints, **j/k** to scroll, and **?** for Vimium help.
@@ -27,6 +28,8 @@ Run `termium` from any directory, or `termium example.com` to open a page direct
 - Click a page field to focus it, then type normally.
 - Press **F6** for keyboard pointer control; press it again to return to typing.
 - Press **Ctrl+Q**, then **Enter** to quit.
+
+Save a custom startup and new-tab page with `termium --set-homepage https://example.com`.
 
 Read the [getting started guide](docs/getting-started.md) for controls and display options.
 

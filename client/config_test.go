@@ -8,6 +8,9 @@ import (
 )
 
 func resetFlags(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("TERMIUM_HOMEPAGE", "")
 	t.Helper()
 	args, flags, usage := os.Args, flag.CommandLine, flag.Usage
 	t.Cleanup(func() { os.Args, flag.CommandLine, flag.Usage = args, flags, usage })

@@ -213,6 +213,8 @@ func (kh *KeyboardHandler) action(id string) {
 		return
 	}
 	switch id {
+	case "home":
+		kh.navigate(pb.NavigationAction_HOME, "")
 	case "address":
 		kh.openAddress()
 	case "back":
@@ -298,6 +300,8 @@ func (kh *KeyboardHandler) globalKey(ev *tcell.EventKey, modal bool) (bool, bool
 		kh.action("closetab")
 	case ev.Key() == tcell.KeyF5 || ctrl(ev, tcell.KeyCtrlR, 'r'):
 		kh.action("reload")
+	case ev.Key() == tcell.KeyHome && ev.Modifiers()&tcell.ModAlt != 0:
+		kh.action("home")
 	case ev.Key() == tcell.KeyLeft && ev.Modifiers()&tcell.ModAlt != 0:
 		kh.action("back")
 	case ev.Key() == tcell.KeyRight && ev.Modifiers()&tcell.ModAlt != 0:

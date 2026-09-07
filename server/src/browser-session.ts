@@ -33,13 +33,14 @@ export class BrowserSession {
     private vimiumStatus = 'Vimium';
 
     constructor(private readonly openBrowser: () => Promise<Browser>,
-        private readonly onPage: (page: Page, id: string) => void = () => {}) { }
+        private readonly onPage: (page: Page, id: string) => void = () => {},
+        private readonly homepage: () => string = () => 'about:termium') { }
 
     private async init() {
         if (!this.initializing) this.initializing = (async () => {
             this.browser = await this.openBrowser();
             this.cdp = await this.browser.target().createCDPSession();
-            this.vimium = new Vimium(this.browser);
+            this.vimium = new Vimium(this.browser, this.homepage());
             await this.vimium.install();
         })();
         await this.initializing;
@@ -56,9 +57,9 @@ export class BrowserSession {
 
     private async refresh(): Promise<Snapshot> {
         let pages = await this.browser.pages();
-        if (!pages.length) {
+        const replacement = !pages.length;
+        if (replacement) {
             const page = await this.browser.newPage();
-            await page.goto(this.vimium.welcome);
             pages = [page];
         }
         const { targetInfos } = await this.cdp.send('Target.getTargets', { filter: [{ type: 'tab', exclude: false }] });
@@ -93,6 +94,7 @@ export class BrowserSession {
         }
         if (candidates.length !== 1) throw Error('Browser is switching tabs; retry');
         const active = this.records.get(candidates[0].targetId)!;
+        if (replacement) await this.openHome(active);
         if (this.selected !== active.id || this.documentGeneration !== active.controls.generation) {
             const old = this.records.get(this.selected);
             this.selected = active.id;
@@ -140,6 +142,10 @@ export class BrowserSession {
             if (!targeted) stale();
             if (request.generation && request.generation !== s.generation) stale();
             switch (request.action) {
+                case NavigationAction.HOME:
+                    if (targeted !== s.active) stale();
+                    await this.openHome(s.active);
+                    break;
                 case NavigationAction.NEW_TAB: {
                     if (request.url) {
                         let url: URL;
@@ -152,7 +158,7 @@ export class BrowserSession {
                     const ownTab = created.tabs.find(tab => tab.id === tabId(p));
                     if (!ownTab) throw Error('New tab disappeared before navigation');
                     if (request.url) await ownTab.controls.command({ ...request, action: NavigationAction.NAVIGATE, generation: 0 });
-                    else await p.goto(this.vimium.welcome, { waitUntil: 'domcontentloaded', timeout: 5000 });
+                    else await this.openHome(ownTab);
                     break;
                 }
                 case NavigationAction.SELECT_TAB: await targeted!.page.bringToFront(); break;
@@ -173,6 +179,15 @@ export class BrowserSession {
             }
             return this.state();
         });
+    }
+
+    private async openHome(tab: Tab) {
+        await tab.controls.resetInput();
+        if (this.vimium.home === this.vimium.welcome) {
+            await tab.page.goto(this.vimium.home, { waitUntil: 'domcontentloaded', timeout: 5000 });
+        } else {
+            await tab.controls.command({ action: NavigationAction.NAVIGATE, url: this.vimium.home, tabId: tab.id, generation: 0 });
+        }
     }
 
     input(event: InputEvent): Promise<BrowserState> {

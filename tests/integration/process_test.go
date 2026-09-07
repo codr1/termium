@@ -135,7 +135,7 @@ func startServer(t *testing.T, env ...string) *testServer {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { log.Close() })
-	cmd := exec.Command("node", filepath.Join(root(t), "server/dist/src/server.js"), "--tcp", "127.0.0.1:0")
+	cmd := exec.Command("node", filepath.Join(root(t), "server/dist/src/server.js"), "--tcp", "127.0.0.1:0", "--homepage", "about:termium")
 	cmd.Dir = root(t)
 	wrapper, pidFile := browserWrapper(t, env)
 	cmd.Env = append(append(os.Environ(), env...), "PUPPETEER_EXECUTABLE_PATH="+wrapper, "PUPPETEER_TMP_DIR="+t.TempDir())

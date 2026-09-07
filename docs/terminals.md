@@ -30,7 +30,7 @@ termium --renderer sixel --palette websafe
 
 Use `--palette adaptive` for image-specific color selection at a higher CPU cost, or `--palette plan9` for another fixed palette.
 
-Screenshots are prepared off the input loop. Unchanged images are not retransmitted, and editing the address or moving the keyboard pointer does not resend browser pixels. Capture slows to measured preparation/output throughput and pauses behind menus and dialogs. Terminal output remains serialized; a slow terminal or SSH connection can still stall a write.
+Screenshots are prepared off the input loop. Unchanged images are not retransmitted, and editing the address or moving the pointer with mouse keys does not resend browser pixels. Capture slows to measured preparation/output throughput and pauses behind menus and dialogs. Terminal output remains serialized; a slow terminal or SSH connection can still stall a write.
 
 For profiling, `--timings` reports preparation time, capture/queue time, image-write time, and frame age on stderr. These are pipeline measurements, not keypress-to-paint measurements.
 

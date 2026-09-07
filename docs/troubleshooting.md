@@ -8,7 +8,7 @@ Run `termium --doctor`. It checks the packaged runtime, browser sandbox on Linux
 
 ## Pressing f does nothing
 
-Leave a text field with Escape, and leave keyboard pointer mode with F6 if its cursor is visible. Try an ordinary HTTP/HTTPS webpage with visible links. Protected browser pages cannot load Vimium. Run `termium --doctor` to check that the installed bundle includes the extension; an older installed executable will not gain new features from a source rebuild alone.
+Leave a text field with Escape, and leave mouse keys mode with F6 if its cursor is visible. Try an ordinary HTTP/HTTPS webpage with visible links. Protected browser pages cannot load Vimium. Run `termium --doctor` to check that the installed bundle includes the extension; an older installed executable will not gain new features from a source rebuild alone.
 
 ## The terminal shows no page or displays escape characters
 
@@ -26,7 +26,7 @@ For sixel, try `--palette websafe`. A smaller terminal window can also reduce re
 
 ## Keyboard shortcuts behave unexpectedly
 
-Arrow keys normally go to the page. If they move a local cursor, press F6 or Escape to leave keyboard pointer mode. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, F1, F5, F6, and F10; other supported page keys pass through. Terminals may intercept modifiers or mouse buttons before Termium receives them. Consult the [current controls](getting-started.md) and [Vimium navigation](vimium.md).
+Arrow keys normally go to the page. If they move a local cursor, press F6 or Escape to leave mouse keys mode. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, F1, F5, F6, and F10; other supported page keys pass through. Terminals may intercept modifiers or mouse buttons before Termium receives them. Consult the [current controls](getting-started.md) and [Vimium navigation](vimium.md).
 
 ## Termium stops responding
 

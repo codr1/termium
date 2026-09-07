@@ -150,3 +150,6 @@ summary { cursor: pointer; font-size: 15px; font-weight: 500; }
   .doc-cards { grid-template-columns: 1fr; }.site-footer nav { gap: 18px; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+
+.github-cta { display: inline-flex; align-items: center; gap: 8px; }
+.github-icon { flex: 0 0 16px; width: 16px; height: 16px; }

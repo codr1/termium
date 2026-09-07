@@ -14,7 +14,7 @@ const githubSource = 'https://github.com/codr1/termium/blob/' + revision;
 const docs = [
   ['installation', 'Installation', 'Build, install, and launch Termium.', 'Start here'],
   ['getting-started', 'Getting started', 'Your first page, mouse input, menus, and home-page settings.', 'Start here'],
-  ['vimium', 'Keyboard & tabs', 'Vimium bindings, real tabs, and the keyboard pointer.', 'Using Termium'],
+  ['vimium', 'Keyboard & tabs', 'Vimium bindings, real tabs, and the mouse keys.', 'Using Termium'],
   ['terminals', 'Terminal support', 'Kitty, sixel, automatic detection, and graphics performance.', 'Using Termium'],
   ['troubleshooting', 'Troubleshooting', 'Resolve display, navigation, and startup problems.', 'Using Termium'],
   ['development', 'Development', 'Build from source and contribute a change.', 'Contributing'],
@@ -24,7 +24,7 @@ const docs = [
 const escape = value => value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 const header = current => `<a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header container"><a class="brand" href="/" aria-label="Termium website"><img src="/assets/mark.svg" alt="" width="26" height="26"><span>termium<span class="accent">_</span></span></a>
-<nav class="site-nav" aria-label="Main"><a href="/#features">Features</a><a href="/docs/"${current === 'docs' ? ' aria-current="page"' : ''}>Docs</a><a href="https://github.com/codr1/termium">GitHub ↗</a><a class="nav-install" href="/docs/installation/"${current === 'installation' ? ' aria-current="page"' : ''}>Get Termium</a></nav></header>`;
+<nav class="site-nav" aria-label="Main"><a href="/#features">Features</a><a href="/docs/"${current === 'docs' ? ' aria-current="page"' : ''}>Docs</a><a class="github-cta" href="https://github.com/codr1/termium"><img class="github-icon" src="/assets/github.svg" alt="" width="16" height="16">GitHub ↗</a><a class="nav-install" href="/docs/installation/"${current === 'installation' ? ' aria-current="page"' : ''}>Get Termium</a></nav></header>`;
 const footer = `<footer class="site-footer container"><div><a class="brand" href="/"><span>termium<span class="accent">_</span></span></a><p>Chromium. In your terminal.</p></div><nav aria-label="Footer"><a href="/docs/">Documentation</a><a href="/docs/development/">Contribute</a><a href="https://github.com/codr1/termium/issues">Issues</a><a href="https://github.com/codr1/termium/releases">Releases ↗</a></nav></footer>`;
 function sidebar(current) {
   let lastGroup;

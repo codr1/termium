@@ -57,11 +57,11 @@ Press **Ctrl+L** or click the address field. Its contents are selected, so start
 | Ctrl+R or F5 | Reload / Stop |
 | F10 | Open or close Menu |
 | F1 | Shortcut help |
-| F6 | Toggle keyboard pointer |
+| F6 | Toggle mouse keys |
 | Ctrl+Q | Quit confirmation |
 | Escape three times rapidly | Emergency exit, including during dialogs |
 
-Use Menu when a terminal intercepts a shortcut. Menu supports mouse clicks, Up/Down, Tab/Shift+Tab, Enter, and Escape. It contains tab controls, navigation, address, keyboard pointer, help, and Quit.
+Use Menu when a terminal intercepts a shortcut. Menu supports mouse clicks, Up/Down, Tab/Shift+Tab, Enter, and Escape. It contains tab controls, navigation, address, mouse keys, help, and Quit.
 
 ## Interact with a page
 
@@ -71,11 +71,11 @@ Mouse support includes left/right/middle buttons, hover, double/triple clicks, h
 
 Use your terminal's paste command. Bracketed paste inserts literal text; pasted text cannot activate Termium shortcuts. Middle-click opens links in tabs; select them from the top row or all-tabs picker. Host clipboard integration and native browser file choosers remain limited; see [Vimium limitations](vimium.md#help-and-limits).
 
-## Use a keyboard as a mouse
+## Mouse keys
 
-Press **F6** or choose **Menu → Keyboard pointer**. A visible cursor and bottom-row instructions indicate this explicit mode.
+Press **F6** or choose **Menu → Mouse keys**. A visible cursor and bottom-row instructions indicate this explicit mode.
 
-| Keys in pointer mode | Action |
+| Key | Action |
 | --- | --- |
 | Arrows or h/j/k/l | Move one cell |
 | Shift+arrow | Move five cells |
@@ -84,9 +84,9 @@ Press **F6** or choose **Menu → Keyboard pointer**. A visible cursor and botto
 | r / m | Right-click / middle-click |
 | u / d | Scroll up / down |
 | Page Up / Page Down | Scroll approximately half a viewport |
-| Escape or F6 | Leave pointer mode and release held buttons |
+| Escape or F6 | Leave mouse keys mode and release held buttons |
 
-Leave pointer mode before typing into a page field. Outside this mode, arrows go to the webpage normally.
+Leave mouse keys mode before typing into a page field. Outside this mode, arrows go to the webpage normally.
 
 ## Respond to dialogs
 

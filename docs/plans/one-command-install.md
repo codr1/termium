@@ -1,6 +1,6 @@
 # One-command installation plan
 
-Status: the native-bundle installer is implemented on the installation branch. Public release publication and clean native-machine certification remain open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
+Status: the native-bundle installer is merged. Linux x86-64, macOS ARM64, and macOS Intel pass native test and installation CI. The first public release is being finalized; broader clean-machine certification remains open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
 
 ## Product requirement
 
@@ -11,10 +11,10 @@ The reference is the familiar shell-installer entry point demonstrated by [Claud
 The entry point below is ready for release testing against the new installer and `--first-run` option. It must not be advertised as a live public install until matching release artifacts are published:
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/codr1/termium/main/scripts/install.sh | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
+bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
 ```
 
-A shorter project-owned URL can be added once a domain is chosen and controlled. The command remains one pasted line: dependency setup, parent-shell PATH activation, and launch all happen without another user step. The shell tail is required; shortening this to a bare pipe would break repeat launches in the original shell.
+The project-owned endpoint serves the checked-in installer verbatim. The command remains one pasted line: dependency setup, parent-shell PATH activation, and launch all happen without another user step. The shell tail is required; shortening this to a bare pipe would break repeat launches in the original shell.
 
 ## Installer responsibilities
 

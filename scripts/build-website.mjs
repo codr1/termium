@@ -41,7 +41,7 @@ function sidebar(current) {
 }
 function documentPage(title, description, slug, content) {
   const route = slug ? `/docs/${slug}/` : '/docs/';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${escape(description)}"><meta name="theme-color" content="#0c1118"><link rel="canonical" href="${origin}${route}"><link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/site.css"><script src="/assets/site.mjs" type="module"></script><title>${escape(title)} — Termium</title></head><body>${header(slug === 'installation' ? slug : 'docs')}<main class="docs-layout container" id="main">${sidebar(slug)}<article class="docs-content"><p class="eyebrow">TERMIUM / DOCUMENTATION</p>${content}${slug ? `<div class="doc-meta">This guide describes the current development build. <a href="${githubSource}/docs/${slug}.md">Edit on GitHub ↗</a></div>` : ''}</article></main>${footer}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${escape(description)}"><meta name="theme-color" content="#0c1118"><link rel="canonical" href="${origin}${route}"><link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/site.css"><script src="/assets/site.mjs" type="module"></script><title>${escape(title)} — Termium</title></head><body>${header(slug === 'installation' ? slug : 'docs')}<main class="docs-layout container" id="main">${sidebar(slug)}<article class="docs-content"><p class="eyebrow">TERMIUM / DOCUMENTATION</p>${content}${slug ? `<div class="doc-meta">See GitHub Releases for version history. <a href="${githubSource}/docs/${slug}.md">Edit on GitHub ↗</a></div>` : ''}</article></main>${footer}</body></html>`;
 }
 function rewriteLink(href, filename) {
   if (!href || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)) return href;
@@ -56,6 +56,8 @@ await fs.mkdir(output, { recursive: true });
 await fs.cp(path.join(source, 'assets'), path.join(output, 'assets'), { recursive: true });
 await fs.cp(path.join(source, 'welcome'), path.join(output, 'welcome'), { recursive: true });
 await fs.copyFile(path.join(source, '_headers'), path.join(output, '_headers'));
+// Serve the reviewed bootstrap verbatim; never maintain a separate web copy.
+await fs.copyFile(path.join(root, 'scripts/install.sh'), path.join(output, 'install'));
 const welcome = await fs.readFile(path.join(source, 'welcome/index.html'), 'utf8');
 const logo = welcome.match(/<pre class="ascii-mark"[\s\S]*?<\/pre>/)?.[0];
 if (!logo) throw Error('Welcome page is missing the shared ASCII mark');

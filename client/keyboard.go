@@ -51,7 +51,7 @@ type KeyboardHandler struct {
 }
 
 func NewKeyboardHandler(client pb.BrowserControlClient) *KeyboardHandler {
-	return &KeyboardHandler{grpcClient: client, focus: "page", status: "Ctrl+L: address   F10: menu   F6: keyboard pointer   Ctrl+Q: quit"}
+	return &KeyboardHandler{grpcClient: client, focus: "page", status: "Ctrl+L: address   F10: menu   F6: mouse keys   Ctrl+Q: quit"}
 }
 func (kh *KeyboardHandler) start(ctx context.Context, s tcell.Screen) {
 	notify := func(value any) { postUI(s, value) }

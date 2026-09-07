@@ -43,8 +43,7 @@ jobs:
         run: brew install protobuf
       - name: Install protobuf generators
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          npm run setup:proto
       - run: npm ci
       - name: Install browser as the runner user
         run: npm run test:browser:install

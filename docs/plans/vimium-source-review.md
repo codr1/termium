@@ -1,6 +1,6 @@
 # Vimium source review
 
-Historical source review, updated 2026-09-07. Implementation now bundles the extension; see [current architecture](browser-ui.md). Reviewed against upstream commit [`5aa29614bf1dce05e0d316f8c38722e17f9b38c3`](https://github.com/philc/vimium/tree/5aa29614bf1dce05e0d316f8c38722e17f9b38c3), whose manifest declares version 2.4.2. This is a source inspection, not an upstream test run or a claim that Termium implements these features.
+Historical source review, updated 2026-09-07. Implementation now bundles the extension; see [current architecture](browser-ui.md). Reviewed against upstream commit [`5aa29614bf1dce05e0d316f8c38722e17f9b38c3`](https://github.com/philc/vimium/tree/5aa29614bf1dce05e0d316f8c38722e17f9b38c3). This is a source inspection, not an upstream test run or a claim that Termium implements these features.
 
 ## Decision
 
@@ -12,7 +12,7 @@ The component analysis below remains useful for integration and diagnosing compa
 
 ### Local feasibility experiment
 
-A disposable browser using the installed Node 24.20.0, Chrome for Testing 152.0.7977.75, Puppeteer 25.10.0, and the upstream revision above loaded Vimium with `headless: true`, `pipe: true`, and `enableExtensions: [extensionPath]`. No sandbox-disabling flags were used. Only the disposable browser's Vimium smooth-scroll setting was changed.
+A disposable browser using the project’s installed runtime, browser, Puppeteer, and the upstream revision above loaded Vimium with `headless: true`, `pipe: true`, and `enableExtensions: [extensionPath]`. No sandbox-disabling flags were used. Only the disposable browser's Vimium smooth-scroll setting was changed.
 
 Observed through actual Puppeteer keyboard input and a local HTTP fixture:
 
@@ -30,7 +30,7 @@ Remaining integration work includes selecting the page Vimium makes active, foll
 
 ### Tabs and extension API follow-up (2026-09-07)
 
-Termium uses Puppeteer 25.10.0. Its public API supports enabling extensions at launch, explicitly awaiting `browser.installExtension(path)`, obtaining the extension ID, and accessing extension service workers and content-script realms. Prefer explicit installation followed by application readiness checks. Inspection of our installed `BrowserLauncher.js` found the array-based launch path passes a nested array to `Promise.all`, which does not await the contained installation promises. This is consistent with the first probe seeing an empty extension list immediately after launch. Explicit installation avoids depending on that launch-path behavior; extension keymap readiness remains a separate check.
+Termium pins Puppeteer in `server/package.json`. Its public API supports enabling extensions at launch, explicitly awaiting `browser.installExtension(path)`, obtaining the extension ID, and accessing extension service workers and content-script realms. Prefer explicit installation followed by application readiness checks. Inspection of our installed `BrowserLauncher.js` found the array-based launch path passes a nested array to `Promise.all`, which does not await the contained installation promises. This is consistent with the first probe seeing an empty extension list immediately after launch. Explicit installation avoids depending on that launch-path behavior; extension keymap readiness remains a separate check.
 
 A second disposable Linux probe verified that explicit awaited installation registered Vimium before continuing. It opened two tabs with the same URL, pressed Vimium's `J`, and observed Chromium's active tab change to the first tab while Puppeteer emitted zero `targetchanged` events. Bringing the second page to the front through Puppeteer then changed Chromium's active tab back. The pages reported visible/hidden states corresponding to the selected tab in this single-window experiment. These observations do not establish an activation adapter for every lifecycle or window configuration.
 

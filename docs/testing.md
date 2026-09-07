@@ -8,7 +8,7 @@ npm test
 
 This rebuilds the generated protocol bindings, TypeScript server, and Go client (with race instrumentation for terminal integration); runs static checks and Go tests with the race detector; installs Puppeteer's matching Chrome; and runs integration tests against the actual server and browser. A missing browser or failed launch fails the run. Tests do not require a visible terminal window, GNU `timeout`, or a public website.
 
-The first run needs internet access to download dependencies and Chrome. Later browser runs reuse [Puppeteer's cache](https://pptr.dev/guides/configuration). Linux needs Chrome's system libraries; CI installs them automatically. Prefer Node 24 LTS. An interrupted browser download can leave an incomplete cache directory; remove that specific incomplete browser version and rerun `npm run test:browser:install`.
+The first run needs internet access to download dependencies and Chrome. Later browser runs reuse [Puppeteer's cache](https://pptr.dev/guides/configuration). Linux needs Chrome's system libraries; CI installs them automatically. Use the toolchain declared in the project manifests. An interrupted browser download can leave an incomplete cache directory; remove that specific incomplete browser version and rerun `npm run test:browser:install`.
 
 ## What runs
 
@@ -58,7 +58,7 @@ go test -tags=integration -race -count=10 -timeout=5m -v ./tests/integration -ru
 
 ## Pull requests and releases
 
-The [Test workflow](../.github/workflows/test.yml) runs on pull requests, pushes to `main`, and manual dispatch. It uses Node 24 and the Go version declared in `go.mod`. The matrix covers Linux x86-64, macOS Apple Silicon, and macOS Intel using [GitHub's native runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Browser download and extraction run as the runner user. Linux CI uses sudo for system packages and a targeted AppArmor allowance for downloaded Chrome executables on the disposable runner; Chromium's namespace and seccomp sandboxes stay enabled. This allowance follows [Chromium's documented approach](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md) and is never applied by the installer. Failed test output is retained as a workflow artifact. The release workflow calls the same tests before building artifacts.
+The [Test workflow](../.github/workflows/test.yml) runs on pull requests, pushes to `main`, and manual dispatch. It uses the toolchain versions declared in the workflow and `go.mod`. The matrix covers Linux x86-64, macOS Apple Silicon, and macOS Intel using [GitHub's native runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Browser download and extraction run as the runner user. Linux CI uses sudo for system packages and a targeted AppArmor allowance for downloaded Chrome executables on the disposable runner; Chromium's namespace and seccomp sandboxes stay enabled. This allowance follows [Chromium's documented approach](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md) and is never applied by the installer. Failed test output is retained as a workflow artifact. The release workflow calls the same tests before building artifacts.
 
 Configure the three test jobs as required checks in the repository's branch rules to enforce them before merging. Adding a workflow alone does not configure branch protection. Linux ARM64 browser coverage and Windows are still outstanding; neither is implied by a green matrix.
 

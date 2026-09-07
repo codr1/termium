@@ -59,7 +59,7 @@ Each normal launch uses a private Unix socket and a separate temporary Chromium 
 
 | Platform | Bundle target |
 | --- | --- |
-| Linux x86-64 | glibc 2.36 or newer, with working unprivileged Chromium sandbox support |
+| Linux x86-64 | glibc with working unprivileged Chromium sandbox support; setup checks the required minimum |
 | macOS Apple Silicon | Native ARM64 bundle; tested through the macOS CI runner |
 | macOS Intel | Native AMD64 bundle; tested through the macOS CI runner |
 | Linux ARM64 | Not packaged yet |
@@ -75,4 +75,4 @@ Rerun the installer to update. Close running Termium sessions first; concurrent 
 
 Application files live under `${XDG_DATA_HOME:-~/.local/share}/termium`. `TERMIUM_HOME` can select another application directory; the command remains at `~/.local/bin/termium`. `TERMIUM_NO_MODIFY_PATH=1` opts out of shell integration for managed environments. All paths are user-owned; no system Node or browser installation is modified.
 
-See [getting started](getting-started.md) for controls and [terminal support](terminals.md) for renderer choices.
+See [Quickstart](quickstart.md) for your first page and [getting started](getting-started.md) for controls and [terminal support](terminals.md) for renderer choices.

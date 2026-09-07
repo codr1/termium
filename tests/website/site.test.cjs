@@ -47,7 +47,7 @@ test('public site is complete, links resolve, and the welcome page stays separat
       if (url.hash) anchors.push([url.pathname, decodeURIComponent(url.hash.slice(1))]);
     }
   }
-  assert.equal(visited.size, 10, 'Expected product page, docs index, and eight guides');
+  assert.equal(visited.size, 11, 'Expected product page, docs index, and nine guides');
   for (const [route, id] of anchors) {
     await page.goto(origin + route);
     assert.ok(await page.evaluate(id => !!document.getElementById(id), id), `Broken fragment ${route}#${id}`);
@@ -129,4 +129,6 @@ test('public setup serves the bootstrap and copies the same one-line command eve
   await page.goto(origin + '/docs/installation/');
   assert.equal(await page.$eval('pre code.language-bash', e => e.textContent.trim()), command);
   assert.ok(fs.readFileSync(path.resolve(__dirname, '../../README.md'), 'utf8').includes(command));
+  await page.goto(origin + '/docs/quickstart/');
+  assert.equal(await page.$eval('pre code.language-bash', e => e.textContent.trim()), command);
 });

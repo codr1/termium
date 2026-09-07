@@ -32,7 +32,8 @@
     "build:website": "node scripts/build-website.mjs",
     "preview:website": "npm run build:website && wrangler pages dev dist/website --port 8787",
     "deploy:website": "npm run build:website && wrangler pages deploy dist/website --project-name termium",
-    "test:website": "npm run build:website && node --test tests/website/*.test.cjs"
+    "test:website": "npm run build:website && node --test tests/website/*.test.cjs",
+    "setup:proto": "go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1"
   },
   "engines": {
     "node": ">=24.0.0"
@@ -40,5 +41,6 @@
   "devDependencies": {
     "marked": "18.0.11",
     "wrangler": "4.129.0"
-  }
+  },
+  "license": "MIT"
 }

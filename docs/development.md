@@ -1,25 +1,24 @@
 # Development
 
-These instructions are for contributors building the current version. End-user installation is being redesigned around [one command](installation.md).
+These instructions are for contributors building the current version. End users can start with [Quickstart](quickstart.md).
 
 ## Toolchain
 
-Use Node.js 24 or newer (prefer an LTS release) and Go 1.23.1 or newer. Install `protoc` using your development environment's package manager. The build also needs the Go protobuf plugins:
+Use the Node.js and Go requirements declared in [package.json](../package.json) and [go.mod](../go.mod). CI uses the toolchains configured in [the test workflow](../.github/workflows/test.yml). Install `protoc` using your development environment’s package manager, then install the pinned Go protobuf plugins:
 
 ```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+npm run setup:proto
 export PATH="$(go env GOPATH)/bin:$PATH"
 ```
 
-The full automated suite has been verified on Linux AMD64 with Node 24.20.0 and Go 1.23.1 using the plugin versions above. The full suite also passes on the native Apple Silicon and Intel macOS CI runners. Node 18 and 20 are [end-of-life](https://nodejs.org/en/about/previous-releases).
+Dependency and tool versions live in manifests and build scripts so updates do not require editing this guide.
 
 ## Build, install, and run
 
-The installer, Vimium, and website changes are currently being reviewed on the development preview branch. To try that version before the first release, clone it with:
+Clone the main branch:
 
 ```bash
-git clone --branch feat/public-website https://github.com/codr1/termium.git
+git clone https://github.com/codr1/termium.git
 cd termium
 ```
 

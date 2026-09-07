@@ -2,11 +2,11 @@
 
 Browse the web inside your terminal.
 
-[Website](https://termium.dev/) · [User guides](https://termium.dev/docs/) · [Installation](https://termium.dev/docs/installation/)
+[Website](https://termium.dev/) · [Quickstart](https://termium.dev/docs/quickstart/) · [User guides](https://termium.dev/docs/) · [Installation](https://termium.dev/docs/installation/)
 
 Termium renders a real Chromium browser in your terminal, with keyboard and mouse interaction. It supports Kitty and sixel graphics, plus a character-based display mode.
 
-## Install
+## Quickstart
 
 Paste this into your terminal on Linux x86-64 or macOS (Apple Silicon or Intel):
 
@@ -16,7 +16,7 @@ bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PA
 
 Setup downloads Termium, Chromium, and Vimium, verifies them, and opens the browser. No Node, Go, browser installation, or sudo required. The permanent `termium` command works from any directory.
 
-This is an early release. Linux requires glibc 2.36+ and working Chromium sandbox support; native Windows and Linux ARM64 packages are not available yet.
+This is an early release. Linux requires glibc and working Chromium sandbox support; the installer checks compatibility; native Windows and Linux ARM64 packages are not available yet.
 
 See [installation](docs/installation.md) for platform requirements, updates, and storage.
 
@@ -63,4 +63,4 @@ Found a bug? Follow the [reporting guide](docs/troubleshooting.md#report-a-probl
 
 ## License
 
-The project's current declared license is CC BY-ND. An OSS-compatible license and a standalone license file are release prerequisites; this documentation update does not change the license.
+[MIT](LICENSE). Third-party components retain their own licenses, included with their sources and release packages.

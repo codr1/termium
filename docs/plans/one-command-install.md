@@ -34,7 +34,7 @@ Use `$HOME/.local/bin` for the stable launcher even when `TERMIUM_HOME` relocate
 
 The proposed syntax targets bash, zsh, and fish. Fish provides an [export compatibility function](https://fishshell.com/docs/current/cmds/export.html) that accepts quoted PATH values. Before publishing support, verify minimum shell versions, default startup files, custom zsh configuration directories, command caches, and both login/non-login startup. Repeating the command must not duplicate installed files or managed configuration blocks; the literal current-shell PATH prepend may contain a repeated directory without changing command resolution.
 
-Review verification: the exact proposed command was exercised with a mocked download/installer/launcher in an isolated Ubuntu 24.04 container using bash 5.2.21, zsh 5.9, and fish 3.7.0. All 12 scenarios passed: fresh PATH without the launcher directory, an existing cached binary, repeat invocation, and failed download for each shell. This proves the shell sequencing and same-shell lookup mechanism. It does not validate a real release, persistent startup-file integration, interactive TUI attachment, native macOS, or browser startup.
+Review verification: the exact proposed command was exercised with a mocked download/installer/launcher in an isolated Ubuntu 24.04 container using bash, zsh, and fish. All 12 scenarios passed: fresh PATH without the launcher directory, an existing cached binary, repeat invocation, and failed download for each shell. This proves the shell sequencing and same-shell lookup mechanism. It does not validate a real release, persistent startup-file integration, interactive TUI attachment, native macOS, or browser startup.
 
 ## Feasibility gate before installer implementation
 

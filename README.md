@@ -6,15 +6,19 @@ Termium renders a real Chromium browser in your terminal, with keyboard and mous
 
 ## Install
 
-Our target is one command on Linux and macOS: paste it, let setup finish, and start browsing. Termium will handle its browser, runtime, and terminal configuration automatically.
+The native installer packages Termium, Node, Chromium, and Linux browser libraries/fonts. It verifies the release, checks browser startup, and installs a permanent `termium` command. The first public release using this installer has not been published yet.
 
-**The one-command release is not ready yet.** The existing installer has known packaging failures. Until a release passes installation testing, use the development instructions linked below. A supported install command will appear here when available.
+Contributors with the [build toolchain](docs/development.md) can build and install the current checkout with:
 
-See [installation status](docs/installation.md) for platform targets and what the installer will do. Contributors can [build the current development version](docs/development.md).
+```bash
+npm run install:local
+```
+
+See [installation](docs/installation.md) for platform requirements, updates, and storage.
 
 ## Browse
 
-For an existing working installation, run `termium`. From a source checkout, run `./client/termium`.
+Run `termium` from any directory, or `termium example.com` to open a page directly.
 
 - Press **Ctrl+L**, type an address, and press **Enter**.
 - Use the top bar for Back, Forward, Reload/Stop, and Menu.

@@ -1,6 +1,6 @@
 # One-command installation plan
 
-Status: requirements for implementation. The existing installer does not meet this contract.
+Status: the native-bundle installer is implemented on the installation branch. Public release publication and clean native-machine certification remain open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
 
 ## Product requirement
 
@@ -8,7 +8,7 @@ One pasted command must take a user on a supported Linux or macOS system from no
 
 The reference is the familiar shell-installer entry point demonstrated by [Claude Code's native installation](https://code.claude.com/docs/en/quickstart). This requirement concerns Termium setup; browsing a site still involves normal user interaction.
 
-The proposed entry point below is an implementation specification only. It depends on a replacement installer and a new `--first-run` launcher option; do not run or publish it as an available installation method:
+The entry point below is ready for release testing against the new installer and `--first-run` option. It must not be advertised as a live public install until matching release artifacts are published:
 
 ```bash
 bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/codr1/termium/main/scripts/install.sh | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
@@ -53,7 +53,7 @@ For Linux, prove that sandboxing is active, not merely that `--no-sandbox` was o
 | Ubuntu 24.04 AMD64 | Known host-policy risk; not tested here | Stock-policy, user-only sandboxed launch and installation checks pass |
 | Linux ARM64 | Browser distribution unresolved | Select a maintained browser source, then run the same native checks |
 
-If a candidate fails, keep it unsupported and record the specific blocker. Do not call the feasibility gate complete or the Linux installation promise delivered until at least one Linux candidate passes. Choose build images, browser source, and minimum OS versions from that evidence before implementing the full release pipeline. Runtime and native macOS feasibility remain open release blockers in this documentation-only change.
+If a candidate fails, keep it unsupported and record the specific blocker. Do not call the feasibility gate complete or the Linux installation promise delivered until at least one Linux candidate passes. Choose build images, browser source, and minimum OS versions from that evidence before implementing the full release pipeline. Clean native-machine feasibility and macOS distribution checks remain open release acceptance work.
 
 ## Packaging direction
 
@@ -73,7 +73,7 @@ Keep settings and browser data separate from versioned application files. Do not
 
 Concurrent installers must not corrupt one another. Clean up staging files on errors and signals. Preserve user-owned files and unrelated PATH entries.
 
-## Current implementation gaps
+## Historical implementation gaps (before the installer branch)
 
 | Area | Evidence in the current code | Required change |
 | --- | --- | --- |

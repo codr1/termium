@@ -54,7 +54,7 @@ go test -tags=integration -race -count=10 -timeout=5m -v ./tests/integration -ru
 
 ## Pull requests and releases
 
-The [Test workflow](../.github/workflows/test.yml) runs on pull requests, pushes to `main`, and manual dispatch. It uses Node 24 and the Go version declared in `go.mod`. The matrix covers Linux x86-64, macOS Apple Silicon, and macOS Intel using [GitHub's native runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Browser download and extraction run as the runner user; only system package installation uses sudo. Failed test output is retained as a workflow artifact. The release workflow calls the same tests before building artifacts.
+The [Test workflow](../.github/workflows/test.yml) runs on pull requests, pushes to `main`, and manual dispatch. It uses Node 24 and the Go version declared in `go.mod`. The matrix covers Linux x86-64, macOS Apple Silicon, and macOS Intel using [GitHub's native runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Browser download and extraction run as the runner user. Linux CI uses sudo for system packages and a targeted AppArmor allowance for downloaded Chrome executables on the disposable runner; Chromium's namespace and seccomp sandboxes stay enabled. This allowance follows [Chromium's documented approach](https://chromium.googlesource.com/chromium/src/+/main/docs/security/apparmor-userns-restrictions.md) and is never applied by the installer. Failed test output is retained as a workflow artifact. The release workflow calls the same tests before building artifacts.
 
 Configure the three test jobs as required checks in the repository's branch rules to enforce them before merging. Adding a workflow alone does not configure branch protection. Linux ARM64 browser coverage and Windows are still outstanding; neither is implied by a green matrix.
 
@@ -62,6 +62,15 @@ Configure the three test jobs as required checks in the repository's branch rule
 
 The suite exercises the interactive client through a pseudo-terminal, reads its current screen through vt10x, and checks tcell cells in a simulation. Historical ANSI output is retained for failure diagnostics but does not establish UI readiness. It does not certify graphics on Ghostty, Kitty, iTerm2, or other real terminal emulators. Keep a manual check for image placement, menus over graphics, modifier delivery, and restored terminal settings on each supported terminal. Native Vimium hints, find, and tab commands need additional behavioral coverage when implemented.
 
-One-command installation also needs its own release acceptance suite: install an actual artifact in a clean environment with no Go, Node, or `protoc`; launch and browse a local fixture; then test update and uninstall. Current build and shell syntax checks do **not** validate that deployment path. Track that work against the [installation plan](plans/one-command-install.md).
+Release packaging has a separate automated acceptance suite:
+
+```bash
+npm run build:bundle
+npm run test:installation
+```
+
+It installs an actual archive into a fresh home with only bootstrap commands on PATH, rejects an incorrect checksum, repeats installation, checks command discovery in a new shell, runs the bundled browser, and opens a local page through the installed client in a PTY. Unit tests cover failed upgrades, active sessions, concurrent installers, foreign commands, read-only profiles, escaping symlinks, and paths containing spaces and quotes.
+
+These checks do not substitute for clean native OS installation tests, macOS distribution/signing checks, or a real graphics-emulator matrix. See [installation](installation.md) for current platform limits.
 
 [Documentation home](README.md)

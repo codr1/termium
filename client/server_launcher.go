@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -19,6 +20,7 @@ const (
 
 // serverProcess holds the child process if we started the server
 var serverProcess *exec.Cmd
+var activeSocketPath = defaultSocketPath
 
 // serverLocation holds the resolved server.js path and its working directory.
 type serverLocation struct {
@@ -80,7 +82,7 @@ func isServerRunning() bool {
 	if cfg.ServerAddr != "" {
 		return serverListening("tcp", cfg.ServerAddr)
 	}
-	return serverListening("unix", defaultSocketPath)
+	return serverListening("unix", activeSocketPath)
 }
 
 func serverListening(network, address string) bool {
@@ -108,7 +110,7 @@ func startServer() error {
 	Debug(fmt.Sprintf("Auto-launching server: node %s (workdir: %s)", loc.scriptPath, loc.workDir), INFO)
 
 	// Find node binary
-	nodePath, err := exec.LookPath("node")
+	nodePath, env, err := serverRuntime(loc)
 	if err != nil {
 		return fmt.Errorf("node not found in PATH: %v", err)
 	}
@@ -116,9 +118,12 @@ func startServer() error {
 	args := []string{loc.scriptPath}
 	if cfg.ServerAddr != "" {
 		args = append(args, "--tcp", cfg.ServerAddr)
+	} else {
+		args = append(args, "--socket", activeSocketPath)
 	}
 	serverProcess = exec.Command(nodePath, args...)
 	serverProcess.Dir = loc.workDir
+	serverProcess.Env = env
 
 	// Capture stdout to watch for readiness sentinel
 	stdout, err := serverProcess.StdoutPipe()
@@ -127,7 +132,8 @@ func startServer() error {
 	}
 
 	// Let server stderr pass through for debugging
-	serverProcess.Stderr = &logBuffer
+	var startupErrors LogBuffer
+	serverProcess.Stderr = io.MultiWriter(&logBuffer, &startupErrors)
 
 	if err := serverProcess.Start(); err != nil {
 		return fmt.Errorf("failed to start server: %v", err)
@@ -164,6 +170,12 @@ func startServer() error {
 	case err := <-ready:
 		if err != nil {
 			stopServer()
+			startupErrors.mutex.Lock()
+			detail := strings.TrimSpace(strings.Join(startupErrors.messages, "\n"))
+			startupErrors.mutex.Unlock()
+			if detail != "" {
+				return fmt.Errorf("%w: %s", err, detail)
+			}
 			return err
 		}
 		Debug("Server signaled readiness", INFO)

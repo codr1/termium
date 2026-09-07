@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -29,6 +30,36 @@ func TestParseFlagsDefaults(t *testing.T) {
 	}
 	if cfg.Debug {
 		t.Error("expected debug=false by default")
+	}
+}
+
+func TestLaunchURLShorthand(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+		bad  bool
+	}{
+		{[]string{"example.com"}, "https://example.com", false},
+		{[]string{"--renderer", "sixel", "http://localhost:8080/path?q=a"}, "http://localhost:8080/path?q=a", false},
+		{[]string{"--url", "example.com"}, "https://example.com", false},
+		{[]string{"example.com", "second.com"}, "", true},
+		{[]string{"--url", "example.com", "second.com"}, "", true},
+		{[]string{"javascript:alert(1)"}, "", true},
+	} {
+		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
+			resetFlags(t)
+			os.Args = append([]string{"termium"}, test.args...)
+			config, err := parseFlags()
+			if test.bad {
+				if err == nil {
+					t.Fatal("invalid launch accepted")
+				}
+				return
+			}
+			if err != nil || config.InitialURL != test.want {
+				t.Fatalf("launch URL: %v %v", config, err)
+			}
+		})
 	}
 }
 

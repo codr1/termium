@@ -23,6 +23,9 @@ jobs:
       PUPPETEER_SKIP_DOWNLOAD: "true"
     steps:
       - uses: actions/checkout@v4
+      - name: Allow Chromium sandbox on the disposable Linux runner
+        if: runner.os == 'Linux'
+        run: bash scripts/configure-ci-sandbox.sh
       - name: Use an isolated browser cache
         run: echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/puppeteer" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4

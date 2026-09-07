@@ -64,6 +64,7 @@ program
     .option('-d, --debug [filename]', 'Enable debug mode (log to stdout or optional file)', '')
     .option('--daemon', 'Run server as a daemon')
     .option('--tcp <ip:port>', 'Use TCP socket instead of Unix domain socket', '')
+    .option('--socket <path>', 'Private Unix socket path', '/tmp/termium.sock')
     .option('-h, --help', 'Display help information')
     .description('gRPC server for browser control using Puppeteer');
 
@@ -170,8 +171,6 @@ async function launchBrowser() {
             // modal on macOS. It must not maintain competing emulation state.
             defaultViewport:null,
             args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
                 '--disable-blink-features=AutomationControlled',  // Hide automation
                 '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             ]
@@ -397,9 +396,9 @@ function main() {
     console.log(`Using TCP socket: ${bindAddress}`);
   } else {
     // Use Unix domain socket by default
-    bindAddress = 'unix:///tmp/termium.sock';
+    bindAddress = `unix://${options.socket}`;
     // Clean up any existing socket file
-    const socketPath = '/tmp/termium.sock';
+    const socketPath = options.socket;
     if (fs.existsSync(socketPath)) {
       fs.unlinkSync(socketPath);
     }
@@ -417,7 +416,8 @@ function main() {
       // Report the actual port when the OS assigns one (--tcp 127.0.0.1:0).
       console.log(`Server running at ${bindAddress.replace(/:\d+$/, `:${port}`)}`);
     } else {
-      console.log(`Server running on Unix domain socket: /tmp/termium.sock`);
+      fs.chmodSync(options.socket, 0o600);
+      console.log(`Server running on Unix domain socket: ${options.socket}`);
     }
     // Readiness sentinel — client watches for this line to know server is accepting connections
     console.log('TERMIUM_READY');

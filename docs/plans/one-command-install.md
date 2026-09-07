@@ -1,6 +1,6 @@
 # One-command installation plan
 
-Status: the native-bundle installer is merged. Linux x86-64, macOS ARM64, and macOS Intel pass native test and installation CI. The first public release is being finalized; broader clean-machine certification remains open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
+Status: the native-bundle installer is merged. Linux x86-64, macOS ARM64, and macOS Intel pass native test and installation CI. Public availability is listed in [GitHub Releases](https://github.com/codr1/termium/releases); broader clean-machine certification remains open. The requirements below remain the acceptance contract; see [installation](../installation.md) for current behavior.
 
 ## Product requirement
 

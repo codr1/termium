@@ -11,7 +11,9 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	pb "termium/client/pb"
 )
@@ -69,9 +71,20 @@ func TestNavigationControls(t *testing.T) {
 	requireOK(t, err)
 	command(pb.NavigationAction_RELOAD, "")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Generation > before.Generation && !s.Loading })
-	_, err = c.SendInput(deadline(t), &pb.InputEvent{Kind: pb.InputKind_TEXT_INPUT, Text: "stale", Generation: one.Generation})
+	var trailer metadata.MD
+	_, err = c.SendInput(deadline(t), &pb.InputEvent{Kind: pb.InputKind_TEXT_INPUT, Text: "stale", Generation: one.Generation}, grpc.Trailer(&trailer))
 	if status.Code(err) != codes.FailedPrecondition {
 		t.Fatalf("old-document input accepted: %v", err)
+	}
+	if reason := trailer.Get("termium-reason"); len(reason) != 1 || reason[0] != "stale-target" {
+		t.Fatalf("missing machine-readable cancellation reason: %v", trailer)
+	}
+	_, err = c.BrowserCommand(deadline(t), &pb.NavigationRequest{Action: pb.NavigationAction_CLOSE_TAB, Generation: one.Generation}, grpc.Trailer(&trailer))
+	if status.Code(err) != codes.FailedPrecondition || len(trailer.Get("termium-reason")) != 1 || trailer.Get("termium-reason")[0] != "stale-target" {
+		t.Fatalf("stale command was not classified: %v %v", err, trailer)
+	}
+	if state, err := c.GetBrowserState(deadline(t), &pb.Empty{}); err != nil || state.ActiveTabId != before.ActiveTabId {
+		t.Fatalf("stale close changed the active tab: %v %v", state, err)
 	}
 	started := make(chan struct{}, 1)
 	hanging := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

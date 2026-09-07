@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
 const { BrowserControls } = require('../dist/src/browser-controls');
 
-test('navigation aborts an in-flight capture without disabling resize or future captures', { timeout: 15000 }, async t => {
+// Allow cold Chromium startup on native CI; the cancellation assertion below
+// retains its own 1.5-second bound, independent of launch/teardown time.
+test('navigation aborts an in-flight capture without disabling resize or future captures', { timeout: 60000 }, async t => {
     const browser = await puppeteer.launch({ headless: true, defaultViewport: null, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
     t.after(() => browser.close());
     const page = await browser.newPage();

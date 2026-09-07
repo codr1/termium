@@ -82,7 +82,9 @@ func (kh *KeyboardHandler) tabAction(id string) bool {
 	kh.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
 	kh.pointerHeld = 0
 	kh.capturePage = false
-	kh.queue(browserOperation{navigation: &pb.NavigationRequest{Action: action, TabId: target, Generation: kh.state.Generation}})
+	if !kh.queueNavigation(&pb.NavigationRequest{Action: action, TabId: target, Generation: kh.state.Generation}) {
+		return true
+	}
 	kh.menu = false
 	kh.help = false
 	kh.focus = "page"

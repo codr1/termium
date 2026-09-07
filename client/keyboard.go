@@ -28,8 +28,11 @@ type KeyboardHandler struct {
 	menu, help, quitConfirm bool
 	menuIndex               int
 	status                  string
+	staleNotice             bool
 	pendingAddress          string
 	awaitingNavigation      bool
+	pendingNavigation       *pb.NavigationRequest
+	snapshotAfter           time.Time
 	pointerMode             bool
 	tabsMenu                bool
 	pointer                 image.Point
@@ -60,13 +63,14 @@ func (kh *KeyboardHandler) start(ctx context.Context, s tcell.Screen) {
 		tick := time.NewTicker(250 * time.Millisecond)
 		defer tick.Stop()
 		for {
+			started := time.Now()
 			callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			state, err := kh.grpcClient.GetBrowserState(callCtx, &pb.Empty{})
 			cancel()
 			if ctx.Err() != nil {
 				return
 			}
-			notify(stateUpdate{state, err})
+			notify(stateUpdate{state: state, err: err, started: started})
 			select {
 			case <-ctx.Done():
 				return
@@ -85,8 +89,18 @@ func (kh *KeyboardHandler) input(event *pb.InputEvent) {
 	event.TabId = kh.state.ActiveTabId
 	kh.queue(browserOperation{input: event})
 }
+func (kh *KeyboardHandler) acceptsSnapshot(started time.Time) bool {
+	return !kh.awaitingNavigation && !started.Before(kh.snapshotAfter)
+}
+
+func (kh *KeyboardHandler) applySnapshot(state *pb.BrowserState, started time.Time) {
+	if kh.acceptsSnapshot(started) {
+		kh.applyState(state)
+	}
+}
+
 func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
-	if state == nil || state.Generation < kh.state.Generation {
+	if kh.awaitingNavigation || state == nil || state.Generation < kh.state.Generation {
 		return
 	}
 	if state.Generation != kh.state.Generation {
@@ -98,6 +112,7 @@ func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 		kh.menuIndex = min(kh.menuIndex, len(kh.menuActions())-1)
 	}
 	if state.Error != "" {
+		kh.staleNotice = false
 		kh.status = state.Error
 		if kh.pendingAddress != "" && kh.focus == "page" {
 			kh.editor.set(kh.pendingAddress, false)
@@ -113,15 +128,44 @@ func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 }
 func (kh *KeyboardHandler) result(result operationResult) {
 	if result.operation.navigation != nil {
+		if kh.pendingNavigation != nil && kh.pendingNavigation != result.operation.navigation {
+			// A newer address/tab command owns the editor and loading state.
+			return
+		}
 		kh.awaitingNavigation = false
+		kh.pendingNavigation = nil
+		// Reads begun before this acknowledgement may still carry the previous
+		// navigation's error/loading state even when the document did not change.
+		kh.snapshotAfter = time.Now()
 	}
 	if result.err != nil {
+		kh.staleNotice = false
 		kh.status = result.err.Error()
 		if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE && kh.focus == "page" {
 			kh.editor.set(result.operation.navigation.Url, false)
 			kh.focus = "address"
 		}
 		return
+	}
+	if result.stale {
+		kh.applyState(result.state)
+		// Reset and hover/release events routinely arrive after navigation.
+		// They need no warning. A cancelled deliberate action needs feedback.
+		e := result.operation.input
+		passive := e != nil && (e.Kind == pb.InputKind_RESET_INPUT || e.Kind == pb.InputKind_POINTER_INPUT && e.Buttons == 0)
+		if !passive && kh.state.Error == "" {
+			kh.status = "Page changed; repeat the last action"
+			kh.staleNotice = true
+		}
+		if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE && kh.focus == "page" {
+			kh.editor.set(result.operation.navigation.Url, false)
+			kh.focus = "address"
+		}
+		return
+	}
+	if kh.staleNotice && (result.operation.navigation != nil || result.operation.input != nil && result.operation.input.Kind != pb.InputKind_RESET_INPUT) {
+		kh.status = "Ready · Ctrl+L: address · F10: menu"
+		kh.staleNotice = false
 	}
 	if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE {
 		kh.pendingAddress = result.operation.navigation.Url
@@ -195,12 +239,21 @@ func normalizeAddress(value string) (string, error) {
 	}
 	return parsed.String(), nil
 }
-func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {
-	if kh.submit == nil || !kh.submit(browserOperation{navigation: &pb.NavigationRequest{Action: action, Url: address, TabId: kh.state.ActiveTabId, Generation: kh.state.Generation}}) {
+func (kh *KeyboardHandler) queueNavigation(request *pb.NavigationRequest) bool {
+	if kh.submit == nil || !kh.submit(browserOperation{navigation: request}) {
 		kh.status = "Input queue is busy; try again"
+		return false
+	}
+	kh.pendingNavigation = request
+	kh.pendingAddress = ""
+	kh.awaitingNavigation = true
+	kh.snapshotAfter = time.Now()
+	return true
+}
+func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {
+	if !kh.queueNavigation(&pb.NavigationRequest{Action: action, Url: address, TabId: kh.state.ActiveTabId, Generation: kh.state.Generation}) {
 		return
 	}
-	kh.awaitingNavigation = true
 	kh.focus = "page"
 	kh.menu = false
 	if action != pb.NavigationAction_STOP {

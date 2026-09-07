@@ -205,11 +205,11 @@ const browserControlHandlers: BrowserControlServer = {
     },
     browserCommand: async (call, callback) => {
         try { callback(null, await controls.command(call.request)); }
-        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
+        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message, metadata:(error as any).metadata }); }
     },
     sendInput: async (call, callback) => {
         try { const state = await controls.input(call.request); callback(null, { text:'Input dispatched', state }); }
-        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message }); }
+        catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message, metadata:(error as any).metadata }); }
     },
 
     setViewport: async (call: ServerUnaryCall<ViewportSize, Message>, callback: sendUnaryData<Message>) => {

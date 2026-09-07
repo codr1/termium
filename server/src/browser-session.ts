@@ -7,7 +7,9 @@ import { Vimium } from './vimium';
 type Tab = { id: string; page: Page; controls: BrowserControls; window: number };
 type Snapshot = { active: Tab; tabs: Tab[]; generation: number; titles: Map<string, string> };
 function stale(): never {
-    throw Object.assign(Error('Tab or page changed; input was cancelled'), { code: grpc.status.FAILED_PRECONDITION });
+    const metadata = new grpc.Metadata();
+    metadata.set('termium-reason', 'stale-target');
+    throw Object.assign(Error('Tab or page changed; input was cancelled'), { code: grpc.status.FAILED_PRECONDITION, metadata });
 }
 
 // The Chromium tab target is stable across page-target swaps (including BFCache).

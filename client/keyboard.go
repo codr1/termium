@@ -28,6 +28,7 @@ type KeyboardHandler struct {
 	menu, help, quitConfirm bool
 	menuIndex               int
 	status                  string
+	staleNotice             bool
 	pendingAddress          string
 	awaitingNavigation      bool
 	pointerMode             bool
@@ -98,6 +99,7 @@ func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 		kh.menuIndex = min(kh.menuIndex, len(kh.menuActions())-1)
 	}
 	if state.Error != "" {
+		kh.staleNotice = false
 		kh.status = state.Error
 		if kh.pendingAddress != "" && kh.focus == "page" {
 			kh.editor.set(kh.pendingAddress, false)
@@ -116,12 +118,33 @@ func (kh *KeyboardHandler) result(result operationResult) {
 		kh.awaitingNavigation = false
 	}
 	if result.err != nil {
+		kh.staleNotice = false
 		kh.status = result.err.Error()
 		if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE && kh.focus == "page" {
 			kh.editor.set(result.operation.navigation.Url, false)
 			kh.focus = "address"
 		}
 		return
+	}
+	if result.stale {
+		kh.applyState(result.state)
+		// Reset and hover/release events routinely arrive after navigation.
+		// They need no warning. A cancelled deliberate action needs feedback.
+		e := result.operation.input
+		passive := e != nil && (e.Kind == pb.InputKind_RESET_INPUT || e.Kind == pb.InputKind_POINTER_INPUT && e.Buttons == 0)
+		if !passive && kh.state.Error == "" {
+			kh.status = "Page changed; repeat the last action"
+			kh.staleNotice = true
+		}
+		if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE && kh.focus == "page" {
+			kh.editor.set(result.operation.navigation.Url, false)
+			kh.focus = "address"
+		}
+		return
+	}
+	if kh.staleNotice && (result.operation.navigation != nil || result.operation.input != nil && result.operation.input.Kind != pb.InputKind_RESET_INPUT) {
+		kh.status = "Ready · Ctrl+L: address · F10: menu"
+		kh.staleNotice = false
 	}
 	if result.operation.navigation != nil && result.operation.navigation.Action == pb.NavigationAction_NAVIGATE {
 		kh.pendingAddress = result.operation.navigation.Url

@@ -24,8 +24,9 @@ type operationResult struct {
 	stale     bool
 }
 type stateUpdate struct {
-	state *pb.BrowserState
-	err   error
+	state   *pb.BrowserState
+	err     error
+	started time.Time
 }
 
 type inputDispatcher struct {

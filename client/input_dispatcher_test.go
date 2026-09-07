@@ -132,6 +132,23 @@ func TestOldFrameStateCannotInterruptPendingNavigation(t *testing.T) {
 		t.Fatal("old snapshot interrupted the pending navigation")
 	}
 }
+
+func TestSnapshotBegunBeforeNavigationReplyCannotRestoreOldError(t *testing.T) {
+	kh, ops := recorder()
+	kh.state.Generation = 9
+	kh.editor.set("https://new.example/", false)
+	kh.navigate(pb.NavigationAction_NAVIGATE, kh.editor.value())
+	started := time.Now()
+	kh.result(operationResult{operation: (*ops)[0], state: &pb.BrowserState{Generation: 9, Loading: true, Url: "https://new.example/"}})
+	kh.applySnapshot(&pb.BrowserState{Generation: 9, Error: "old failure", Url: "https://old.example/"}, started)
+	if kh.focus != "page" || !kh.state.Loading || kh.state.Error != "" || kh.state.Url != "https://new.example/" {
+		t.Fatal("late snapshot replaced newer command state")
+	}
+	kh.applySnapshot(&pb.BrowserState{Generation: 9, Url: "https://new.example/"}, time.Now())
+	if kh.state.Loading {
+		t.Fatal("fresh state was also rejected")
+	}
+}
 func (s *cancelledInputServer) SendInput(ctx context.Context, _ *pb.InputEvent) (*pb.Message, error) {
 	return nil, s.reject(ctx)
 }

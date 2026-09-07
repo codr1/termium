@@ -118,11 +118,15 @@ func TestImageDamageIndependentOfChromeAndRestoredAfterOverlay(t *testing.T) {
 	var out bytes.Buffer
 	graphicsOutput = &out
 	kittyWriter.Reset(&out)
-	f := &Frame{Data: []byte("test PNG payload"), Generation: 1, Width: sDims.InnerWidthPx, Height: sDims.InnerHeightPx}
+	keyboardHandler.snapshotAfter = time.Now()
+	f := &Frame{Data: []byte("test PNG payload"), Generation: 1, Width: sDims.InnerWidthPx, Height: sDims.InnerHeightPx, State: &pb.BrowserState{Generation: 1, Error: "obsolete capture error"}}
 	frames.Publish(f)
 	redraw(s)
 	if out.Len() == 0 {
 		t.Fatal("initial image missing")
+	}
+	if keyboardHandler.state.Error != "" {
+		t.Fatal("cached image replayed obsolete navigation state")
 	}
 	if !bytes.Contains(out.Bytes(), []byte("q=2")) {
 		t.Fatal("Kitty error replies may enter keyboard input")

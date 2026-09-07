@@ -614,13 +614,17 @@ func invalidateGraphics(s tcell.Screen) {
 func redraw(s tcell.Screen) {
 	if f := frames.GetDisplayFrame(); f != nil {
 		latestFrame = f
-		if f.State != nil {
-			keyboardHandler.applyState(f.State)
-		}
-		if f.Generation > keyboardHandler.state.Generation {
-			keyboardHandler.state.Generation = f.Generation
-			keyboardHandler.pointerHeld = 0
-			keyboardHandler.capturePage = false
+		// A reused graphics frame can retain its original capture timestamp.
+		// Fence its metadata without throwing away the reusable image payload.
+		if keyboardHandler.acceptsSnapshot(f.Timestamp) {
+			if f.State != nil {
+				keyboardHandler.applyState(f.State)
+			}
+			if f.Generation > keyboardHandler.state.Generation {
+				keyboardHandler.state.Generation = f.Generation
+				keyboardHandler.pointerHeld = 0
+				keyboardHandler.capturePage = false
+			}
 		}
 	}
 	overlay := keyboardHandler.hasOverlay() || currentDialog != nil
@@ -681,10 +685,13 @@ func runMainLoop(s tcell.Screen) error {
 			case operationResult:
 				keyboardHandler.result(value)
 			case stateUpdate:
+				if !value.started.IsZero() && !keyboardHandler.acceptsSnapshot(value.started) {
+					break
+				}
 				if value.err != nil {
 					keyboardHandler.status = value.err.Error()
 				} else if !keyboardHandler.awaitingNavigation {
-					keyboardHandler.applyState(value.state)
+					keyboardHandler.applySnapshot(value.state, value.started)
 				}
 			case *pb.DialogEvent:
 				receiveDialog(value)

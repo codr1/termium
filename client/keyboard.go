@@ -32,6 +32,7 @@ type KeyboardHandler struct {
 	pendingAddress          string
 	awaitingNavigation      bool
 	pendingNavigation       *pb.NavigationRequest
+	snapshotAfter           time.Time
 	pointerMode             bool
 	tabsMenu                bool
 	pointer                 image.Point
@@ -62,13 +63,14 @@ func (kh *KeyboardHandler) start(ctx context.Context, s tcell.Screen) {
 		tick := time.NewTicker(250 * time.Millisecond)
 		defer tick.Stop()
 		for {
+			started := time.Now()
 			callCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			state, err := kh.grpcClient.GetBrowserState(callCtx, &pb.Empty{})
 			cancel()
 			if ctx.Err() != nil {
 				return
 			}
-			notify(stateUpdate{state, err})
+			notify(stateUpdate{state: state, err: err, started: started})
 			select {
 			case <-ctx.Done():
 				return
@@ -87,6 +89,16 @@ func (kh *KeyboardHandler) input(event *pb.InputEvent) {
 	event.TabId = kh.state.ActiveTabId
 	kh.queue(browserOperation{input: event})
 }
+func (kh *KeyboardHandler) acceptsSnapshot(started time.Time) bool {
+	return !kh.awaitingNavigation && !started.Before(kh.snapshotAfter)
+}
+
+func (kh *KeyboardHandler) applySnapshot(state *pb.BrowserState, started time.Time) {
+	if kh.acceptsSnapshot(started) {
+		kh.applyState(state)
+	}
+}
+
 func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 	if kh.awaitingNavigation || state == nil || state.Generation < kh.state.Generation {
 		return
@@ -122,6 +134,9 @@ func (kh *KeyboardHandler) result(result operationResult) {
 		}
 		kh.awaitingNavigation = false
 		kh.pendingNavigation = nil
+		// Reads begun before this acknowledgement may still carry the previous
+		// navigation's error/loading state even when the document did not change.
+		kh.snapshotAfter = time.Now()
 	}
 	if result.err != nil {
 		kh.staleNotice = false
@@ -232,6 +247,7 @@ func (kh *KeyboardHandler) queueNavigation(request *pb.NavigationRequest) bool {
 	kh.pendingNavigation = request
 	kh.pendingAddress = ""
 	kh.awaitingNavigation = true
+	kh.snapshotAfter = time.Now()
 	return true
 }
 func (kh *KeyboardHandler) navigate(action pb.NavigationAction, address string) {

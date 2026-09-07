@@ -111,7 +111,11 @@ func TestTerminalBrowser(t *testing.T) {
 	write("\x0c" + url + "/hint\r")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/hint" && !s.Loading })
 	waitDisplay("Ready", url+"/hint")
-	write("fs")
+	write("f")
+	// Alphabetic Vimium hints suppress keys while labels are being collected.
+	// Observe the actual label instead of relying on machine speed or sleeps.
+	expectEvent(t, events, "hint-ready:S")
+	write("s")
 	expectEvent(t, events, "hint-click")
 	write("J")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/" && len(s.Tabs) == 2 })

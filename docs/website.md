@@ -1,23 +1,39 @@
-# Termium website and welcome page
+# Website and browser welcome page
 
-The static website lives in `site/`. Its HTML contains the ASCII mark and key legend; `site/assets/mark.svg` is the matching vector icon. There are no external fonts, analytics, animations, or JavaScript dependencies on the website.
+Termium has two separate web experiences:
 
-Preview it locally:
+- The public website at `https://termium.dev/` introduces the product and hosts installation, user, and contributor guides.
+- The browser welcome page at `https://termium.dev/welcome/` contains the ASCII mark, key legend, and home-page settings. It is not linked from the public website or included in its sitemap. It carries `noindex, nofollow` directives.
+
+## Sources and build
+
+`site/index.html` is the product-page template. `scripts/build-website.mjs` adds shared navigation and renders the selected Markdown guides in `docs/` into full HTML pages. Links between published guides become website links; contributor documents outside the published selection link to GitHub. Edit the Markdown to update both repository and website documentation.
+
+`site/welcome/index.html` is the separate browser page. `scripts/build-extensions.mjs` copies its HTML, CSS, and icon into the bundled extension. It does not copy the marketing page or website JavaScript. Both experiences share the ASCII mark and `site/assets/mark.svg`, but have separate layouts and stylesheets.
+
+The public site has no external fonts, analytics, or animations. A small optional script adds copy buttons to shell examples; reading, navigation, and FAQ disclosure work without JavaScript.
 
 ```bash
-python3 -m http.server 8787 --bind 127.0.0.1 --directory site
+npm run build:website
+npm run preview:website
 ```
 
-Open `http://127.0.0.1:8787`. The layout adapts to narrow windows and short terminal viewports. Build the application normally with `npm run build`; the build generates its offline welcome page from the same files.
+Preview at `http://localhost:8787`. The deployable output is `dist/website/`. The root Wrangler configuration points to that directory. Run `npm run test:website` after the server build and browser installation; `npm test` includes all prerequisites and website checks.
 
 ## Cloudflare Pages
 
-The root `wrangler.toml` describes the `termium` Pages project and `site/` output directory. Once the project and Cloudflare credentials are configured, deploy that directory and connect `termium.dev` as the project's custom domain. Website publication and DNS changes are separate from building the application; adding this configuration does not deploy the site.
+Deploy to the `termium` project in the intended Cloudflare account:
 
-Keep `<meta name="termium-welcome" content="1">` in the published HTML. The application checks that marker to avoid opening a registrar's parking page or a generic hosting error. The Pages `_headers` file sets revalidation and a restrictive policy for the static website.
+```bash
+npm run deploy:website
+```
 
-## Offline behavior
+Supply `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` through the environment. Credentials belong outside the repository. The first deployment requires a Pages project; custom-domain setup also requires the domain to be present in the Cloudflare account and its DNS delegation configured.
 
-The bundled welcome page contains a trusted extension bootstrap that provides Vimium support. It checks the official website with a 1.5-second timeout and navigates there only before the user interacts. It never renders fetched HTML or scripts with extension privileges. The deployed website runs as a normal HTTPS page with Vimium's regular content scripts.
+The `_headers` file applies the static site's content security policy and revalidation behavior. The welcome marker belongs only in `site/welcome/index.html`; it prevents an older client from treating the product site or a registrar parking page as its compact home page.
 
-Users can select the bundled page permanently, a blank page, or any HTTP/HTTPS home page. See [home-page settings](getting-started.md#choose-your-home-page). Tests and installation doctor use the bundled page without requesting the public website.
+## Browser behavior
+
+Startup, Home, and new tabs use `https://termium.dev/welcome/` by default. The bundled page checks the hosted page with a 1.5-second timeout and navigates only before the user interacts. Remote HTML never runs in the extension origin. Unavailable, parked, or slow responses leave the local page usable.
+
+Previously saved default URLs at the root of `termium.dev` are treated as the welcome destination for compatibility. Other custom HTTP/HTTPS home pages open directly. `about:termium` chooses the offline page without a network request. See [home-page settings](getting-started.md#choose-your-home-page).

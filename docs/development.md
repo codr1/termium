@@ -16,6 +16,13 @@ The full automated suite has been verified on Linux AMD64 with Node 24.20.0 and 
 
 ## Build, install, and run
 
+The installer, Vimium, and website changes are currently being reviewed on the development preview branch. To try that version before the first release, clone it with:
+
+```bash
+git clone --branch feat/public-website https://github.com/codr1/termium.git
+cd termium
+```
+
 After cloning the repository and installing the toolchain above:
 
 ```bash

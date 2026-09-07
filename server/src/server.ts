@@ -52,7 +52,7 @@ let dialogIdCounter = 0;
 
 // CLI setup with Commander
 program
-    .option('--homepage <url>', 'Startup and new-tab page', 'https://termium.dev/')
+    .option('--homepage <url>', 'Startup and new-tab page', 'https://termium.dev/welcome/')
     .option('-b, --browser <ip:port>', 'Connect to an existing browser instance (ip:port)', '')
     .option('-d, --debug [filename]', 'Enable debug mode (log to stdout or optional file)', '')
     .option('--daemon', 'Run server as a daemon')

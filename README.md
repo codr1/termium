@@ -2,6 +2,8 @@
 
 Browse the web inside your terminal.
 
+[Website](https://termium.dev/) · [User guides](https://termium.dev/docs/) · [Installation](https://termium.dev/docs/installation/)
+
 Termium renders a real Chromium browser in your terminal, with keyboard and mouse interaction. It supports Kitty and sixel graphics, plus a character-based display mode.
 
 ## Install

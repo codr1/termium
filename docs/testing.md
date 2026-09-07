@@ -76,3 +76,7 @@ It installs an actual archive into a fresh home with only bootstrap commands on 
 These checks do not substitute for clean native OS installation tests, macOS distribution/signing checks, or a real graphics-emulator matrix. See [installation](installation.md) for current platform limits.
 
 [Documentation home](README.md)
+
+## Public website
+
+`npm run test:website` builds the static site and runs Chromium checks for all public routes, internal links and anchors, phone/desktop overflow, no-JavaScript navigation, clipboard behavior, and Vimium under the site content security policy. It also checks that the browser welcome page stays out of public links and the sitemap. The full `npm test` runs these checks after preparing the server and browser.

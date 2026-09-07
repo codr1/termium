@@ -8,6 +8,8 @@ import (
 
 type Config struct {
 	InitialURL      string
+	Homepage        string
+	SetHomepage     string
 	Debug           bool
 	ServerAddr      string
 	SplashPath      string
@@ -34,7 +36,9 @@ func parseFlags() (*Config, error) {
 	flag.BoolVar(&cfg.InstallBundle, "install-bundle", false, "Install this verified release bundle for the current user")
 	flag.BoolVar(&cfg.FirstRun, "first-run", false, "Open after installation when attached to a terminal")
 
-	flag.StringVar(&cfg.InitialURL, "url", "about:blank", "Initial HTTP or HTTPS address")
+	flag.StringVar(&cfg.InitialURL, "url", "", "Open an address instead of your home page")
+	flag.StringVar(&cfg.Homepage, "homepage", "", "Home page for this session (URL, about:termium, or about:blank)")
+	flag.StringVar(&cfg.SetHomepage, "set-homepage", "", "Save a home page and exit (URL, default, about:termium, or about:blank)")
 	// Define flags
 	flag.BoolVar(&cfg.Debug, "debug", false, "Enable debug output")
 	flag.StringVar(&cfg.ServerAddr, "tcp", "", "Use TCP connection (default: Unix socket at /tmp/termium.sock, with --tcp defaults to localhost:50051)")
@@ -87,12 +91,27 @@ func parseFlags() (*Config, error) {
 	if flag.NArg() == 1 {
 		cfg.InitialURL = flag.Arg(0)
 	}
-	if cfg.InitialURL != "about:blank" {
+	if cfg.InitialURL != "" && cfg.InitialURL != "about:blank" {
 		address, err := normalizeAddress(cfg.InitialURL)
 		if err != nil {
 			return nil, err
 		}
 		cfg.InitialURL = address
+	}
+
+	if cfg.SetHomepage != "" {
+		value, err := normalizeHomepage(cfg.SetHomepage)
+		if err != nil {
+			return nil, err
+		}
+		cfg.SetHomepage = value
+	}
+	if !cfg.Doctor && !cfg.InstallBundle && cfg.SetHomepage == "" {
+		value, err := resolveHomepage(cfg.Homepage)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Homepage = value
 	}
 
 	// Validate server address format

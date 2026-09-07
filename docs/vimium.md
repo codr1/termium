@@ -28,7 +28,7 @@ These are upstream bindings. Counts such as `3j` are supported. Vimium's search 
 
 The top row shows numbered titles, a highlighted selected tab, close targets, an all-tabs picker **[≡]**, and **[+]**. Click a title to select it. The selected tab stays visible when space is tight; the picker lists every tab. **Ctrl+T** opens a tab and **Ctrl+W** closes the selected tab, including on pages where Vimium cannot run. Menu includes reopening closed tabs.
 
-Each tab keeps its own Chromium page, form contents, scroll position, and history. Background links stay in the background. Only the selected tab is captured for terminal rendering. Closing the last tab opens an offline welcome page. Reopening uses Chromium's session restore; unsaved form recovery is not guaranteed. Tabs and browsing data do not persist after quitting Termium.
+Each tab keeps its own Chromium page, form contents, scroll position, and history. Background links stay in the background. Only the selected tab is captured for terminal rendering. Closing the last tab opens your home page. The default welcome page has a bundled offline copy; [you can save your own home page](getting-started.md#choose-your-home-page). Reopening uses Chromium's session restore; unsaved form recovery is not guaranteed. Tabs and browsing data do not persist after quitting Termium.
 
 ## Mouse and keyboard pointer
 
@@ -36,7 +36,7 @@ Mouse clicks, dragging, scrolling, and OS Mouse Keys continue to work. **F6** to
 
 ## Help and limits
 
-**F1** opens terminal help and **F10** opens Menu. These remain usable on browser-owned pages. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, F1, F5, F6, and F10. A terminal may intercept keys before Termium receives them.
+**F1** opens terminal help and **F10** opens Menu. These remain usable on browser-owned pages. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, Alt+Home, F1, F5, F6, and F10. A terminal may intercept keys before Termium receives them.
 
 Vimium cannot inject into Chromium's protected pages, including `chrome://` pages. Termium shows an unavailable status there; use Ctrl+L or Menu. The bundled welcome page supports Vimium. Native file choosers, host clipboard integration, persistent profiles, and full popup-window behavior are not supported commitments yet. Vimium clipboard commands target Chromium's environment, which may differ from the terminal host over SSH or WSL.
 

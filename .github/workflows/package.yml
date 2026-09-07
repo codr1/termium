@@ -1,7 +1,7 @@
 name: Package
 on:
   pull_request:
-    paths: ['client/**', 'server/**', 'scripts/**', 'proto/**', 'tests/**', 'go.*', 'package*.json', 'third_party/**', '.github/workflows/**']
+    paths: ['client/**', 'server/**', 'scripts/**', 'site/**', 'proto/**', 'tests/**', 'go.*', 'package*.json', 'third_party/**', '.github/workflows/**']
   workflow_dispatch:
   workflow_call:
 permissions:

@@ -19,6 +19,7 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | Graphics regression tests | Palette pixel round-trips, exact Sixel dimensions, allocation limits, output errors, unchanged-frame reuse, overlay restoration, splash/stale-image deletion, bounded pending work, and capture pacing. |
 | Server flow-control tests | Slow captures stay exclusive, writable backpressure pauses production, cancellation prevents late writes, and navigation/watchdog cancellation preserves the input session and releases listeners. |
 | Executable tests | The built binary exits with the expected status and diagnostic for help, version, unknown flags, and invalid renderers. |
+| Home page | Saved-setting precedence, one-off URLs, shared website layout, custom Home/new-tab destinations, parked-site rejection, timeout fallback, user-interaction cancellation, and keeping hosted pages outside extension privileges. |
 | Vimium and tabs | The actual bundled extension produces hints, preserves literal form input, scrolls, opens background links, switches duplicate-URL tabs, closes/restores tabs, rejects stale input, and renders the selected page. |
 | Browser integration | Real gRPC calls produce redirects, Unicode form input, special keys, mouse clicks, and recoverable navigation failures. |
 | Navigation and input | History/redirect state, reload, stopping a stalled navigation and recovering, literal paste, modifiers, held-button dragging, right-click, wheel input, and rejection of stale-document input. |

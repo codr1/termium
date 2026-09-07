@@ -4,25 +4,34 @@ import { Browser, Frame, Page, Realm } from 'puppeteer';
 export class Vimium {
     id = '';
     welcome = '';
+    home = '';
     private installed = false;
     private ready = new WeakSet<Frame>();
-    constructor(private readonly browser: Browser) { }
+    constructor(private readonly browser: Browser, private readonly homepage = 'about:termium') { }
 
     async install() {
         // Explicitly await installation: launch's extension-array path in our
         // pinned Puppeteer can return before the install promises settle.
         this.id = await this.browser.installExtension(path.resolve(__dirname, '../extensions/vimium'));
         this.welcome = `chrome-extension://${this.id}/pages/termium.html`;
-        await this.evaluate(async (welcome: string) => {
+        const builtin = this.homepage === 'about:termium';
+        const hosted = this.homepage === 'https://termium.dev/' || this.homepage === 'https://termium.dev';
+        if (!builtin && !hosted && this.homepage !== 'about:blank') {
+            const url = new URL(this.homepage);
+            if (!['http:', 'https:'].includes(url.protocol)) throw Error('Home page must use HTTP or HTTPS');
+        }
+        this.home = builtin || hosted ? this.welcome : this.homepage;
+        await this.evaluate(async ({ home, website }: {home:string;website:string}) => {
+            await (globalThis as any).chrome.storage.local.set({ termiumWebsite: website });
             const settings = (globalThis as any).Settings;
             await settings.onLoaded();
             for (const [key, value] of Object.entries({
                 smoothScroll: false, hideUpdateNotifications: true,
-                newTabDestination: 'customUrl', newTabCustomUrl: welcome,
+                newTabDestination: 'customUrl', newTabCustomUrl: home,
                 openVomnibarOnNewTabPage: false,
                 userDefinedLinkHintCss: '.vimiumHintMarker { background: #ffe58a !important; border: 1px solid #473a12 !important; box-shadow: none !important; } .vimiumHintMarker span { color: #161616 !important; font-size: 14px !important; font-weight: bold !important; }',
             })) await settings.set(key, value);
-        }, this.welcome);
+        }, { home: this.home, website: hosted ? 'https://termium.dev/' : '' });
         this.installed = true;
     }
 

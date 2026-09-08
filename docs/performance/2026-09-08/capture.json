@@ -1,0 +1,53 @@
+{
+  "platform": "linux/x64",
+  "cpu": "AMD Ryzen 9 9900X3D 12-Core Processor",
+  "chromium": "Chrome/152.0.7977.75",
+  "viewport": [
+    1280,
+    720
+  ],
+  "results": [
+    {
+      "scene": "text",
+      "format": "jpeg",
+      "median_ms": 32.40068900000006,
+      "p95_ms": 34.43796400000019,
+      "bytes": 88741
+    },
+    {
+      "scene": "text",
+      "format": "png",
+      "median_ms": 63.13019600000007,
+      "p95_ms": 68.26314400000001,
+      "bytes": 121766
+    },
+    {
+      "scene": "text",
+      "format": "fast-png",
+      "median_ms": 37.95917200000008,
+      "p95_ms": 51.93494499999997,
+      "bytes": 155513
+    },
+    {
+      "scene": "canvas",
+      "format": "jpeg",
+      "median_ms": 23.2949009999993,
+      "p95_ms": 40.97598199999993,
+      "bytes": 402777
+    },
+    {
+      "scene": "canvas",
+      "format": "png",
+      "median_ms": 150.6662610000003,
+      "p95_ms": 164.47314499999993,
+      "bytes": 2071458
+    },
+    {
+      "scene": "canvas",
+      "format": "fast-png",
+      "median_ms": 59.908416999999645,
+      "p95_ms": 61.32763899999918,
+      "bytes": 2065609
+    }
+  ]
+}

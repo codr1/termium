@@ -20,3 +20,8 @@
   .ascii-mark{font-size:.225rem}
   .eyebrow,.tagline{display:none}
 }
+
+/* Keep right/middle-click hints visible even in the compact terminal layout. */
+dd .mouse-clicks{display:block}
+.mouse-clicks kbd{font:inherit;padding:0;border:0;background:none;min-width:0}
+@media(max-height:460px) and (min-width:441px){.key-grid>div{padding:4px 0}}

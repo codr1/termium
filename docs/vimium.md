@@ -32,7 +32,20 @@ Each tab keeps its own Chromium page, form contents, scroll position, and histor
 
 ## Mouse and mouse keys
 
-Mouse clicks, dragging, scrolling, and OS Mouse Keys continue to work. **F6** toggles Termium's mouse keys; it is a toggle, not a key to hold down. In mouse keys mode, h/j/k/l and arrows move the pointer, Enter clicks, Space holds/releases the left button, and u/d scroll. Escape or F6 leaves mouse keys mode. See [getting started](getting-started.md) for the complete pointer controls.
+Mouse clicks, dragging, scrolling, and OS Mouse Keys continue to work. Press **F6** once to turn on Termium's mouse keys. Arrows or **h/j/k/l** move the pointer; **Shift+arrow** moves faster.
+
+While mouse keys are on:
+
+| Key | Action |
+| --- | --- |
+| Enter | Left-click |
+| r | Right-click |
+| m | Middle-click |
+| Space | Hold the left button; move, then press again to release |
+| u / d | Scroll up / down |
+| Escape or F6 | Leave mouse keys mode |
+
+Leave this mode before typing into a page field. Outside mouse keys mode, webpage and Vimium bindings apply. See the [full mouse keys reference](getting-started.md#mouse-keys).
 
 ## Help and limits
 

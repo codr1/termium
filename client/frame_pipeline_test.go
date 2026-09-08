@@ -117,9 +117,8 @@ func TestImageDamageIndependentOfChromeAndRestoredAfterOverlay(t *testing.T) {
 	latestFrame, displayedFrame, graphicsHidden = nil, nil, false
 	var out bytes.Buffer
 	graphicsOutput = &out
-	kittyWriter.Reset(&out)
 	keyboardHandler.snapshotAfter = time.Now()
-	f := &Frame{Data: []byte("test PNG payload"), Generation: 1, Width: sDims.InnerWidthPx, Height: sDims.InnerHeightPx, State: &pb.BrowserState{Generation: 1, Error: "obsolete capture error"}}
+	f := &Frame{Graphics: []byte("\033_Gq=2;prepared image\033\\"), Generation: 1, Width: sDims.InnerWidthPx, Height: sDims.InnerHeightPx, State: &pb.BrowserState{Generation: 1, Error: "obsolete capture error"}}
 	frames.Publish(f)
 	redraw(s)
 	if out.Len() == 0 {
@@ -178,7 +177,6 @@ func TestInvalidationDeletesKittySplashWithoutBrowserFrame(t *testing.T) {
 	cfg, displayedFrame = &Config{Renderer: "kitty"}, nil
 	var out bytes.Buffer
 	graphicsOutput = &out
-	kittyWriter.Reset(&out)
 	if err := displayWithKittyRGBA(image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
 		t.Fatal(err)
 	}
@@ -210,9 +208,9 @@ type failingWriter struct{ err error }
 
 func (w failingWriter) Write([]byte) (int, error) { return 0, w.err }
 
-func TestSixelOutputCursorAndErrors(t *testing.T) {
+func TestGraphicsOutputCursorAndErrors(t *testing.T) {
 	var out bytes.Buffer
-	if err := writeSixelFrame(&out, []byte("pixels"), 3, 2); err != nil {
+	if err := writeGraphicsFrame(&out, []byte("pixels"), 3, 2); err != nil {
 		t.Fatal(err)
 	}
 	if out.String() != "\033[s\033[3;2Hpixels\033[u" {
@@ -223,7 +221,7 @@ func TestSixelOutputCursorAndErrors(t *testing.T) {
 		if want == nil {
 			want = io.ErrShortWrite
 		}
-		if err := writeSixelFrame(failingWriter{failure}, []byte("pixels"), 3, 2); !errors.Is(err, want) {
+		if err := writeGraphicsFrame(failingWriter{failure}, []byte("pixels"), 3, 2); !errors.Is(err, want) {
 			t.Fatal("write failure lost", err)
 		}
 		encoder := sixel.NewEncoder(failingWriter{failure})
@@ -360,7 +358,7 @@ func TestBandCacheConfirmsHashMatchesWithPixels(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Equal(first.Sixel, second.Sixel) {
+	if bytes.Equal(first.Graphics, second.Graphics) {
 		t.Fatal("hash match concealed changed pixels")
 	}
 }

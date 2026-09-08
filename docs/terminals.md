@@ -32,9 +32,25 @@ Use `--palette adaptive` for image-specific color selection at a higher CPU cost
 
 Screenshots are prepared off the input loop. Unchanged images are not retransmitted, and editing the address or moving the pointer with mouse keys does not resend browser pixels. Capture slows to measured preparation/output throughput and pauses behind menus and dialogs. Terminal output remains serialized; a slow terminal or SSH connection can still stall a write.
 
-For profiling, `--timings` reports preparation time, capture/queue time, image-write time, and frame age on stderr. These are pipeline measurements, not keypress-to-paint measurements.
+The Sixel palette trades color fidelity for speed. Performance depends on page content, window size, and the terminal; there is no guaranteed frame rate.
 
-The tradeoff is color fidelity. Performance depends on page content, window size, and the terminal; there is no guaranteed frame rate.
+## Comparing graphics performance
+
+Both renderers use the same capture scheduler, preparation worker, and terminal writer. Capture defaults differ for a reason: Kitty can consume PNG directly, while Sixel already needs decoded pixels and normally uses faster JPEG capture. JPEG can lower capture time yet increase Kitty’s terminal traffic after decoding and recompression. PNG preserves fine text and original screenshot colors; Sixel still quantizes them to its palette.
+
+In builds supporting `--capture-format` (check `termium --help`), compare the same page and viewport with an explicit source:
+
+```bash
+termium --renderer sixel --capture-format png --timings 2>sixel-timings.log
+termium --renderer kitty --capture-format png --timings 2>kitty-timings.log
+```
+
+Repeat both with `--capture-format jpeg` to compare the other source. Omit the flag, or use `--capture-format auto`, for the normal defaults. Use the same terminal emulator when it supports both protocols; comparing foot with Ghostty also measures differences between those terminals. Keep the browser pixel dimensions equal, as reported in the logs.
+
+`--timings` reports the same fields for both renderers: capture/RPC duration, queue wait, preparation time, source/payload byte counts, image-write duration, and frame age. Preparation includes all graphics encoding and framing. No renderer performs a per-frame disk sync. Redirect stderr to a file; logging still has a cost. A completed write only means the terminal accepted the bytes, not that it painted them. These measurements do not establish visible FPS or keypress-to-paint latency.
+
+See [testing](testing.md#comparing-capture-and-renderer-preparation) for repeatable capture and preparation benchmarks.
+
 
 Automatic selection and graceful fallback are requirements for the [one-command release](plans/one-command-install.md). Normal setup should not require renderer flags.
 

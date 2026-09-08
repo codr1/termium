@@ -2,6 +2,29 @@
 
 Implemented changes are recorded first, followed by historical investigations and ideas. Historical timings describe their original probes, not current performance guarantees.
 
+## Implemented: shared graphics preparation and comparable timings
+
+Recorded 2026-09-08. See [frame preparation](client/frame_pipeline.go), [Kitty encoding](client/kitty_renderer.go), and [benchmark instructions](docs/testing.md#comparing-capture-and-renderer-preparation).
+
+Sixel encoding already ran in the preparation worker, but Kitty’s Base64 encoding and chunk framing ran inside the UI’s display call. Kitty also had separate statistics, extra timing log lines, and a per-frame `stderr.Sync()` when timings were enabled. These differences distorted comparisons and added avoidable work before the UI could handle its next event.
+
+Both protocols now publish complete immutable graphics payloads from the same preparation worker. The same UI-owned writer positions the cursor, writes the payload, and restores it. Terminal writes remain serialized with UI drawing to preserve escape-sequence ordering. The bounded queues, unchanged-image reuse, overlay behavior, and capture pacing remain shared. Kitty-specific statistics and disk sync are removed; common timings split capture/RPC, queue, preparation, and output costs, and report source/payload byte counts and pixel dimensions.
+
+Capture format is independently selectable with `--capture-format jpeg` or `png`, and Chromium uses `optimizeForSpeed`. Defaults stay PNG for Kitty and JPEG for Sixel/ASCII graphics. Forcing a common JPEG default was rejected after measuring the extra Kitty pixel conversion and terminal traffic. Kitty’s PNG path still avoids image decoding/re-encoding; the explicit JPEG comparison path decodes once and sends opaque RGB compressed with zlib, rather than encoding another PNG. Base64 is required by the Kitty protocol and adds roughly one third to the binary payload. Sixel instead requires palette selection and its own band/run-length representation; sharing scheduling does not eliminate those protocol requirements.
+
+### Measurements and limits
+
+On a Linux workstation with an AMD Ryzen 9 9900X3D, at 1280 × 720, the interleaved Chromium capture probe measured these medians (12 samples per format after warmup):
+
+| Fixture | JPEG capture | Normal PNG capture | Fast PNG capture |
+| --- | ---: | ---: | ---: |
+| Text | 32.4 ms | 63.1 ms | 38.0 ms |
+| Seeded canvas stress case | 23.3 ms | 150.7 ms | 59.9 ms |
+
+For the same text capture, Kitty preparation took about 15.9 ms for JPEG → compressed RGB and produced 622,886 terminal bytes. PNG passthrough took about 0.1 ms and produced 208,037 bytes. The canvas JPEG → RGB path took about 19.8 ms and produced 3,698,455 bytes; PNG passthrough took about 1.0 ms and produced 2,762,919 bytes. These are local preparation probes, excluding terminal I/O and paint. They justify preserving passthrough, not a claimed laptop FPS gain. The faster PNG capture setting also increases source PNG sizes, so real-terminal throughput still needs measurement.
+
+Regression tests independently decode Kitty chunks and compressed pixels, check size limits, image replacement, cursor restoration, and payload ownership, and feed identical JPEG pixels to both renderers. Executable integration tests decode actual terminal output and verify source selection. Real Ghostty/foot painting speed, slow-link behavior, and physical display latency remain unmeasured.
+
 ## Implemented: skip redundant browser-image output
 
 Recorded 2026-09-07. See [frame preparation](client/frame_pipeline.go), [presentation](client/main.go), and [regression tests](client/frame_pipeline_test.go).

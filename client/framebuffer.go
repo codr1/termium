@@ -13,8 +13,9 @@ type Frame struct {
 	State         *pb.BrowserState
 	Width, Height int
 	Timestamp     time.Time
+	CapturedAt    time.Time
 	Image         *image.RGBA
-	Sixel         []byte
+	Graphics      []byte // complete renderer payload; cursor placement is added by the UI
 }
 
 // Published frames are immutable. Replacing the pending slot drops obsolete

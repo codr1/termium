@@ -93,7 +93,7 @@ export class BrowserControls {
             if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
             const result = await session.send('Page.captureScreenshot', {
                 format, ...(format === 'jpeg' ? { quality: 60 } : {}),
-                captureBeyondViewport: false, fromSurface: true,
+                captureBeyondViewport: false, fromSurface: true, optimizeForSpeed: true,
             });
             return Buffer.from(result.data, 'base64');
         } catch (error) {

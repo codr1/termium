@@ -130,3 +130,40 @@ func TestParseFlagsSupportedRenderers(t *testing.T) {
 		})
 	}
 }
+
+func TestExplicitCaptureFormatIsIndependentOfRenderer(t *testing.T) {
+	for _, renderer := range []string{"auto", "kitty", "sixel", "tcell"} {
+		for _, format := range []string{"", "auto", "jpeg", "png", "webp"} {
+			t.Run(renderer+"/"+format, func(t *testing.T) {
+				resetFlags(t)
+				os.Args = []string{"termium", "--renderer", renderer}
+				if format != "" {
+					os.Args = append(os.Args, "--capture-format", format)
+				}
+				cfg, err := parseFlags()
+				if format == "webp" {
+					if err == nil {
+						t.Fatal("unsupported capture format accepted")
+					}
+					return
+				}
+				want := format
+				if want == "" {
+					want = "auto"
+				}
+				if err != nil || cfg.CaptureFormat != want {
+					t.Fatalf("renderer selected a different capture source: %v %v", cfg, err)
+				}
+				if want == "auto" {
+					want = "jpeg"
+					if renderer == "kitty" {
+						want = "png"
+					}
+				}
+				if got := cfg.screenshotFormat(); got != want {
+					t.Fatalf("capture %s, want %s", got, want)
+				}
+			})
+		}
+	}
+}

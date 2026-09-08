@@ -1,215 +1,124 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
+	"compress/zlib"
 	"encoding/base64"
 	"fmt"
 	"image"
 	"image/png"
-	"os"
-	"sync"
-	"time"
 )
 
 const (
-	// Max base64 bytes per chunk per Kitty graphics protocol spec
-	kittyChunkSize = 4096
-
-	// Escape sequence fragments — avoid repeated string building
-	kittyAPC    = "\033_G"
-	kittyST     = "\033\\"
-	kittyMore   = "\033_Gm=1,q=2;"
-	kittyFinal  = "\033_Gm=0,q=2;"
-	kittyDelete = "\033_Ga=d,d=I,i=1,q=2\033\\"
+	kittyChunkSize = 4096 // Maximum Base64 bytes per protocol chunk.
+	kittyAPC       = "\033_G"
+	kittyST        = "\033\\"
+	kittyMore      = "\033_Gm=1,q=2;"
+	kittyFinal     = "\033_Gm=0,q=2;"
+	kittyDelete    = "\033_Ga=d,d=I,i=1,q=2\033\\"
+	kittyPlacement = "a=T,i=1,p=1,C=1,q=2"
 )
 
-// kittyStats tracks performance metrics for the Kitty renderer
-type kittyStats struct {
-	mu             sync.Mutex
-	framesRendered uint64
-	totalEncodeNs  int64
-	totalWriteNs   int64
-	totalBytes     int64
-	totalBase64    int64
+// Owned by the preparation worker. Compression scratch may be reused, but the
+// published protocol payload always has its own immutable backing storage.
+type kittyEncoder struct {
+	compressed bytes.Buffer
+	compressor *zlib.Writer
+	row        []byte
 }
 
-var kStats kittyStats
-
-// Reusable buffered writer for stdout — avoids per-chunk syscalls.
-// Sized to hold a typical frame's worth of base64 + escape overhead.
-var kittyWriter = bufio.NewWriterSize(os.Stdout, 4*1024*1024)
-
-// Reusable base64 output buffer — avoids allocation per frame.
-// Protected by the same single-threaded display path (called from displayFrame only).
-var kittyB64Buf []byte
-
-// displayWithKittyPNG sends PNG bytes directly to the terminal using the Kitty
-// graphics protocol (f=100). No image decoding or re-encoding on the client —
-// raw PNG passthrough from server to terminal.
-func displayWithKittyPNG(pngData []byte) error {
-	frameStart := time.Now()
-
-	// Position cursor at the top-left of the usable area (after borders)
-	// Same positioning logic as displayWithSixel
-	fmt.Fprint(kittyWriter, "\033[s")
-	fmt.Fprintf(kittyWriter, "\033[%d;%dH", sDims.ViewTop+1, H_BORDER_WIDTH+1)
-
-	// No explicit delete — transmitting with the same image ID (i=1) and
-	// placement ID (p=1) atomically replaces the previous image. Deleting
-	// first causes a black flash between frames.
-
-	// Base64 encode into reusable buffer
-	encodeStart := time.Now()
-	b64Len := base64.StdEncoding.EncodedLen(len(pngData))
-	if cap(kittyB64Buf) < b64Len {
-		kittyB64Buf = make([]byte, b64Len)
+// JPEG captures have already been decoded for renderer preparation. Send those
+// opaque pixels directly: Kitty supports zlib-compressed RGB, so no PNG encode is needed.
+func (e *kittyEncoder) encodeRGB(img *image.RGBA) ([]byte, error) {
+	if img == nil || img.Bounds().Empty() {
+		return nil, fmt.Errorf("Kitty image is empty")
+	}
+	e.compressed.Reset()
+	writer := boundedFrameWriter{&e.compressed}
+	if e.compressor == nil {
+		var err error
+		e.compressor, err = zlib.NewWriterLevel(writer, zlib.BestSpeed)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		kittyB64Buf = kittyB64Buf[:b64Len]
+		e.compressor.Reset(writer)
 	}
-	base64.StdEncoding.Encode(kittyB64Buf, pngData)
-	encodeTime := time.Since(encodeStart)
-
-	// Write chunked Kitty escape sequences through buffered writer
-	writeStart := time.Now()
-	if err := writeKittyChunked(kittyB64Buf, "f=100,a=T,i=1,p=1,C=1,q=2"); err != nil {
-		return fmt.Errorf("kitty write error: %v", err)
+	bounds := img.Bounds()
+	if cap(e.row) < bounds.Dx()*3 {
+		e.row = make([]byte, bounds.Dx()*3)
 	}
-
-	fmt.Fprint(kittyWriter, "\033[u")
-	// Flush everything to stdout in one shot
-	if err := kittyWriter.Flush(); err != nil {
-		return fmt.Errorf("kitty flush error: %v", err)
-	}
-	writeTime := time.Since(writeStart)
-
-	// Update stats
-	kStats.mu.Lock()
-	kStats.framesRendered++
-	kStats.totalEncodeNs += encodeTime.Nanoseconds()
-	kStats.totalWriteNs += writeTime.Nanoseconds()
-	kStats.totalBytes += int64(len(pngData))
-	kStats.totalBase64 += int64(b64Len)
-	frameNum := kStats.framesRendered
-	kStats.mu.Unlock()
-
-	if cfg.ShowTimings {
-		totalTime := time.Since(frameStart)
-		chunks := (b64Len + kittyChunkSize - 1) / kittyChunkSize
-
-		// Single timing line per frame, consistent with sixel output format
-		fmt.Fprintf(os.Stderr, "  Kitty encode time: %v (PNG=%d bytes, B64=%d bytes, %d chunks, write=%v, total=%v)\n",
-			encodeTime, len(pngData), b64Len, chunks, writeTime, totalTime)
-
-		// Periodic aggregate stats every 30 frames
-		if frameNum%30 == 0 {
-			kStats.mu.Lock()
-			avgEncode := time.Duration(kStats.totalEncodeNs / int64(kStats.framesRendered))
-			avgWrite := time.Duration(kStats.totalWriteNs / int64(kStats.framesRendered))
-			avgBytes := kStats.totalBytes / int64(kStats.framesRendered)
-			kStats.mu.Unlock()
-			fmt.Fprintf(os.Stderr, "  Kitty avg (%d frames): Base64=%v Write=%v PNG=%d bytes/frame\n",
-				frameNum, avgEncode, avgWrite, avgBytes)
+	e.row = e.row[:bounds.Dx()*3]
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		start := img.PixOffset(bounds.Min.X, y)
+		pixels := img.Pix[start : start+bounds.Dx()*4]
+		// JPEG is opaque. Do not transmit an unused alpha byte per pixel.
+		for x := 0; x < bounds.Dx(); x++ {
+			e.row[x*3], e.row[x*3+1], e.row[x*3+2] = pixels[x*4], pixels[x*4+1], pixels[x*4+2]
 		}
-		os.Stderr.Sync()
+		if _, err := e.compressor.Write(e.row); err != nil {
+			_ = e.compressor.Close()
+			return nil, err
+		}
 	}
-
-	Debug(fmt.Sprintf("Kitty frame %d: %d PNG bytes, encode=%v, write=%v",
-		frameNum, len(pngData), encodeTime, writeTime), DEBUG)
-
-	return nil
+	if err := e.compressor.Close(); err != nil {
+		return nil, err
+	}
+	return encodeKittyPayload(e.compressed.Bytes(), fmt.Sprintf("f=24,s=%d,v=%d,o=z,%s", bounds.Dx(), bounds.Dy(), kittyPlacement))
 }
 
-// writeKittyChunked writes base64-encoded image data using the Kitty graphics
-// protocol's chunked transmission. First chunk includes full control data;
-// subsequent chunks only carry the m= continuation flag.
-//
-// All writes go through kittyWriter (buffered) and are flushed by the caller.
-func writeKittyChunked(encoded []byte, controlData string) error {
-	// Helper to write and check — logs on first error per frame
-	var writeErr error
-	w := func(data []byte) {
-		if writeErr != nil {
-			return
-		}
-		_, writeErr = kittyWriter.Write(data)
-	}
-	ws := func(s string) {
-		if writeErr != nil {
-			return
-		}
-		_, writeErr = kittyWriter.WriteString(s)
-	}
-
-	if len(encoded) <= kittyChunkSize {
-		// Single chunk — no chunking needed
-		ws(kittyAPC)
-		ws(controlData)
-		ws(";")
-		w(encoded)
-		ws(kittyST)
-		if writeErr != nil {
-			Debug(fmt.Sprintf("Kitty write error (single chunk): %v", writeErr), ERROR)
-		}
-		return writeErr
-	}
-
-	// First chunk with full control data and m=1 (more coming)
-	ws(kittyAPC)
-	ws(controlData)
-	ws(",m=1;")
-	w(encoded[:kittyChunkSize])
-	ws(kittyST)
-	pos := kittyChunkSize
-
-	// Middle chunks
-	for pos+kittyChunkSize < len(encoded) {
-		ws(kittyMore)
-		w(encoded[pos : pos+kittyChunkSize])
-		ws(kittyST)
-		pos += kittyChunkSize
-	}
-
-	// Final chunk
-	ws(kittyFinal)
-	w(encoded[pos:])
-	ws(kittyST)
-
-	if writeErr != nil {
-		Debug(fmt.Sprintf("Kitty write error at byte %d/%d: %v", pos, len(encoded), writeErr), ERROR)
-	}
-	return writeErr
+// Explicit lossless PNG capture can pass through unchanged. Both this path and
+// RGB complete Base64 encoding and protocol framing before reaching the UI.
+func encodeKittyPNG(data []byte) ([]byte, error) {
+	return encodeKittyPayload(data, "f=100,"+kittyPlacement)
 }
 
-// Reusable PNG encode buffer for the RGBA → PNG → Kitty path (splash screen, etc.)
-var kittyPNGBuf bytes.Buffer
+func encodeKittyPayload(data []byte, control string) ([]byte, error) {
+	encodedSize := base64.StdEncoding.EncodedLen(len(data))
+	chunks := max(1, (encodedSize+kittyChunkSize-1)/kittyChunkSize)
+	// Conservative framing allowance; guard allocation before growing the buffer.
+	size := encodedSize + chunks*(len(kittyMore)+len(kittyST)) + len(control)
+	if size > maxFrameBytes {
+		return nil, fmt.Errorf("Kitty output exceeds 32 MiB; reduce the terminal size")
+	}
+	var output bytes.Buffer
+	output.Grow(size)
+	var chunk [kittyChunkSize]byte
+	const rawChunkSize = kittyChunkSize / 4 * 3
+	for offset := 0; ; offset += rawChunkSize {
+		end := min(offset+rawChunkSize, len(data))
+		more := end < len(data)
+		if offset == 0 {
+			output.WriteString(kittyAPC)
+			output.WriteString(control)
+			if more {
+				output.WriteString(",m=1")
+			}
+			output.WriteByte(';')
+		} else if more {
+			output.WriteString(kittyMore)
+		} else {
+			output.WriteString(kittyFinal)
+		}
+		base64.StdEncoding.Encode(chunk[:], data[offset:end])
+		output.Write(chunk[:base64.StdEncoding.EncodedLen(end-offset)])
+		output.WriteString(kittyST)
+		if !more {
+			return output.Bytes(), nil
+		}
+	}
+}
 
-// displayWithKittyRGBA encodes an RGBA image to PNG and sends it via Kitty.
-// Used for non-streaming paths (splash screen, resize redraws) where we have
-// an in-memory image rather than raw PNG bytes from the server.
+// Splash images are prepared once on the UI owner, outside the browser pipeline.
 func displayWithKittyRGBA(img *image.RGBA) error {
-	kittyPNGBuf.Reset()
-
-	// PNG encode with fastest compression — we're going over a local pipe
-	enc := &png.Encoder{CompressionLevel: png.BestSpeed}
-	if err := enc.Encode(&kittyPNGBuf, img); err != nil {
-		return fmt.Errorf("kitty PNG encode error: %v", err)
+	var data bytes.Buffer
+	encoder := png.Encoder{CompressionLevel: png.BestSpeed}
+	if err := encoder.Encode(&data, img); err != nil {
+		return err
 	}
-
-	return displayWithKittyPNG(kittyPNGBuf.Bytes())
-}
-
-// GetKittyStats returns current Kitty renderer performance stats.
-func GetKittyStats() (framesRendered uint64, avgEncodeTime, avgWriteTime time.Duration, avgPNGBytes int64) {
-	kStats.mu.Lock()
-	defer kStats.mu.Unlock()
-
-	framesRendered = kStats.framesRendered
-	if framesRendered == 0 {
-		return
+	payload, err := encodeKittyPNG(data.Bytes())
+	if err != nil {
+		return err
 	}
-	avgEncodeTime = time.Duration(kStats.totalEncodeNs / int64(framesRendered))
-	avgWriteTime = time.Duration(kStats.totalWriteNs / int64(framesRendered))
-	avgPNGBytes = kStats.totalBytes / int64(framesRendered)
-	return
+	return writeGraphicsFrame(graphicsOutput, payload, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 }

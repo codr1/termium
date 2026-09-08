@@ -24,6 +24,7 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | Browser integration | Real gRPC calls produce redirects, Unicode form input, special keys, mouse clicks, and recoverable navigation failures. |
 | Navigation and input | History/redirect state, reload, stopping a stalled navigation and recovering, literal paste, modifiers, held-button dragging, right-click, wheel input, and rejection of stale-document input. |
 | Terminal integration | The actual client runs in a pseudo-terminal and submits Unicode form input through SGR mouse events and bracketed paste, edits an address, uses Back, resizes during a prompt, submits Unicode prompt text, verifies the new browser viewport, and quits. |
+| Graphics terminal output | The real client runs in a pseudo-terminal with default and explicit capture formats. Tests decode emitted Kitty PNG, compressed RGB, and Sixel back to fixture pixels, verify viewport dimensions and saved source formats, and require clean keyboard exit. |
 | Screenshot integration | PNG and JPEG decode correctly, contain the fixture's background pixels, match viewport dimensions, and can be cancelled and reopened. A committed page can be captured while a stalled subresource prevents the load event. |
 | Dialog integration | Prompt text, empty text, cancellation, and confirmation responses reach the page; closing the dialog stream terminates it. |
 | Process lifecycle | Port conflicts fail startup, missing Chrome produces RPC errors, and SIGINT/SIGTERM shut down with live streams, an unanswered prompt, or a stalled browser launch. Cleanup detects and kills a leaked browser process. |
@@ -55,6 +56,22 @@ go test -tags=integration -race -count=10 -timeout=5m -v ./tests/integration -ru
 ```
 
 `npm test` always rebuilds to avoid passing against stale binaries. The shorter commands assume the relevant generated files and binaries already exist. Integration tests have an explicit build tag, so ordinary `go test ./...` does not launch Chromium. Use `npm test` for the complete automated check.
+
+## Comparing capture and renderer preparation
+
+```bash
+# Generate identical text and image-heavy fixtures with real Chromium:
+npm run benchmark:capture
+
+# Feed those captures into both renderers, reporting CPU time, allocations,
+# and final terminal payload bytes:
+TERMIUM_BENCH_CAPTURE_DIR="$PWD/dist/capture-benchmark" \
+  go test ./client -run '^$' -bench BenchmarkRendererPreparation -benchmem
+```
+
+The capture benchmark interleaves JPEG, normal PNG, and fast PNG at the same viewport, discards warmup captures, and records machine/browser metadata in `dist/capture-benchmark/capture.json`. The preparation benchmark forces full-frame work while retaining encoder scratch. It excludes terminal I/O, unchanged-frame reuse, and the browser capture stage. Do not add the stage times and label that visible FPS: stages overlap, and terminal painting is outside these measurements. The seeded canvas is a stress case, not a representative average webpage. Run benchmarks without race instrumentation or other test workloads.
+
+For actual terminal comparisons, use [the same capture format, page, and viewport](terminals.md#comparing-graphics-performance). Record payload bytes as well as CPU time; reducing one can increase the other.
 
 ## Pull requests and releases
 

@@ -7,3 +7,16 @@
 .ascii-mark{position:relative}.ascii-mark::after{content:">_";position:absolute;left:50%;top:50%;transform:translate(-50%,-55%);font-size:2.8em;line-height:1;font-weight:500;color:var(--accent)}.ascii-mark .mark-prompt{visibility:hidden}
 
 .intro{min-width:0}h1{overflow-wrap:anywhere}
+
+/* Keep the key legend visible in short terminal viewports at the larger type size. */
+@media(max-height:720px) and (min-width:701px){
+  main{padding-top:16px}
+  .hero{margin:14px 0}
+  .section-label{padding-top:14px}
+  .key-grid>div{padding:7px 0}
+}
+@media(max-height:460px) and (min-width:441px){
+  .hero{margin:8px 0}
+  .ascii-mark{font-size:.225rem}
+  .eyebrow,.tagline{display:none}
+}

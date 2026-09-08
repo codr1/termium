@@ -12,6 +12,12 @@ Both protocols now publish complete immutable graphics payloads from the same pr
 
 Capture format is independently selectable with `--capture-format jpeg` or `png`, and Chromium uses `optimizeForSpeed`. Defaults stay PNG for Kitty and JPEG for Sixel/ASCII graphics. Forcing a common JPEG default was rejected after measuring the extra Kitty pixel conversion and terminal traffic. Kitty’s PNG path still avoids image decoding/re-encoding; the explicit JPEG comparison path decodes once and sends opaque RGB compressed with zlib, rather than encoding another PNG. Base64 is required by the Kitty protocol and adds roughly one third to the binary payload. Sixel instead requires palette selection and its own band/run-length representation; sharing scheduling does not eliminate those protocol requirements.
 
+### Local performance priorities
+
+The current performance work assumes the existing Go client, Node/Puppeteer controller, and Chromium stack. Normal sessions communicate over a local Unix socket; external network bandwidth is not a constraint for this investigation. Prioritize input responsiveness, sustained frame delivery, CPU usage, memory/GC costs, and terminal rendering on the weaker laptop.
+
+Screenshot bytes crossing the local RPC boundary and graphics bytes written to the terminal are different measurements. Larger buffers can increase copying, allocation, encoding, terminal parsing, and blocked-write costs even on one machine. Record their sizes to explain those costs, but do not treat smaller payloads as the objective or infer that the socket/PTY is saturated. Prefer less CPU work and better latency when larger local transfers are harmless. The current timings combine capture and RPC duration; they do not isolate IPC overhead.
+
 ### Measurements and limits
 
 On a Linux workstation with an AMD Ryzen 9 9900X3D, at 1280 × 720, the interleaved Chromium capture probe measured these medians (12 samples per format after warmup):
@@ -21,9 +27,36 @@ On a Linux workstation with an AMD Ryzen 9 9900X3D, at 1280 × 720, the interlea
 | Text | 32.4 ms | 63.1 ms | 38.0 ms |
 | Seeded canvas stress case | 23.3 ms | 150.7 ms | 59.9 ms |
 
-For the same text capture, Kitty preparation took about 15.9 ms for JPEG → compressed RGB and produced 622,886 terminal bytes. PNG passthrough took about 0.1 ms and produced 208,037 bytes. The canvas JPEG → RGB path took about 19.8 ms and produced 3,698,455 bytes; PNG passthrough took about 1.0 ms and produced 2,762,919 bytes. These are local preparation probes, excluding terminal I/O and paint. They justify preserving passthrough, not a claimed laptop FPS gain. The faster PNG capture setting also increases source PNG sizes, so real-terminal throughput still needs measurement.
+The corresponding full-frame preparation benchmark used the same saved captures for both renderers, without race instrumentation. These are mean times per operation from one benchmark run, not latency percentiles. Sixel used the websafe palette. Payload sizes include protocol framing, excluding the cursor-position wrapper.
 
-Regression tests independently decode Kitty chunks and compressed pixels, check size limits, image replacement, cursor restoration, and payload ownership, and feed identical JPEG pixels to both renderers. Executable integration tests decode actual terminal output and verify source selection. Real Ghostty/foot painting speed, slow-link behavior, and physical display latency remain unmeasured.
+| Fixture | Source | Renderer | Preparation | Payload bytes | Allocations/frame |
+| --- | --- | --- | ---: | ---: | ---: |
+| Text | JPEG | Kitty | 15.89 ms | 622,886 | 26 |
+| Text | JPEG | Sixel | 17.73 ms | 286,574 | 191,133 |
+| Text | Fast PNG | Kitty | 0.094 ms | 208,037 | 7 |
+| Text | Fast PNG | Sixel | 13.66 ms | 135,928 | 69,761 |
+| Seeded canvas | JPEG | Kitty | 19.80 ms | 3,698,455 | 23 |
+| Seeded canvas | JPEG | Sixel | 61.03 ms | 3,049,533 | 1,421,750 |
+| Seeded canvas | Fast PNG | Kitty | 1.01 ms | 2,762,919 | 7 |
+| Seeded canvas | Fast PNG | Sixel | 78.88 ms | 4,065,450 | 1,735,393 |
+
+Preserved evidence: [capture results and machine/browser metadata](docs/performance/2026-09-08/capture.json), [preparation output including allocated bytes](docs/performance/2026-09-08/preparation.txt), and [commands and source revision](docs/performance/2026-09-08/metadata.json). Fixture generation lives in `scripts/benchmark-capture.mjs`; original screenshot files are not archived. Future runs should retain their captures as well as their measurements.
+
+The rationale for PNG passthrough is primarily avoiding client decode/recompression work and preserving screenshot quality. Its smaller output in these fixtures is additional evidence, not a network-bandwidth requirement. Fast PNG reduced measured capture time relative to normal PNG, with larger text captures. JPEG remains useful for Sixel, especially in the canvas stress case. These findings support the current defaults as a baseline; only a full local performance run can settle the best settings for a particular machine and terminal.
+
+The Sixel allocation counts warrant profiling to locate allocation and GC costs. The counts alone do not establish that GC is the bottleneck. These measurements exclude terminal I/O and paint, so they establish neither a laptop FPS gain nor an inherent protocol ranking. Capture and preparation overlap; adding their times and taking the reciprocal would not measure application FPS.
+
+An informal laptop comparison found Sixel in foot felt faster than Kitty graphics in Ghostty. That observation is the trigger for the investigation, not a controlled benchmark. No end-to-end CPU profile, per-stage IPC attribution, physical paint measurement, or sustained laptop run has been recorded here yet.
+
+Regression tests independently decode Kitty chunks and compressed pixels, check size limits, image replacement, cursor restoration, and payload ownership, and feed identical JPEG pixels to both renderers. Executable integration tests decode actual terminal output and verify source selection. These correctness tests do not measure real Ghostty/foot painting speed or physical display latency. The planned run focuses on local sessions; remote-link tuning is outside its scope.
+
+## Planned: full profiling run on the current stack
+
+Status: planned, not executed. Use the [profiling procedure and metrics](docs/testing.md#full-local-performance-run-planned) and the [available switches](docs/terminals.md#performance-and-profiling-switches). Keep measured findings above separate from future hypotheses.
+
+The next run will compare normal defaults and matched PNG/JPEG sources at equal browser pixel dimensions, starting on the weaker laptop. It will exercise idle pages, local UI-only changes, scrolling/text, image-heavy content, and bounded animation. Attribute time and CPU across Chromium capture, Node/CDP handling, local RPC, Go preparation/GC, terminal writes, and terminal paint. Measure input latency and long-frame tails as well as sustained delivery. Record the current 24 FPS ceiling and adaptive pacing so intentional waiting is not reported as a renderer bottleneck.
+
+Keep the current stack and defaults as the baseline. Change one setting at a time and retain a change only when repeatable measurements show a benefit without losing acceptable image quality, navigation behavior, or terminal correctness.
 
 ## Implemented: skip redundant browser-image output
 

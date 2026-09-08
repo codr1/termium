@@ -49,8 +49,36 @@ Repeat both with `--capture-format jpeg` to compare the other source. Omit the f
 
 `--timings` reports the same fields for both renderers: capture/RPC duration, queue wait, preparation time, source/payload byte counts, image-write duration, and frame age. Preparation includes all graphics encoding and framing. No renderer performs a per-frame disk sync. Redirect stderr to a file; logging still has a cost. A completed write only means the terminal accepted the bytes, not that it painted them. These measurements do not establish visible FPS or keypress-to-paint latency.
 
-See [testing](testing.md#comparing-capture-and-renderer-preparation) for repeatable capture and preparation benchmarks.
+Normal use is local: network bandwidth is not the target of these comparisons. Byte counts help explain CPU, copying, and terminal processing costs; larger payloads are acceptable when they improve responsiveness. Current logs do not establish that local transport is a bottleneck.
 
+## Performance and profiling switches
+
+All of these are optional. Run `termium --help` to check which switches your installed build supports.
+
+| Switch | What to try | Scope or cost |
+| --- | --- | --- |
+| `--renderer auto\|kitty\|sixel\|tcell` | Select automatic graphics, Kitty, Sixel, or ASCII graphics. | Default: `auto`. Comparing different terminals also measures their implementation differences. |
+| `--capture-format auto\|png\|jpeg` | Compare source image encoding independently of the renderer. | Default: `auto` selects PNG for Kitty and JPEG otherwise. PNG is lossless; JPEG can reduce capture work but adds decode/recompression work for Kitty. |
+| `--palette websafe\|plan9\|adaptive` | Compare fixed palettes with image-specific color selection. | Sixel only; default: `websafe`. Adaptive selection costs more CPU. |
+| `--timings` | Record capture/RPC, queue, preparation, write, byte-count, and frame-age diagnostics. | Writes stderr; redirect it to a file. Logging adds overhead and does not measure screen paint. |
+| `--cpuprofile client.prof` | Record a Go client CPU profile. | Covers the client, not Node, Chromium, or the terminal. Profiling adds overhead. |
+| `--trace client.trace` | Record a Go execution trace for scheduling, blocking, and GC investigation. | Client only. Prefer a separate run from CPU profiling and ordinary timing comparisons. |
+| `--splash NONE` | Skip the splash when repeating a scenario. | Keep startup measurements separate from steady browsing. |
+| `--save-screenshots` | Save captured source images to inspect quality and dimensions. | Writes files in the working directory; use a separate diagnostic run, not a performance baseline. |
+
+For example, run these separately, navigate through the same scenario, then quit normally with `Ctrl+Q` and confirm to finish each recording:
+
+```bash
+termium --renderer sixel --capture-format jpeg --palette websafe --splash NONE --timings 2>sixel-timings.log
+termium --renderer kitty --capture-format png --splash NONE --cpuprofile kitty.prof
+termium --renderer kitty --capture-format png --splash NONE --trace kitty.trace
+```
+
+Contributors with Go installed can inspect the recordings using `go tool pprof -top kitty.prof` and `go tool trace kitty.trace`. Rebuild the development client with `npm run build:client` after `npm test` before profiling: the test suite leaves a race-instrumented binary. Use `./client/termium` for that checkout; the installed `termium` command is a separate copy.
+
+JPEG quality, Chromium's fast-encoding setting, and the 24 FPS ceiling are implementation settings, not user-facing switches. There is currently no CLI control for FPS, JPEG quality, compression level, or resolution; resize the terminal and check logged browser pixel dimensions for size comparisons. Adaptive pacing may run below the ceiling.
+
+See [testing](testing.md#comparing-capture-and-renderer-preparation) for repeatable benchmarks and [the planned full local run](testing.md#full-local-performance-run-planned).
 
 Automatic selection and graceful fallback are requirements for the [one-command release](plans/one-command-install.md). Normal setup should not require renderer flags.
 

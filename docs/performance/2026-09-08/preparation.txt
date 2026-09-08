@@ -1,0 +1,14 @@
+goos: linux
+goarch: amd64
+pkg: termium/client
+cpu: AMD Ryzen 9 9900X3D 12-Core Processor          
+BenchmarkRendererPreparation/text/jpeg.jpg/kitty-24         	      34	  15886567 ns/op	    622886 payload-B	 5806253 B/op	      26 allocs/op
+BenchmarkRendererPreparation/text/jpeg.jpg/sixel-24         	      30	  17733822 ns/op	    286574 payload-B	 8082766 B/op	  191133 allocs/op
+BenchmarkRendererPreparation/text/fast-png.png/kitty-24     	    6339	     94182 ns/op	    208037 payload-B	  218418 B/op	       7 allocs/op
+BenchmarkRendererPreparation/text/fast-png.png/sixel-24     	      37	  13656582 ns/op	    135928 payload-B	 9616021 B/op	   69761 allocs/op
+BenchmarkRendererPreparation/canvas/jpeg.jpg/kitty-24       	      30	  19804770 ns/op	   3698455 payload-B	 9164007 B/op	      23 allocs/op
+BenchmarkRendererPreparation/canvas/jpeg.jpg/sixel-24       	       9	  61034167 ns/op	   3049533 payload-B	23039435 B/op	 1421750 allocs/op
+BenchmarkRendererPreparation/canvas/fast-png.png/kitty-24   	     568	   1010480 ns/op	   2762919 payload-B	 2774329 B/op	       7 allocs/op
+BenchmarkRendererPreparation/canvas/fast-png.png/sixel-24   	       7	  78875369 ns/op	   4065450 payload-B	31744330 B/op	 1735393 allocs/op
+PASS
+ok  	termium/client	5.298s

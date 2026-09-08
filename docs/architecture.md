@@ -38,7 +38,7 @@ The legacy screenshot stream remains available and stops capture after `write(fa
 
 Sixel bands are six pixels high. Caching at that granularity follows the image format, but effectiveness depends on page changes, palette selection, and viewport size. Earlier README timing figures were not a cross-platform benchmark and should not be used as release guarantees.
 
-`OPTIMUS.md` contains historical performance investigations, including items that may already be implemented. Confirm its suggestions against the current code before treating them as active tasks.
+[OPTIMUS](../OPTIMUS.md) records current performance measurements and rationale first, followed by the planned local profiling run and historical investigations. See [testing](testing.md#full-local-performance-run-planned) for the run procedure and [terminal support](terminals.md#performance-and-profiling-switches) for experiment switches. Historical suggestions may already be implemented; keep them separate from the current plan.
 
 ## Process and transport lifecycle
 

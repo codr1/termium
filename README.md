@@ -4,17 +4,17 @@ Browse the web inside your terminal.
 
 [Website](https://termium.dev/) · [Quickstart](https://termium.dev/docs/quickstart/) · [User guides](https://termium.dev/docs/) · [Installation](https://termium.dev/docs/installation/)
 
-Termium renders a real Chromium browser in your terminal, with keyboard and mouse interaction. It supports Kitty and sixel graphics, plus a character-based display mode.
+Termium renders a real Chromium browser in your terminal, with keyboard and mouse interaction. It supports Kitty and sixel graphics, plus an automatic ASCII graphics fallback.
 
 ## Quickstart
 
 Paste this into your terminal on Linux x86-64 or macOS (Apple Silicon or Intel):
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
+curl -fsSL https://termium.dev/install | bash
 ```
 
-Setup downloads Termium, Chromium, and Vimium, verifies them, and opens the browser. No Node, Go, browser installation, or sudo required. The permanent `termium` command works from any directory.
+Setup downloads Termium, Chromium, and Vimium, verifies them, and opens the browser. No Node, Go, browser installation, or sudo required. In new terminals, the `termium` command works from any directory.
 
 This is an early release. Linux requires glibc and working Chromium sandbox support; the installer checks compatibility; native Windows and Linux ARM64 packages are not available yet.
 

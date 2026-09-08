@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -47,7 +48,7 @@ func TestPackagedInstallation(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, tool := range []string{"bash", "uname", "getconf", "awk", "tar", "gzip", "mktemp", "rm", "mkdir", "sha256sum", "shasum"} {
+	for _, tool := range []string{"bash", "cat", "uname", "getconf", "awk", "tar", "gzip", "mktemp", "rm", "mkdir", "sha256sum", "shasum"} {
 		if command, err := exec.LookPath(tool); err == nil {
 			if err := os.Symlink(command, filepath.Join(tools, tool)); err != nil {
 				t.Fatal(err)
@@ -100,7 +101,16 @@ func TestPackagedInstallation(t *testing.T) {
 		_, _ = w.Write([]byte(`<body style="background:lime">Installed Termium works</body>`))
 	}))
 	defer fixture.Close()
-	cmd = exec.Command(bin, "--renderer", "tcell", fixture.URL)
+	cmd = exec.Command(bin, "--set-homepage", fixture.URL)
+	cmd.Env, cmd.Dir = env, base
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("set fixture home page: %v\n%s", err, output)
+	}
+	// Exercise the public pipe-and-launch boundary with the real release.
+	// Auto renderer selection must fall back when the PTY has no graphics.
+	cmd = exec.Command(filepath.Join(tools, "bash"), "-o", "pipefail", "-c",
+		`cat "$1" | bash -s -- --archive "$2" --checksum "$3"`, "install-test",
+		filepath.Join(root, "scripts/install.sh"), archive, digest)
 	cmd.Env, cmd.Dir = env, base
 	terminal, err := pty.StartWithSize(cmd, &pty.Winsize{Rows: 24, Cols: 80})
 	if err != nil {
@@ -112,7 +122,8 @@ func TestPackagedInstallation(t *testing.T) {
 	defer func() {
 		terminal.Close()
 		if !waited {
-			_ = cmd.Process.Kill()
+			// The PTY session includes the piped installer and launched app.
+			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 			<-done
 		}
 	}()
@@ -128,7 +139,7 @@ func TestPackagedInstallation(t *testing.T) {
 		waited = true
 		output, _ := os.ReadFile(log.Name())
 		t.Fatalf("installed app exited early: %v\n%s", err, output)
-	case <-time.After(20 * time.Second):
+	case <-time.After(60 * time.Second):
 		t.Fatal("installed app never reached the fixture")
 	}
 	if _, err := terminal.Write([]byte{'\x11', '\r'}); err != nil {

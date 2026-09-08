@@ -67,8 +67,8 @@ test('pages fit phone and desktop widths and work without JavaScript', { timeout
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  const pages = ['/', '/docs/', ...fs.readdirSync(path.join(root, 'docs'), { withFileTypes: true }).filter(e => e.isDirectory()).map(e => `/docs/${e.name}/`)];
-  for (const route of pages) for (const width of [320, 390, 768, 1280]) {
+  const pages = ['/', '/welcome/', '/docs/', ...fs.readdirSync(path.join(root, 'docs'), { withFileTypes: true }).filter(e => e.isDirectory()).map(e => `/docs/${e.name}/`)];
+  for (const route of pages) for (const width of [320, 390, 580, 768, 900, 1280]) {
     await page.setViewport({ width, height: 800 });
     await page.goto(origin + route);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `Overflow at ${width}px on ${route}`);
@@ -118,9 +118,7 @@ test('public setup serves the bootstrap and copies the same one-line command eve
   await page.goto(origin + '/');
   const command = await page.$eval('.install-command code', e => e.textContent);
   assert.equal(command.split('\n').length, 1);
-  assert.match(command, /https:\/\/termium\.dev\/install/);
-  assert.match(command, /pipefail/);
-  assert.ok(command.endsWith('--first-run'));
+  assert.equal(command, 'curl -fsSL https://termium.dev/install | bash');
   await page.click('.install-command .copy-button');
   await page.waitForFunction(() => document.querySelector('.install-command .copy-button').textContent === 'Copied');
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), command);

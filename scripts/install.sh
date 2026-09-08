@@ -1,6 +1,8 @@
 #!/bin/bash
 # Bootstrap only: downloads and verifies the native app. The verified
 # Go binary owns validation, activation, locking, and shell integration.
+# Parse the complete function before running any installation steps when piped.
+main() {
 set -euo pipefail
 
 fail() { printf 'termium: %s\n' "$*" >&2; exit 1; }
@@ -8,12 +10,14 @@ info() { printf '→ %s\n' "$*" >&2; }
 archive=''
 checksum=''
 version='latest'
+launch=1
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --archive) [ "$#" -ge 2 ] || fail '--archive needs a file'; archive=$2; shift 2 ;;
         --checksum) [ "$#" -ge 2 ] || fail '--checksum needs a SHA-256'; checksum=$2; shift 2 ;;
         --version) [ "$#" -ge 2 ] || fail '--version needs a release tag'; version=$2; shift 2 ;;
-        --help) printf '%s\n' 'Install Termium: bash install.sh [--version TAG]' 'Local release: bash install.sh --archive FILE --checksum SHA256'; exit 0 ;;
+        --no-launch) launch=0; shift ;;
+        --help) printf '%s\n' 'Install Termium: bash install.sh [--version TAG] [--no-launch]' 'Local release: bash install.sh --archive FILE --checksum SHA256' 'Opens Termium after setup when attached to a terminal, unless --no-launch is given.'; exit 0 ;;
         *) fail "Unknown argument: $1" ;;
     esac
 done
@@ -65,4 +69,15 @@ if ! awk '/^\// { exit 1 } { n=split($0,a,"/"); for(i=1;i<=n;i++) if(a[i]=="..")
 mkdir "$work/app"
 tar xzf "$archive" -C "$work/app"
 [ -x "$work/app/bin/termium" ] || fail 'Release does not contain an executable Termium client.'
-TERMIUM_INSTALL_SHA256="$checksum" "$work/app/bin/termium" --install-bundle
+TERMIUM_INSTALL_SHA256="$checksum" "$work/app/bin/termium" --install-bundle </dev/null
+# The script arrives on stdin; the browser needs the user's actual keyboard.
+# Never open the UI for redirected output or without a controlling terminal.
+rm -rf -- "$work"
+trap - EXIT INT TERM
+if [ "$launch" -eq 1 ] && [ -t 1 ] && { true </dev/tty; } 2>/dev/null; then
+    info 'Opening Termium. In new terminals, run termium from any directory.'
+    exec "$HOME/.local/bin/termium" --first-run </dev/tty
+fi
+}
+
+main "$@"

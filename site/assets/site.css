@@ -159,3 +159,5 @@ summary { cursor: pointer; font-size: 0.9375rem; font-weight: 500; }
 
 .github-cta { display: inline-flex; align-items: center; gap: 8px; }
 .github-icon { flex: 0 0 16px; width: 16px; height: 16px; }
+
+.mouse-keys-panel { margin-top: 48px; padding-top: 36px; border-top: 1px solid #304051; }

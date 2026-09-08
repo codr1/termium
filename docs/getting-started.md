@@ -73,7 +73,7 @@ Use your terminal's paste command. Bracketed paste inserts literal text; pasted 
 
 ## Mouse keys
 
-Press **F6** or choose **Menu → Mouse keys**. A visible cursor and bottom-row instructions indicate this explicit mode.
+Press **F6** or choose **Menu → Mouse keys**. A visible cursor and bottom-row instructions indicate this explicit mode. To right-click, move the pointer with arrows or **h/j/k/l**, then press **r**. The bindings below apply while mouse keys are on.
 
 | Key | Action |
 | --- | --- |
@@ -81,7 +81,8 @@ Press **F6** or choose **Menu → Mouse keys**. A visible cursor and bottom-row 
 | Shift+arrow | Move five cells |
 | Enter | Left-click |
 | Space | Hold/release the left button for dragging |
-| r / m | Right-click / middle-click |
+| r | Right-click |
+| m | Middle-click |
 | u / d | Scroll up / down |
 | Page Up / Page Down | Scroll approximately half a viewport |
 | Escape or F6 | Leave mouse keys mode and release held buttons |

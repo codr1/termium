@@ -5,7 +5,7 @@ From your terminal to your first page in one command. Linux x86-64 and macOS App
 ## Install and open
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
+curl -fsSL https://termium.dev/install | bash
 ```
 
 Setup supplies the private runtime, downloads and verifies Chromium and Vimium, configures your shell, and opens Termium. No development tools, separate browser installation, or sudo required. The installer checks platform compatibility before activation; see [installation](installation.md) for requirements and troubleshooting.
@@ -22,9 +22,11 @@ Setup supplies the private runtime, downloads and verifies Chromium and Vimium, 
 
 The top bar also has tabs, Back, Forward, Reload, an address field, and Menu. Mouse clicks, dragging, and scrolling work alongside keyboard navigation.
 
+Kitty or sixel graphics are selected automatically, with an ASCII graphics fallback when neither is available. To try the fallback explicitly, use `termium --renderer tcell` in a new terminal.
+
 ## Come back anytime
 
-Run this from any directory:
+In a new terminal, run this from any directory:
 
 ```bash
 termium example.com

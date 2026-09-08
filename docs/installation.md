@@ -3,24 +3,24 @@
 Paste this one line into bash, zsh, or fish on Linux x86-64 or macOS:
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
+curl -fsSL https://termium.dev/install | bash
 ```
 
-Setup installs the private runtime, downloads verified Chromium and Vimium, checks browser startup, and opens Termium. It also makes `termium` available in your current shell and future terminals. No development tools, manual browser installation, or sudo required.
+Setup installs the private runtime, downloads verified Chromium and Vimium, checks browser startup, and opens Termium. It also makes `termium` available in new terminals. No development tools, manual browser installation, or sudo required.
 
 This is an early release. Check the [platform requirements](#platforms-and-limits) below. [Release notes and native archives](https://github.com/codr1/termium/releases) are on GitHub.
 
 For unattended installation without opening the browser:
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash'
+bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash -s -- --no-launch'
 ```
 
 To inspect the installer before running it, download it from `https://termium.dev/install`; its source is [scripts/install.sh](../scripts/install.sh).
 
 ## Run it
 
-After installation, run this from any directory:
+In a new terminal after installation, run this from any directory:
 
 ```bash
 termium
@@ -40,7 +40,7 @@ npm run install:local
 
 This is a source-build command for contributors. A release recipient needs no Node, npm, Go, protoc, or Chromium: the installer supplies those runtime dependencies automatically. The platform archive includes Node and the Linux browser libraries/fonts; Chromium and Vimium download during installation. Subsequent launches use the installed copy, independent of the checkout or current directory.
 
-The installer puts the command at `~/.local/bin/termium` and sets up bash, zsh, and fish. Open a new terminal after running the contributor command if your current shell did not already have `~/.local/bin` on PATH. The public one-line command above activates PATH in the original shell and launches the application.
+The installer puts the command at `~/.local/bin/termium` and sets up bash, zsh, and fish. Open a new terminal after running the contributor command if your current shell did not already have `~/.local/bin` on PATH. The public installer opens the application immediately using the stable launcher. It cannot change an already-open shell’s PATH; if `termium` is not found there, use `~/.local/bin/termium` or open a new terminal.
 
 ## What setup does
 
@@ -51,6 +51,7 @@ The installer puts the command at `~/.local/bin/termium` and sets up bash, zsh, 
 - Completes browser and Vimium checks before activating the installation. Download, extraction, or validation failure preserves the previous working version.
 - Starts a disposable browser, verifies input and screenshots, and checks Linux sandbox diagnostics before activation. Setup never disables the sandbox or requests sudo.
 - Installs a versioned application and atomically switches the stable command to it.
+- Opens Termium with real terminal input after setup. Piped or redirected output skips launch; `--no-launch` also suppresses it.
 - Preserves existing shell configuration and avoids duplicate setup blocks. It refuses to overwrite an unrelated `termium` command.
 
 Each normal launch uses a private Unix socket and a separate temporary Chromium profile. Browsing sessions are not persisted between launches yet.

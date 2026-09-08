@@ -10,7 +10,7 @@ For an existing working installation:
 termium
 ```
 
-After [installation](installation.md), `termium` works from any directory. Termium opens its welcome page with an ASCII browser logo, navigation keys, and links to the project. The tab and navigation bars stay at the top. To open a particular page immediately:
+In a new terminal after [installation](installation.md), `termium` works from any directory. Termium opens its welcome page with an ASCII browser logo, navigation keys, and links to the project. The tab and navigation bars stay at the top. To open a particular page immediately:
 
 ```bash
 termium example.com
@@ -100,7 +100,7 @@ Press **Ctrl+Q** or choose **Menu → Quit**. Press Enter/Y or click Quit to exi
 
 ## Display options
 
-Automatic selection probes for Kitty and sixel support with bounded timeouts, then falls back to character display. Manual overrides are available:
+Automatic selection probes for Kitty and sixel support with bounded timeouts, then falls back to ASCII graphics. Manual overrides are available:
 
 ```bash
 termium --renderer kitty
@@ -108,6 +108,6 @@ termium --renderer sixel
 termium --renderer tcell
 ```
 
-Run one of these alternatives. Character display approximates the screenshot using colored blocks; it is not a readable-text browser mode. See [terminal support](terminals.md). Run `termium --help` for all options. A splash appears only when explicitly requested with `--splash path/to/image.jpg`.
+Run one of these alternatives. ASCII graphics approximate the screenshot using colored blocks; it is not a readable-text browser mode. See [terminal support](terminals.md). Run `termium --help` for all options. A splash appears only when explicitly requested with `--splash path/to/image.jpg`.
 
 [Documentation home](README.md)

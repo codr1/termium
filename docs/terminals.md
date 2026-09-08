@@ -8,11 +8,11 @@ Termium displays browser screenshots inside the terminal. Image quality and resp
 | --- | --- | --- |
 | Kitty graphics | Terminals implementing the Kitty graphics protocol, including Kitty and Ghostty | `termium --renderer kitty` |
 | Sixel graphics | Terminals configured to support sixel, including compatible xterm builds | `termium --renderer sixel` |
-| Character display | Displays the screenshot with character blocks; useful when graphics are unavailable | `termium --renderer tcell` |
+| ASCII graphics | Displays the screenshot with character blocks; useful when graphics are unavailable | `termium --renderer tcell` |
 
-Character display is an image approximation, not a text or accessibility view of the webpage. Small text may be difficult to read.
+ASCII graphics approximate the screenshot using colored blocks. This is not a text or accessibility view of the webpage. Small text may be difficult to read.
 
-The default is `auto`: bounded probes check Kitty support and sixel device attributes, then fall back to character display. Character mode skips graphics calibration entirely. If graphics do not appear, use a manual override. Menus and dialogs temporarily pause graphics output to keep local controls visible.
+The default is `auto`: bounded probes check Kitty support and sixel device attributes, then fall back to ASCII graphics. ASCII mode skips graphics calibration entirely. If graphics do not appear, use a manual override. Menus and dialogs temporarily pause graphics output to keep local controls visible.
 
 ## Compatibility status
 

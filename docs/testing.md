@@ -73,7 +73,7 @@ npm run build:bundle
 npm run test:installation
 ```
 
-It installs an actual archive into a fresh home with only bootstrap commands on PATH, rejects an incorrect checksum, repeats installation, checks command discovery in a new shell, runs the bundled browser, and opens a local page through the installed client in a PTY. Unit tests cover failed upgrades, active sessions, concurrent installers, foreign commands, read-only profiles, escaping symlinks, and paths containing spaces and quotes.
+It installs an actual archive into a fresh home with only bootstrap commands on PATH, rejects an incorrect checksum, repeats installation, checks command discovery in a new shell, and launches the installed client directly from the piped installer in a PTY. The real browser opens a local page using automatic renderer selection and quits from keyboard input. Focused bootstrap tests cover terminal attachment, redirected output, `--no-launch`, failed validation, and truncated installer downloads. Unit tests cover failed upgrades, active sessions, concurrent installers, foreign commands, read-only profiles, escaping symlinks, and paths containing spaces and quotes.
 
 These checks do not substitute for clean native OS installation tests, macOS distribution/signing checks, or a real graphics-emulator matrix. See [installation](installation.md) for current platform limits.
 

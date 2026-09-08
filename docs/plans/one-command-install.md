@@ -8,13 +8,13 @@ One pasted command must take a user on a supported Linux or macOS system from no
 
 The reference is the familiar shell-installer entry point demonstrated by [Claude Code's native installation](https://code.claude.com/docs/en/quickstart). This requirement concerns Termium setup; browsing a site still involves normal user interaction.
 
-The entry point below is ready for release testing against the new installer and `--first-run` option. It must not be advertised as a live public install until matching release artifacts are published:
+The public entry point installs dependencies and opens the browser in one step:
 
 ```bash
-bash -o pipefail -c 'curl -fsSL https://termium.dev/install | bash' && export PATH="$HOME/.local/bin:$PATH" && "$HOME/.local/bin/termium" --first-run
+curl -fsSL https://termium.dev/install | bash
 ```
 
-The project-owned endpoint serves the checked-in installer verbatim. The command remains one pasted line: dependency setup, parent-shell PATH activation, and launch all happen without another user step. The shell tail is required; shortening this to a bare pipe would break repeat launches in the original shell.
+The project-owned endpoint serves the checked-in installer verbatim. Setup persists shell integration and opens the installed launcher with input from the controlling terminal. New terminals discover `termium` automatically; the installer cannot change the original shell’s PATH.
 
 ## Installer responsibilities
 
@@ -26,15 +26,13 @@ The project-owned endpoint serves the checked-in installer verbatim. The command
 6. Install as the current user, in a writable location, without sudo or modifications to a system Node/browser installation.
 7. Install a stable launcher at `$HOME/.local/bin/termium` and persist PATH integration, preserving existing shell configuration and avoiding duplicate managed blocks. Cover bash, zsh, and fish with their native syntax.
 8. Detect terminal graphics and select a usable fallback with bounded probes.
-9. Return success only after installation and validation complete. The parent-shell tail activates PATH and invokes the launcher. `--first-run` opens the TUI without the mandatory splash confirmation when stdin and stdout are terminals; otherwise it reports installation status and exits without opening a TUI.
+9. Return success only after installation and validation complete. When output is a terminal and a controlling terminal is available, clean up temporary installer files and launch the stable command with `--first-run` and input from `/dev/tty`. Otherwise, finish without opening a TUI. `--no-launch` explicitly selects unattended installation.
 
-A piped installer cannot change its parent shell's environment. The `export` in the proposed command runs in that parent after the pipeline succeeds. The final launcher inherits terminal input from the parent, not the installer pipe. `pipefail` ensures a failed download cannot be treated as installation success. The installer must buffer and validate complete payloads before mutation and never launch a TUI itself.
+The bootstrap function is parsed before it runs, so an interrupted script cannot start a partial installation. Release downloads must complete and pass checksum verification before activation. Unattended callers should use the documented `pipefail` wrapper to propagate failure of the initial HTTP request as well as installer failures.
 
-Use `$HOME/.local/bin` for the stable launcher even when `TERMIUM_HOME` relocates application files. Fail without overwriting an unrelated launcher. Existing shell aliases/functions named `termium` and read-only shell startup files must be detected by the shell integration feasibility tests and handled before advertising that environment as supported. Do not replace the user's shell or silently create a nested interactive shell.
+Use `$HOME/.local/bin` for the stable launcher even when `TERMIUM_HOME` relocates application files. Fail without overwriting an unrelated launcher. Do not replace the user’s shell or silently create a nested interactive shell. A child installer cannot update an already-open shell’s PATH: use the stable path there if needed, or a new terminal for bare `termium`.
 
-The proposed syntax targets bash, zsh, and fish. Fish provides an [export compatibility function](https://fishshell.com/docs/current/cmds/export.html) that accepts quoted PATH values. Before publishing support, verify minimum shell versions, default startup files, custom zsh configuration directories, command caches, and both login/non-login startup. Repeating the command must not duplicate installed files or managed configuration blocks; the literal current-shell PATH prepend may contain a repeated directory without changing command resolution.
-
-Review verification: the exact proposed command was exercised with a mocked download/installer/launcher in an isolated Ubuntu 24.04 container using bash, zsh, and fish. All 12 scenarios passed: fresh PATH without the launcher directory, an existing cached binary, repeat invocation, and failed download for each shell. This proves the shell sequencing and same-shell lookup mechanism. It does not validate a real release, persistent startup-file integration, interactive TUI attachment, native macOS, or browser startup.
+The pipeline targets bash, zsh, and fish. Native installation checks cover persistent startup-file integration. Bootstrap tests cover terminal attachment, no-launch and redirected-output behavior, failed validation, and interrupted script downloads.
 
 ## Feasibility gate before installer implementation
 

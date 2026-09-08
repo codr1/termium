@@ -70,7 +70,7 @@ If these commands don't exist, ask the user for the correct commands and update 
 - The project uses gRPC for client-server communication
 - Normal clients create private per-session Unix sockets; the manually launched server defaults to `/tmp/termium.sock`
 - Websafe palette provides best performance for sixel encoding due to caching
-- Kitty renderer uses PNG passthrough (no decode/encode on client)
+- Kitty defaults to PNG passthrough; Base64/framing runs in the shared preparation worker. Explicit JPEG capture sends zlib-compressed RGB. Use --capture-format png/jpeg for controlled comparisons.
 - Client auto-launches server if not already running (searches for server.js relative to binary, then ~/.termium/server/)
 - `TERMIUM_SERVER` env var overrides server auto-discovery path
 - go-sixel is a patched local module in third_party/go-sixel; read its TERMIUM.md before updating it. The root go.mod replace directive selects this copy.

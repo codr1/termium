@@ -80,6 +80,7 @@ type framePreparer struct {
 	buffer            bytes.Buffer
 	bands             *BandManager
 	bandEncoder       *BandEncoder
+	kitty             kittyEncoder
 }
 
 func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
@@ -89,16 +90,19 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if p.last != nil && raw.Generation == p.last.Generation && bytes.Equal(raw.Data, p.last.Data) {
 		return p.reuse(raw), nil
 	}
-	dim, _, err := image.DecodeConfig(bytes.NewReader(raw.Data))
+	dim, format, err := image.DecodeConfig(bytes.NewReader(raw.Data))
 	if err != nil {
 		return nil, err
 	}
 	if dim.Width < 1 || dim.Height < 1 || dim.Width > maxFrameDimension || dim.Height > maxFrameDimension || int64(dim.Width)*int64(dim.Height) > maxFramePixels {
 		return nil, fmt.Errorf("Screenshot dimensions exceed 16384 pixels per side or 16 megapixels")
 	}
-	f := &Frame{Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp}
-	if p.renderer == "kitty" {
-		// PNG is already encoded by Chromium. Keep its bytes intact.
+	f := &Frame{Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp, CapturedAt: raw.CapturedAt}
+	if p.renderer == "kitty" && format == "png" {
+		f.Graphics, err = encodeKittyPNG(raw.Data)
+		if err != nil {
+			return nil, err
+		}
 		p.last = f
 		return f, nil
 	}
@@ -112,11 +116,15 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 		if f.Generation == p.last.Generation {
 			return p.reuse(raw), nil
 		}
-		f.Image, f.Sixel = p.last.Image, p.last.Sixel
+		f.Image, f.Graphics = p.last.Image, p.last.Graphics
 	} else {
 		f.Image = rgba
 		if p.renderer != "tcell" {
-			f.Sixel, err = p.encode(rgba)
+			if p.renderer == "kitty" {
+				f.Graphics, err = p.kitty.encodeRGB(rgba)
+			} else {
+				f.Graphics, err = p.encode(rgba)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -132,7 +140,7 @@ func (p *framePreparer) reuse(raw *Frame) *Frame {
 		return p.last
 	}
 	frame := *p.last
-	frame.State, frame.Timestamp = raw.State, raw.Timestamp
+	frame.State, frame.Timestamp, frame.CapturedAt = raw.State, raw.Timestamp, raw.CapturedAt
 	p.last = &frame
 	return p.last
 }
@@ -193,14 +201,14 @@ type boundedFrameWriter struct{ buffer *bytes.Buffer }
 
 func (w boundedFrameWriter) Write(data []byte) (int, error) {
 	if len(data) > maxFrameBytes-w.buffer.Len() {
-		return 0, fmt.Errorf("Sixel output exceeds 32 MiB; reduce the terminal size")
+		return 0, fmt.Errorf("Graphics output exceeds 32 MiB; reduce the terminal size")
 	}
 	return w.buffer.Write(data)
 }
 
 // All terminal writes stay with the UI owner. Save before positioning, and
 // restore even after a payload error. A successful short write is still failure.
-func writeSixelFrame(w io.Writer, data []byte, row, column int) error {
+func writeGraphicsFrame(w io.Writer, data []byte, row, column int) error {
 	write := func(data []byte) error {
 		n, err := w.Write(data)
 		if err == nil && n != len(data) {

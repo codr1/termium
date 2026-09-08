@@ -23,7 +23,8 @@ type Config struct {
 	InstallBundle   bool
 	FirstRun        bool
 	Palette         string
-	Renderer        string // "sixel" (default), "kitty", or "tcell"
+	Renderer        string // auto, sixel, kitty, or tcell
+	CaptureFormat   string // auto, or an explicit shared jpeg/png source
 }
 
 func parseFlags() (*Config, error) {
@@ -53,6 +54,7 @@ func parseFlags() (*Config, error) {
 	flag.StringVar(&cfg.Palette, "p", "websafe", "Color palette: adaptive, websafe, plan9 (short form)")
 	flag.StringVar(&cfg.Renderer, "renderer", "auto", "Rendering protocol: auto, sixel, kitty, tcell")
 	flag.StringVar(&cfg.Renderer, "r", "auto", "Rendering protocol (short form)")
+	flag.StringVar(&cfg.CaptureFormat, "capture-format", "auto", "Screenshot source: auto (PNG for Kitty, JPEG otherwise), jpeg, or png")
 
 	// Handle both --flag and -flag formats
 	flag.BoolVar(&cfg.Debug, "d", false, "Enable debug output (shorthand)")
@@ -132,6 +134,10 @@ func parseFlags() (*Config, error) {
 		return nil, fmt.Errorf("invalid renderer %q: must be auto, sixel, kitty, or tcell", cfg.Renderer)
 	}
 
+	if cfg.CaptureFormat != "auto" && cfg.CaptureFormat != "jpeg" && cfg.CaptureFormat != "png" {
+		return nil, fmt.Errorf("invalid capture format %q: must be auto, jpeg, or png", cfg.CaptureFormat)
+	}
+
 	// Check if splash image exists (only if specified and not NONE)
 	if cfg.SplashPath != "" && cfg.SplashPath != "NONE" {
 		if _, err := os.Stat(cfg.SplashPath); os.IsNotExist(err) {
@@ -140,4 +146,16 @@ func parseFlags() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// Resolve after renderer detection. Explicit formats make controlled comparisons
+// possible without adding avoidable transcoding to the normal Kitty path.
+func (c *Config) screenshotFormat() string {
+	if c.CaptureFormat != "" && c.CaptureFormat != "auto" {
+		return c.CaptureFormat
+	}
+	if c.Renderer == "kitty" {
+		return "png"
+	}
+	return "jpeg"
 }

@@ -26,9 +26,11 @@ Custom home pages open directly. The client persists the setting atomically, sup
 
 ## Renderers
 
-- **Kitty:** requests PNG screenshots and sends the encoded image bytes through the Kitty graphics protocol. The preparation worker reads image dimensions to reject stale resize frames, then passes PNG bytes through without decoding pixels or re-encoding. Capture is capped at 24 frames per second and slows to measured preparation/output throughput.
+- **Kitty:** normally passes Chromium’s PNG bytes through without decoding pixels or re-encoding. The preparation worker validates dimensions and completes Base64 encoding and protocol framing. Explicit JPEG capture instead uses the shared pixel decoder, then sends zlib-compressed RGB through the Kitty protocol.
 - **Sixel:** decodes screenshots, quantizes colors, and encodes sixel output. Band-level caching reuses encoded regions when their contents are unchanged. Fixed palettes such as websafe support more stable caching.
 - **tcell:** samples two colors per cell and draws a Unicode half block across the shared viewport. This is a screenshot renderer, not a DOM text browser.
+
+All renderers share capture scheduling, a preparation worker, and timing reports. Graphics renderers also share the terminal writer: the UI only positions the cursor, writes an immutable prepared payload, and restores the cursor. Protocol-specific encoding stays in the worker. `--capture-format jpeg` or `--capture-format png` selects the same screenshot source for any renderer. The default `auto` keeps PNG passthrough for Kitty and JPEG capture for Sixel/ASCII graphics, avoiding unnecessary transcoding. Chromium uses its faster encoding setting.
 
 The client uses `CaptureScreenshot` to bound outstanding capture requests. A single worker decodes and prepares immutable frames, with one pending raw frame and one pending prepared frame; newer work replaces pending work. Local chrome damage is independent of image damage. Unchanged frames reuse the prepared image, while overlay closure and document/viewport changes explicitly invalidate its displayed placement. Capture pauses when local overlays cover the page.
 
@@ -60,7 +62,7 @@ Shutdown attempts to close the browser, server, connection, and terminal screen.
 | `client/keyboard.go`, `client/navigation_ui.go`, `client/text_editor.go` | Keyboard routing, navigation bar, menu, and Unicode editing |
 | `client/mouse.go`, `client/input_dispatcher.go` | Mouse capture, mouse keys, and ordered input |
 | `client/ui_layout.go`, `client/framebuffer.go` | Shared viewport geometry and immutable frame handoff |
-| `client/frame_pipeline.go` | Bounded preparation, deduplication, Sixel encoding, and capture pacing |
+| `client/frame_pipeline.go` | Bounded preparation, deduplication, graphics encoding, and capture pacing |
 | `client/kitty_renderer.go` | Kitty graphics encoding |
 | `client/sixel_bands.go`, `client/sixel_band_encoder.go` | Sixel band processing and caching |
 | `client/dialog.go`, `client/dialog_stream.go` | Browser and local dialogs |

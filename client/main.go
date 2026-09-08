@@ -331,7 +331,7 @@ func runInteractive() error {
 			previous := preparer.last
 			frame, err := preparer.prepare(raw)
 			if cfg.ShowTimings && err == nil {
-				fmt.Fprintf(os.Stderr, "Frame prepare=%v capture_and_queue=%v reused=%t\n", time.Since(start), start.Sub(raw.Timestamp), frame == previous)
+				fmt.Fprintf(os.Stderr, "Frame renderer=%s format=%s capture=%v queue=%v prepare=%v source_bytes=%d payload_bytes=%d width=%d height=%d reused=%t\n", cfg.Renderer, cfg.screenshotFormat(), raw.CapturedAt.Sub(raw.Timestamp), start.Sub(raw.CapturedAt), time.Since(start), len(raw.Data), len(frame.Graphics), frame.Width, frame.Height, frame == previous)
 			}
 			return frame, err
 		}, func(f *Frame, err error) {
@@ -514,10 +514,7 @@ type frameFailure struct{ err error }
 // bounds outstanding transport work; the pending preparation slot keeps newest.
 func screenshotLoop(s tcell.Screen) {
 	defer shutdownWg.Done()
-	format := "jpeg"
-	if cfg.Renderer == "kitty" {
-		format = "png"
-	}
+	format := cfg.screenshotFormat()
 	for appCtx.Err() == nil {
 		start := time.Now()
 		if !pipeline.paused.Load() {
@@ -541,7 +538,7 @@ func screenshotLoop(s tcell.Screen) {
 				continue
 			}
 			if !pipeline.paused.Load() {
-				pipeline.offer(&Frame{Data: response.Data, Generation: response.Generation, State: response.State, Timestamp: start})
+				pipeline.offer(&Frame{Data: response.Data, Generation: response.Generation, State: response.State, Timestamp: start, CapturedAt: time.Now()})
 			}
 		}
 		delay := max(time.Millisecond, pipeline.interval()-time.Since(start))
@@ -576,10 +573,7 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 		return nil
 	}
 	if cfg.SaveScreenshots && frame != lastSavedFrame {
-		ext := "jpg"
-		if cfg.Renderer == "kitty" {
-			ext = "png"
-		}
+		ext := cfg.screenshotFormat()
 		if err := os.WriteFile(fmt.Sprintf("RawImage%03d.%s", lastImageNumber, ext), frame.Data, 0600); err != nil {
 			return err
 		}
@@ -590,12 +584,10 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 		return nil
 	}
 	switch cfg.Renderer {
-	case "kitty":
-		return displayWithKittyPNG(frame.Data)
 	case "tcell":
 		return displayWithTcell(s, frame.Image)
 	default:
-		return writeSixelFrame(graphicsOutput, frame.Sixel, sDims.ViewTop+1, H_BORDER_WIDTH+1)
+		return writeGraphicsFrame(graphicsOutput, frame.Graphics, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
 }
 func invalidateGraphics(s tcell.Screen) {
@@ -650,7 +642,7 @@ func redraw(s tcell.Screen) {
 		}
 		pipeline.writeCost.Store(int64(time.Since(start)))
 		if cfg.ShowTimings {
-			fmt.Fprintf(os.Stderr, "Image write=%v frame_age=%v\n", time.Since(start), time.Since(latestFrame.Timestamp))
+			fmt.Fprintf(os.Stderr, "Image renderer=%s write=%v frame_age=%v payload_bytes=%d\n", cfg.Renderer, time.Since(start), time.Since(latestFrame.Timestamp), len(latestFrame.Graphics))
 		}
 	}
 	drawBorder(s)
@@ -972,7 +964,7 @@ func displayImageBuffer(s tcell.Screen) error {
 		if err != nil {
 			return err
 		}
-		return writeSixelFrame(graphicsOutput, data, sDims.ViewTop+1, H_BORDER_WIDTH+1)
+		return writeGraphicsFrame(graphicsOutput, data, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
 }
 

@@ -13,7 +13,7 @@ async function fixture(t) {
     if (!file.startsWith(root + path.sep) && file !== root) { res.writeHead(403); res.end(); return; }
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
     if (!fs.existsSync(file)) { file = path.join(root, '404.html'); res.statusCode = 404; }
-    res.setHeader('content-type', ({ '.html': 'text/html', '.css': 'text/css', '.mjs': 'text/javascript', '.svg': 'image/svg+xml' })[path.extname(file)] || 'text/plain');
+    res.setHeader('content-type', ({ '.html': 'text/html', '.css': 'text/css', '.mjs': 'text/javascript', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' })[path.extname(file)] || 'text/plain');
     res.setHeader('content-security-policy', "default-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'");
     res.end(fs.readFileSync(file));
   });
@@ -36,6 +36,9 @@ test('public site is complete, links resolve, and the welcome page stays separat
     visited.add(route);
     const response = await page.goto(origin + route);
     assert.equal(response.status(), 200, route);
+    await page.evaluate(() => document.fonts.ready);
+    const loadedFonts = await page.evaluate(() => [...document.fonts].filter(f => f.status === 'loaded').map(f => f.family));
+    for (const family of ['Inter', 'JetBrains Mono']) assert.ok(loadedFonts.includes(family), `${family} did not load under the site CSP on ${route}`);
     assert.equal(await page.$$eval('h1', es => es.length), 1, route);
     assert.equal(await page.$('meta[name="termium-welcome"]'), null, `Marketing content must never become an offline welcome: ${route}`);
     const links = await page.$$eval('a[href]', es => es.map(e => e.getAttribute('href')));

@@ -10,7 +10,7 @@
   --green: #a4e8c3;
   --cta: #79e2a7;
   --blue: #8ec5ff;
-  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
 }
@@ -53,7 +53,7 @@ h1 { font-size: clamp(2.75rem, 6.625vw, 4.3125rem); line-height: 1.03; letter-sp
 .demo-address { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; font-size: 0.5625rem; color: var(--muted); background: #152131; }
 .demo-address > span:nth-child(2) { flex: 1; }
 .demo-page { padding: 22px 16px 28px; text-align: center; }
-.ascii-mark { display: inline-block; position: relative; font: 700 0.5rem/1.18 monospace; text-align: left; white-space: pre; margin: 0; user-select: none; }
+.ascii-mark { display: inline-block; position: relative; font: 700 0.5rem/1.18 var(--mono); text-align: left; white-space: pre; margin: 0; user-select: none; }
 .mark-a { color: #a4d3ff; }.mark-b { color: #639bdf; }.mark-c { color: #365f97; }.mark-ring { color: #203754; }.mark-prompt { visibility: hidden; }
 .ascii-mark::after { content: ">_"; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -55%); font-size: 2.8em; font-weight: 500; line-height: 1; color: var(--green); }
 .demo-greeting { font-size: 0.8125rem; letter-spacing: -.4px; margin: 20px 0 16px; }

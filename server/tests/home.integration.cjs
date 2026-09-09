@@ -37,6 +37,9 @@ test('welcome shares website assets, fits terminal viewports, and keeps offline 
  const home=()=>session.command(NavigationRequest.fromPartial({action:A.HOME}));
  await home();
  let page=await session.ensurePage();
+ await page.evaluate(() => document.fonts.ready);
+ const loadedFonts = await page.evaluate(() => [...document.fonts].filter(f => f.status === 'loaded').map(f => f.family));
+ for (const family of ['Inter', 'JetBrains Mono']) assert.ok(loadedFonts.includes(family), `${family} missing from the offline welcome`);
  assert.equal(await page.$eval('.ascii-mark',e=>e.getAttribute('role')),'img');
  assert.equal(await page.$$eval('.key-grid>div',es=>es.length),6);
  // Verify the actual page layout, not CSS text or a screenshot's existence.

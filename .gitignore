@@ -26,6 +26,8 @@ Thumbs.db
 
 # JavaScript compiled files
 *.js
+# Hand-written browser scripts are website source.
+!site/assets/*.js
 
 # TypeScript cache files
 *.tsbuildinfo

@@ -13,7 +13,7 @@ async function fixture(t) {
     if (!file.startsWith(root + path.sep) && file !== root) { res.writeHead(403); res.end(); return; }
     if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html');
     if (!fs.existsSync(file)) { file = path.join(root, '404.html'); res.statusCode = 404; }
-    res.setHeader('content-type', ({ '.html': 'text/html', '.css': 'text/css', '.mjs': 'text/javascript', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' })[path.extname(file)] || 'text/plain');
+    res.setHeader('content-type', ({ '.html': 'text/html', '.css': 'text/css', '.mjs': 'text/javascript', '.js': 'text/javascript', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' })[path.extname(file)] || 'text/plain');
     res.setHeader('content-security-policy', "default-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'");
     res.end(fs.readFileSync(file));
   });
@@ -132,4 +132,52 @@ test('public setup serves the bootstrap and copies the same one-line command eve
   assert.ok(fs.readFileSync(path.resolve(__dirname, '../../README.md'), 'utf8').includes(command));
   await page.goto(origin + '/docs/quickstart/');
   assert.equal(await page.$eval('pre code.language-bash', e => e.textContent.trim()), command);
+});
+
+test('welcome appears with settled fonts and remains usable when fonts stall or fail', { timeout: 30000 }, async t => {
+  const { browser, origin } = await fixture(t);
+  for (const outcome of ['loaded', 'failed', 'stalled']) {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 984, height: 640 });
+    await page.setCacheEnabled(false);
+    await page.setRequestInterception(true);
+    const held = [];
+    let requested;
+    const fontRequests = new Promise(resolve => { requested = resolve; });
+    page.on('request', request => {
+      if (request.url().endsWith('.woff2')) {
+        held.push(request);
+        if (held.length === 2) requested();
+      } else void request.continue();
+    });
+    await page.goto(origin + '/welcome/', { waitUntil: 'domcontentloaded' });
+    await fontRequests;
+    assert.equal(await page.$eval('main', e => getComputedStyle(e).visibility), 'hidden', 'fallback layout flashed while fonts were pending');
+    if (outcome === 'loaded') {
+      await Promise.all(held.map(request => request.continue()));
+    } else if (outcome === 'failed') {
+      await Promise.all(held.map(request => request.abort()));
+    }
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('main')).visibility === 'visible');
+    const fallback = await page.evaluate(() => document.documentElement.classList.contains('welcome-fonts-fallback'));
+    assert.equal(fallback, outcome !== 'loaded');
+    const geometry = () => page.$eval('.ascii-mark', e => {
+      const { width, height } = e.getBoundingClientRect();
+      return { width, height, family: getComputedStyle(e).fontFamily };
+    });
+    const visible = await geometry();
+    if (outcome === 'stalled') {
+      // Fonts arriving after the deadline must not cause the second layout jump.
+      await Promise.all(held.map(request => request.continue()));
+      await page.evaluate(() => document.fonts.ready);
+      assert.deepEqual(await geometry(), visible);
+    }
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.close();
+  }
+  const page = await browser.newPage();
+  await page.setJavaScriptEnabled(false);
+  await page.goto(origin + '/welcome/');
+  assert.equal(await page.$eval('main', e => getComputedStyle(e).visibility), 'visible', 'no-JS welcome stayed hidden');
+  await page.close();
 });

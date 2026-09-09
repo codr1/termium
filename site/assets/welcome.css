@@ -27,3 +27,10 @@
 dd .mouse-clicks{display:block}
 .mouse-clicks kbd{font:inherit;padding:0;border:0;background:none;min-width:0}
 @media(max-height:460px) and (min-width:441px){.key-grid>div{padding:4px 0}}
+
+/* Only the synchronous head script enables this; no-JS pages stay usable. */
+.welcome-fonts-loading main{visibility:hidden}
+.welcome-fonts-fallback{
+  --mono:"Liberation Mono","DejaVu Sans Mono",Consolas,monospace;
+  --sans:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}

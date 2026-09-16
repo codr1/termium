@@ -17,7 +17,7 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | Build and static checks | Both languages compile against freshly generated protobuf bindings; Go vet and installer shell syntax checks pass. |
 | Client unit tests | Flags, server discovery/listeners, Kitty encoding, simulated tcell viewport colors/clipping, Unicode editing, mouse capture, modal routing, ordered input, stale-input recovery without replay, and concurrent frame ownership. |
 | Graphics regression tests | Palette pixel round-trips, exact Sixel dimensions, allocation limits, output errors, unchanged-frame reuse, overlay restoration, splash/stale-image deletion, bounded pending work, and capture pacing. |
-| Server flow-control tests | Slow captures stay exclusive, writable backpressure pauses production, cancellation prevents late writes, and navigation/watchdog cancellation preserves the input session and releases listeners. |
+| Server capture tests | Navigation/watchdog cancellation releases stuck captures, preserves the input session, and releases listeners. |
 | Executable tests | The built binary exits with the expected status and diagnostic for help, version, unknown flags, and invalid renderers. |
 | Home page | Saved-setting precedence, one-off URLs, shared website layout, custom Home/new-tab destinations, parked-site rejection, timeout fallback, user-interaction cancellation, and keeping hosted pages outside extension privileges. |
 | Vimium and tabs | The actual bundled extension produces hints, preserves literal form input, scrolls, opens background links, switches duplicate-URL tabs, closes/restores tabs, rejects stale input, and renders the selected page. |
@@ -25,9 +25,9 @@ The first run needs internet access to download dependencies and Chrome. Later b
 | Navigation and input | History/redirect state, reload, stopping a stalled navigation and recovering, literal paste, modifiers, held-button dragging, right-click, wheel input, and rejection of stale-document input. |
 | Terminal integration | The actual client runs in a pseudo-terminal and submits Unicode form input through SGR mouse events and bracketed paste, edits an address, uses Back, resizes during a prompt, submits Unicode prompt text, verifies the new browser viewport, and quits. |
 | Graphics terminal output | The real client runs in a pseudo-terminal with default and explicit capture formats. Tests decode emitted Kitty PNG, compressed RGB, and Sixel back to fixture pixels, verify viewport dimensions and saved source formats, and require clean keyboard exit. |
-| Screenshot integration | PNG and JPEG decode correctly, contain the fixture's background pixels, match viewport dimensions, and can be cancelled and reopened. A committed page can be captured while a stalled subresource prevents the load event. |
+| Screenshot integration | PNG and JPEG decode correctly, contain the fixture's background pixels, match viewport dimensions, and recover after a cancelled unary request. A committed page can be captured while a stalled subresource prevents the load event. |
 | Dialog integration | Prompt text, empty text, cancellation, and confirmation responses reach the page; closing the dialog stream terminates it. |
-| Process lifecycle | Port conflicts fail startup, missing Chrome produces RPC errors, and SIGINT/SIGTERM shut down with live streams, an unanswered prompt, or a stalled browser launch. Cleanup detects and kills a leaked browser process. |
+| Process lifecycle | Port conflicts fail startup, missing Chrome produces RPC errors, and SIGINT/SIGTERM shut down with a live dialog stream, an in-flight unary capture, an unanswered prompt, or a stalled browser launch. Cleanup detects and kills a leaked browser process. |
 
 The browser tests use a local HTTP fixture and verify effects independently of the RPC response text. For example, typing must submit the expected Unicode string to the fixture; a screenshot must decode to the right pixels. Tests use OS-assigned loopback ports and temporary browser profiles. They never remove `/tmp/termium.sock` or connect to a running development server. Failed browser assertions include captured server logs. A transparent executable wrapper records Chrome's PID before executing the real browser. Cleanup has a deadline and kills both the server's process group and Chrome's separate process group if necessary; profiles are kept under the test's temporary directory.
 
@@ -39,7 +39,7 @@ Dependency installation tests cover HTTPS downloads, checksum verification, cach
 # Unit tests, after generating protobuf bindings:
 npm run test:go
 
-# Server flow-control tests, after rebuilding the server:
+# Server capture tests, after rebuilding the server:
 npm run test:server
 
 # Repeatable preparation microbenchmarks (exclude terminal I/O):

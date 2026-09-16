@@ -151,7 +151,7 @@ func TestBrowser(t *testing.T) {
 		requireOK(t, err) // A rejected command must not kill the server.
 	})
 
-	t.Run("screenshots resize cancel and reconnect", func(t *testing.T) {
+	t.Run("screenshots and resize", func(t *testing.T) {
 		url, _ := fixture(t)
 		ctx := deadline(t)
 		_, err := client.NavigateToUrl(ctx, &pb.Url{Url: url})
@@ -162,12 +162,10 @@ func TestBrowser(t *testing.T) {
 		}{{"png", 640, 480}, {"jpeg", 800, 600}} {
 			_, err = client.SetViewport(ctx, &pb.ViewportSize{Width: tc.width, Height: tc.height})
 			requireOK(t, err)
-			streamCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			stream, err := client.StreamScreenshots(streamCtx, &pb.ScreenshotRequest{Fps: 10, Format: tc.format})
-			requireOK(t, err)
+			captureCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			t.Cleanup(cancel)
 			for i := 0; i < 2; {
-				frame, err := stream.Recv()
+				frame, err := client.CaptureScreenshot(captureCtx, &pb.ScreenshotRequest{Format: tc.format})
 				requireOK(t, err)
 				decoded, format, err := image.Decode(bytes.NewReader(frame.Data))
 				requireOK(t, err)
@@ -176,7 +174,7 @@ func TestBrowser(t *testing.T) {
 				}
 				// Chromium's compositor can deliver the previous surface briefly
 				// after viewport acknowledgement, notably on macOS. Require two
-				// correctly resized frames within the stream deadline.
+				// correctly resized frames within the capture deadline.
 				if decoded.Bounds().Dx() != int(tc.width) || decoded.Bounds().Dy() != int(tc.height) {
 					continue
 				}
@@ -191,15 +189,6 @@ func TestBrowser(t *testing.T) {
 				i++
 			}
 			cancel()
-			// Drain any frames already in flight; the cancelled stream must terminate.
-			for {
-				if _, err = stream.Recv(); err != nil {
-					break
-				}
-			}
-			if status.Code(err) != codes.Canceled {
-				t.Fatalf("stream cancellation: %v", err)
-			}
 		}
 	})
 

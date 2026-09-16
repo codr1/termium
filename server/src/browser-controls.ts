@@ -69,11 +69,6 @@ export class BrowserControls {
         await this.applyViewport(await this.session());
     }
 
-    async prepareCapture() {
-        await this.ensurePage();
-        await this.session(); // Reapply desktop dimensions after a target swap.
-    }
-
     async capture(format: 'png' | 'jpeg'): Promise<Buffer> {
         const page = await this.ensurePage();
         // Render committed content even while images/scripts keep load pending.

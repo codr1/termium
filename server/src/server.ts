@@ -1,6 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
 import { BrowserSession } from './browser-session';
-import { streamScreenshots } from './screenshot-stream';
 import * as puppeteer from 'puppeteer';
 import { Command } from 'commander';
 import * as fs from 'fs';
@@ -8,9 +7,9 @@ import * as path from 'path';
 import debugFactory from 'debug';
 
 // Update import paths
-import { ServerUnaryCall, sendUnaryData, ServerWritableStream } from '@grpc/grpc-js';
+import { ServerUnaryCall, sendUnaryData } from '@grpc/grpc-js';
 import { BrowserControlService, BrowserControlServer } from '../generated/bc';
-import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, ScreenshotRequest, DialogEvent, DialogResponse } from '../generated/bc';
+import { Empty, Message, ViewportSize, Coordinate, Text, Url, Screenshot, DialogEvent, DialogResponse } from '../generated/bc';
 
 const program = new Command();
 const logDebug = debugFactory('server:debug');
@@ -32,7 +31,7 @@ async function ensurePage(): Promise<puppeteer.Page> {
 }
 
 // Chromium capture and viewport emulation both affect the compositor surface.
-// Serialize them across streams, including an in-flight frame after cancellation.
+// Serialize requests, including an in-flight frame after cancellation.
 let viewportWork: Promise<unknown> = Promise.resolve();
 function withViewport<T>(action: () => Promise<T>): Promise<T> {
     const work = viewportWork.then(action);
@@ -316,13 +315,10 @@ const browserControlHandlers: BrowserControlServer = {
         }
     },
 
-
     captureScreenshot: async (call, callback) => {
         try { callback(null, await captureScreenshot(call.request.format, () => call.cancelled)); }
         catch (error) { callback(error as Error); }
     },
-
-    streamScreenshots: call => streamScreenshots(call, captureScreenshot),
 
     streamDialogs: (call) => {
         logDebug('Dialog stream connected');

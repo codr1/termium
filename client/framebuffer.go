@@ -33,6 +33,7 @@ func (fb *FrameBuffer) Publish(frame *Frame) bool {
 	wake := fb.pending == nil
 	if fb.pending != nil {
 		fb.dropped++
+		performance.record("prepared_superseded", -1, 0)
 	}
 	fb.pending = frame
 	fb.received++

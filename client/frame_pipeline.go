@@ -36,6 +36,7 @@ func (p *framePipeline) offer(f *Frame) {
 	}
 	select {
 	case <-p.pending:
+		performance.record("raw_superseded", -1, 0)
 	default:
 	}
 	select {

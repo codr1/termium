@@ -8,21 +8,21 @@
   "scripts": {
     "prepare": "mkdir -p proto client/pb server/generated",
     "install:all": "npm install && cd server && npm install",
-    "build:proto:ts": "cd server && npm run generate",
-    "build:proto:go": "protoc --go_out=client/pb --go_opt=paths=source_relative --go-grpc_out=client/pb --go-grpc_opt=paths=source_relative -I proto proto/bc.proto",
-    "build:proto": "npm run build:proto:ts && npm run build:proto:go",
+    "build:proto:ts": "node scripts/generate-proto.mjs --ts",
+    "build:proto:go": "node scripts/generate-proto.mjs --go",
+    "build:proto": "node scripts/generate-proto.mjs",
     "build:server": "cd server && npm run build && node ../scripts/build-extensions.mjs",
     "build:client": "cd client && go build -o termium",
     "build": "npm run prepare && npm run build:proto && npm run build:server && npm run build:client",
     "start:server": "cd server && npm run start",
     "start:client": "cd client && ./termium",
     "test": "npm run build && npm run build:client:test && npm run lint && npm run test:server && npm run test:go && npm run test:integration && npm run test:website",
-    "test:go": "go test -race -count=1 -shuffle=on -timeout=2m -v ./client/...",
+    "test:go": "go test -race -count=1 -shuffle=on -timeout=2m -v ./client/... ./internal/perf/... ./cmd/benchmark/...",
     "test:integration": "npm run test:browser:install && node --test --test-concurrency=1 server/tests/*.integration.cjs && go test -race -tags=integration -count=1 -timeout=5m -v ./tests/integration",
     "clean": "rm -rf server/dist server/generated client/termium",
     "clean:all": "npm run clean && rm -rf server/node_modules node_modules",
     "test:browser:install": "puppeteer browsers install chrome && node --input-type=module -e \"import {access, constants} from 'node:fs/promises'; import {executablePath} from 'puppeteer'; await access(await executablePath(), constants.X_OK)\"",
-    "lint": "go vet ./client/... && bash -n scripts/install.sh && bash -n scripts/bundle-linux-libs.sh",
+    "lint": "go vet ./client/... ./internal/perf/... ./cmd/benchmark/... && bash -n scripts/install.sh && bash -n scripts/bundle-linux-libs.sh",
     "typecheck": "tsc --noEmit --project server/tsconfig.json",
     "build:client:test": "go build -race -o client/termium ./client",
     "test:server": "node --test server/tests/*.test.cjs",
@@ -33,14 +33,17 @@
     "preview:website": "npm run build:website && wrangler pages dev dist/website --port 8787",
     "deploy:website": "npm run build:website && wrangler pages deploy dist/website --project-name termium",
     "benchmark:capture": "node scripts/benchmark-capture.mjs",
+    "benchmark": "npm run build && go run ./cmd/benchmark",
+    "benchmark:compare": "go run ./cmd/benchmark --compare",
     "test:website": "npm run build:website && node --test tests/website/*.test.cjs",
-    "setup:proto": "go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1"
+    "setup:proto": "node scripts/generate-proto.mjs --setup"
   },
   "engines": {
     "node": ">=24.0.0"
   },
   "devDependencies": {
     "marked": "18.0.11",
+    "protoc": "27.3.0",
     "wrangler": "4.129.0"
   },
   "license": "MIT"

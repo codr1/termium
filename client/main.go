@@ -275,6 +275,7 @@ func main() {
 	}
 }
 func runInteractive() error {
+	performance = startPerformanceRecorder()
 	release, err := lockInstalledSession()
 	if err != nil {
 		return err
@@ -330,6 +331,17 @@ func runInteractive() error {
 			start := time.Now()
 			previous := preparer.last
 			frame, err := preparer.prepare(raw)
+			if performance != nil {
+				if err != nil {
+					performance.record("prepare_error", -1, 0)
+				} else {
+					performance.record("prepare", time.Since(start), 0)
+					performance.record("queue", start.Sub(raw.CapturedAt), 0)
+					if frame == previous || (previous != nil && len(frame.Graphics) > 0 && len(previous.Graphics) > 0 && &frame.Graphics[0] == &previous.Graphics[0]) {
+						performance.record("reuse", -1, 0)
+					}
+				}
+			}
 			if cfg.ShowTimings && err == nil {
 				fmt.Fprintf(os.Stderr, "Frame renderer=%s format=%s capture=%v queue=%v prepare=%v source_bytes=%d payload_bytes=%d width=%d height=%d reused=%t\n", cfg.Renderer, cfg.screenshotFormat(), raw.CapturedAt.Sub(raw.Timestamp), start.Sub(raw.CapturedAt), time.Since(start), len(raw.Data), len(frame.Graphics), frame.Width, frame.Height, frame == previous)
 			}
@@ -521,6 +533,13 @@ func screenshotLoop(s tcell.Screen) {
 			ctx, cancel := context.WithTimeout(appCtx, 10*time.Second)
 			response, err := grpcClient.CaptureScreenshot(ctx, &pb.ScreenshotRequest{Format: format})
 			cancel()
+			if performance != nil {
+				if err == nil {
+					performance.record("capture", time.Since(start), len(response.Data))
+				} else {
+					performance.record("capture_error", -1, 0)
+				}
+			}
 			if err != nil {
 				if appCtx.Err() != nil {
 					return
@@ -583,12 +602,21 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 	if frame.Width != sDims.InnerWidthPx || frame.Height != sDims.InnerHeightPx {
 		return nil
 	}
+	var start time.Time
+	if performance != nil {
+		start = time.Now()
+	}
+	var err error
 	switch cfg.Renderer {
 	case "tcell":
-		return displayWithTcell(s, frame.Image)
+		err = displayWithTcell(s, frame.Image)
 	default:
-		return writeGraphicsFrame(graphicsOutput, frame.Graphics, sDims.ViewTop+1, H_BORDER_WIDTH+1)
+		err = writeGraphicsFrame(graphicsOutput, frame.Graphics, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
+	if performance != nil {
+		performance.presented(frame, time.Since(start), err)
+	}
+	return err
 }
 func invalidateGraphics(s tcell.Screen) {
 	if cfg != nil && cfg.Renderer == "kitty" {

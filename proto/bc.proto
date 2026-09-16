@@ -16,8 +16,6 @@ service BrowserControl {
   rpc SendInput (InputEvent) returns (Message) {}
   // Paced clients request only as much capture work as they can present.
   rpc CaptureScreenshot (ScreenshotRequest) returns (Screenshot) {}
-  // Streaming RPC for continuous screenshots
-  rpc StreamScreenshots (ScreenshotRequest) returns (stream Screenshot) {}
   // Bidirectional streaming for dialog handling
   rpc StreamDialogs (stream DialogResponse) returns (stream DialogEvent) {}
 }
@@ -120,7 +118,8 @@ message InputEvent {
 }
 
 message ScreenshotRequest {
-  int32 fps = 1;
+  reserved 1;
+  reserved "fps";
   string format = 2;  // "jpeg" (default) or "png"
 }
 

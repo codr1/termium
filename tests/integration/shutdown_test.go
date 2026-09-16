@@ -14,7 +14,7 @@ import (
 	pb "termium/client/pb"
 )
 
-func TestShutdownWithLiveStreams(t *testing.T) {
+func TestShutdownWithLiveDialogStream(t *testing.T) {
 	server := startServer(t)
 	ctx := deadline(t)
 	_, err := server.OpenTab(ctx, &pb.Empty{})
@@ -23,20 +23,11 @@ func TestShutdownWithLiveStreams(t *testing.T) {
 	requireOK(t, err)
 	_, err = dialogs.Header()
 	requireOK(t, err)
-	frames, err := server.StreamScreenshots(ctx, &pb.ScreenshotRequest{Format: "png", Fps: 10})
-	requireOK(t, err)
-	_, err = frames.Recv()
-	requireOK(t, err)
-	// Keep both streams and the connection open during shutdown. Closing the
+	// Keep the dialog stream and connection open during shutdown. Closing the
 	// client first would hide a server that waits forever on active streams.
 	server.stop(t)
 	if _, err = dialogs.Recv(); err == nil {
 		t.Error("dialog stream survived shutdown")
-	}
-	for {
-		if _, err = frames.Recv(); err != nil {
-			break
-		}
 	}
 }
 

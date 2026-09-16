@@ -87,11 +87,9 @@ func TestTerminalBrowser(t *testing.T) {
 	expectEvent(t, events, "Zoë 世界")
 	frameCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	stream, err := c.StreamScreenshots(frameCtx, &pb.ScreenshotRequest{Fps: 10, Format: "png"})
-	requireOK(t, err)
 	lastSize := image.Config{}
 	for {
-		frame, err := stream.Recv()
+		frame, err := c.CaptureScreenshot(frameCtx, &pb.ScreenshotRequest{Format: "png"})
 		if err != nil {
 			t.Fatalf("viewport stayed %dx%d, want 784x416: %v", lastSize.Width, lastSize.Height, err)
 		}

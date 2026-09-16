@@ -1,6 +1,55 @@
 # OPTIMUS.md
 
-Implemented changes are recorded first, followed by historical investigations and ideas. Historical timings describe their original probes, not current performance guarantees.
+The current backlog is below, followed by implemented changes and historical investigations. Historical timings describe their original probes, not current performance guarantees.
+
+## Capture design rule: prioritize the steady-state path
+
+Agreed 2026-09-16: frame delivery is best effort. A brief stale or transitional frame, including an image of the previously selected tab, is an acceptable tradeoff for lower steady-state overhead. We do not require a transactionally consistent screenshot and browser-state snapshot for every frame.
+
+Design one dedicated capture pipeline around cached active-page state, a reusable capture session, and viewport updates only when needed. The target steady-state browser interaction is `Page.captureScreenshot`; tab enumeration, history reads, and reconciliation should be driven by state changes or separate bounded refresh work, not repeated validation around each screenshot. Cheap local identity checks are fine, but do not add browser round-trips solely to guarantee frame freshness.
+
+Prefer the newest available frame, keep queues bounded, and do not retry obsolete frames to guarantee their delivery. Handle closed targets, stalled captures, and session replacement on the recovery path. Keep complete terminal payloads and serialized terminal writes, and retain input-target validation at input dispatch. Frame metadata must retain honest provenance; it need not be synchronized with the latest toolbar metadata.
+
+Evaluate the redesign by steady-state command counts, latency, CPU, and responsiveness. During navigation/tab races, test eventual recovery and usable input rather than requiring every transitional frame to be discarded. This is a design decision, not an implemented optimization or a proposal to change the local transport protocol.
+
+## Current performance backlog
+
+Reviewed 2026-09-16. These items are unfinished; candidate optimizations have no measured benefit yet. Keep the current Go/Node/Puppeteer/Chromium stack as the baseline. Older proposals below are historical notes, not an implementation queue.
+
+- [ ] **Run the full local performance comparison.** Start on the weaker laptop using the [profiling procedure](docs/testing.md#full-local-performance-run-planned). Separate capture, Node/CDP, local RPC, Go preparation/GC, terminal writes, and visible presentation. Compare input latency and long-frame tails as well as frame delivery.
+- [ ] **Measure and prototype a reusable, dedicated capture CDP session.** Successful frames currently attach a session, capture, and detach in [BrowserControls.capture](server/src/browser-controls.ts). Keep capture isolated from input/history, but investigate reusing its session until navigation, target replacement, closure, timeout, or a session failure requires disposal. Preserve one in-flight capture and the capture/resize queue; guard against stale cleanup detaching a replacement session. Exercise navigation, back/forward restoration, tab closure/switching, watchdog recovery, resize, and shutdown. Detachment rejects the pending Puppeteer request; it is not proof that all Chromium compositor work has stopped. Measure attach/capture/detach separately and compare complete production capture latency. The [existing capture microbenchmark](scripts/benchmark-capture.mjs) already reuses one session, so its timings exclude this production session churn.
+- [ ] **Profile Sixel allocation and palette costs.** The recorded preparation probes show substantial allocations per frame. Locate the allocation/GC and quantization costs before choosing buffer reuse or cache changes; retain pixel correctness and bounded memory. Allocation counts alone do not identify the bottleneck.
+- [ ] **Avoid reapplying an unchanged viewport on every capture.** [BrowserSession.capture](server/src/browser-session.ts) calls `controls.setViewport` for every frame, and [BrowserControls.setViewport](server/src/browser-controls.ts) unconditionally sends `Emulation.setDeviceMetricsOverride`. Track successfully applied dimensions per control session/target, distinct from the desired dimensions. Still initialize a new session/target and propagate the current size to a tab selected after a resize; an unchanged width/height alone is not sufficient to skip work. Do not mark a failed apply as successful. Session creation already applies the viewport, so avoid applying it twice during initialization as well. Verify repeated steady-state captures send no redundant overrides, while resize, tab changes, back/forward restoration, session replacement, and failed-apply recovery retain correct screenshot dimensions. Measure the eliminated command latency; a repeated command alone does not prove Chromium performs another layout or repaint. The capture microbenchmark also omits this per-frame production call.
+- [ ] **Investigate partial terminal image updates.** Unchanged-image reuse and Sixel band-encoding caches already exist. Updating only changed regions on screen is separate unfinished work. Validate palette/background behavior, cursor placement, scrolling, resize, overlays, and recovery from dropped or failed output across supported terminals before claiming a gain.
+- [ ] **Consolidate capture snapshots and decouple metadata refresh from frame rate.** [BrowserSession.capture](server/src/browser-session.ts) takes two snapshots and then calls `state()`, whose `readState()` takes two more around a navigation-history read. Each sequential snapshot refresh enumerates tabs through `Target.getTargets`; the in-flight refresh sharing does not reuse completed snapshots. Redesign this as part of the dedicated best-effort capture pipeline above: use cached page/state references, update metadata from commands and browser events, and reconcile separately when needed. Remove the requirement for pre/post browser snapshots around each frame; a brief stale image during a transition is acceptable. Background-tab titles, navigation history, and loading state can change without screenshot pixels changing, so image equality must not suppress state updates. Cover navigation, same-document history, back/forward restoration, background-tab changes, selection races, and tab closure. See the verified call count below; latency savings are not yet measured.
+
+### Verified capture protocol overhead
+
+On 2026-09-16, an ad hoc trace wrapped Puppeteer's connection `_rawSend` around three sequential `BrowserSession.capture('png')` calls after warmup. The real headless Chromium browser used a pipe, Vimium enabled, one static data-URL page, and a 640 × 360 viewport. Every capture issued this sequence:
+
+```text
+Target.getTargets                   # capture: initial snapshot
+Emulation.setDeviceMetricsOverride  # unconditional viewport application
+Target.attachToTarget               # dedicated capture session
+Page.captureScreenshot
+Target.detachFromTarget
+Target.getTargets                   # capture: post-image validation
+Target.getTargets                   # readState: initial snapshot
+Page.getNavigationHistory
+Target.getTargets                   # readState: final validation
+```
+
+The second and third screenshot buffers were byte-for-byte equal to their predecessors. All nine commands still ran before the client could perform image reuse. This verifies the steady-state command count for that scenario, not command latency or an FPS improvement; initialization, retries, multiple windows, and concurrent input can add work. The current capture microbenchmark measures neither these tab/history reads nor the viewport/session churn.
+
+When an item is completed, record its implementation, correctness checks, and measured results below. Keep unmeasured ideas labelled as such.
+
+## Implemented: remove unused capture paths
+
+Recorded 2026-09-16. Removed the uncalled `BrowserControls.prepareCapture()` helper and the legacy `StreamScreenshots` RPC, handler, implementation, and stream-specific tests. `ScreenshotRequest` reserves the retired `fps` field number and name; its format field keeps its existing wire number. The client continues to use unary `CaptureScreenshot`, and the used `StreamDialogs` RPC remains.
+
+Image-format, fixture-pixel, resize, and terminal integration checks now exercise unary capture. A deterministic test holds an in-flight capture inside the real server, verifies cancellation followed by successful capture, and separately verifies server shutdown terminates the pending request. A fresh `npm test` passed, including protocol regeneration, static checks, Go race tests, real Chromium integration, terminal graphics decoding, and website tests.
+
+This removes unused surface area and aligns coverage with the shipped client. It does not change the steady-state capture path or claim an FPS improvement; the capture/session/metadata optimizations above remain unfinished.
 
 ## Implemented: shared graphics preparation and comparable timings
 

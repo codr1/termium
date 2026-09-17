@@ -57,7 +57,9 @@ func NewBandEncoder(paletteType sixel.PaletteType, width, height int) *BandEncod
 	}
 }
 
-// EncodeBand encodes a single band to sixel format
+// EncodeBand encodes one band as Sixel pixel data: DECGNL row separators and
+// per-register RLE runs only. The introducer, raster dimensions, palette
+// definitions, and terminator are written once per frame by ComposeFullSixel.
 func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (string, error) {
 	// Clear the buffer
 	be.buffer.Reset()
@@ -77,117 +79,12 @@ func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (s
 	be.encoder.Width = be.width
 	be.encoder.Height = bandHeight
 
-	// Encode the normalized band image
-	if err := be.encoder.Encode(be.normalizedImg.SubImage(normalizedRect)); err != nil {
+	if err := be.encoder.EncodePixelData(be.normalizedImg.SubImage(normalizedRect)); err != nil {
 		return "", err
 	}
 
-	// Get the encoded string
-	encoded := be.buffer.String()
-
-	// Strip the sixel header/footer since we'll compose them ourselves
-	// Sixel format: ESC P ... ESC \
-	// We want just the middle part for bands
-	stripped := stripSixelWrapper(encoded)
-
-	return stripped, nil
-}
-
-// stripSixelWrapper removes the sixel introducer and terminator
-// and extracts ONLY the pixel data (no header, no dimensions, no palette)
-func stripSixelWrapper(sixelStr string) string {
-	// Sixel format: ESC P params q "dimensions" #palette_entries pixel_data ESC \
-	// We want ONLY the pixel data part
-
-	// Strategy: Find where palette definitions end and pixel data begins
-	// Palette entries look like: #N;2;R;G;B
-	// Pixel data starts with color selections like #N followed by pixel chars
-
-	lastPaletteEnd := -1
-
-	// Find all palette entries (they have ;2; after the number)
-	for i := 0; i < len(sixelStr)-7; i++ {
-		if sixelStr[i] == '#' {
-			j := i + 1
-			// Skip the number
-			numStart := j
-			for j < len(sixelStr) && sixelStr[j] >= '0' && sixelStr[j] <= '9' {
-				j++
-			}
-			// Check if this is a palette definition
-			if j > numStart && j+2 < len(sixelStr) && sixelStr[j:j+3] == ";2;" {
-				// This is a palette entry, find where it ends
-				j += 3 // Skip ;2;
-				// Skip R value
-				for j < len(sixelStr) && sixelStr[j] != ';' {
-					j++
-				}
-				if j < len(sixelStr) {
-					j++ // Skip semicolon
-					// Skip G value
-					for j < len(sixelStr) && sixelStr[j] != ';' {
-						j++
-					}
-					if j < len(sixelStr) {
-						j++ // Skip semicolon
-						// Skip B value
-						for j < len(sixelStr) && sixelStr[j] >= '0' && sixelStr[j] <= '9' {
-							j++
-						}
-						// j now points to first char after this palette entry
-						lastPaletteEnd = j
-					}
-				}
-			}
-		}
-	}
-
-	pixelStart := -1
-	if lastPaletteEnd != -1 {
-		pixelStart = lastPaletteEnd
-	} else {
-		// Fallback: look for pixel data after 'q' and optional dimension spec
-		for i := 0; i < len(sixelStr)-1; i++ {
-			if sixelStr[i] == 'q' {
-				j := i + 1
-				// Skip optional dimension spec like "1;1;896;900
-				if j < len(sixelStr) && sixelStr[j] == '"' {
-					// Skip until we're past the dimension spec
-					for j < len(sixelStr) && sixelStr[j] != '#' && sixelStr[j] != '$' && !(sixelStr[j] >= '?' && sixelStr[j] <= '~') {
-						j++
-					}
-				}
-				// If we hit a #, there are palette entries to skip
-				if j < len(sixelStr) && sixelStr[j] == '#' {
-					// Already handled above, this shouldn't happen
-					continue
-				}
-				// Otherwise we should be at pixel data
-				if j < len(sixelStr) && (sixelStr[j] == '$' || (sixelStr[j] >= '?' && sixelStr[j] <= '~')) {
-					pixelStart = j
-					break
-				}
-			}
-		}
-	}
-
-	if pixelStart == -1 {
-		return ""
-	}
-
-	// Find end (before ESC \)
-	endIdx := len(sixelStr)
-	for i := len(sixelStr) - 2; i >= 0; i-- {
-		if sixelStr[i] == 0x1b && sixelStr[i+1] == '\\' {
-			endIdx = i
-			break
-		}
-	}
-
-	if pixelStart < endIdx {
-		return sixelStr[pixelStart:endIdx]
-	}
-	return ""
+	// Return an owned copy: buffer.Reset() on the next band reuses this storage.
+	return be.buffer.String(), nil
 }
 
 // ComposeFullSixel creates a complete sixel image from band strings

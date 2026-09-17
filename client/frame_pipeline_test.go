@@ -445,6 +445,98 @@ func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
 	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color { return blue })
 }
 
+// TestEncodeBandShortBandHasNoStaleRows verifies that a short final band
+// encoded by a reused encoder matches one encoded by a fresh encoder, whose
+// buffer is known to be clean: leftover rows from an earlier taller band must
+// not leak into the output.
+func TestEncodeBandShortBandHasNoStaleRows(t *testing.T) {
+	const w = 16
+	red := color.RGBA{R: 255, A: 255}
+	blue := color.RGBA{B: 255, A: 255}
+
+	fullRed := image.NewRGBA(image.Rect(0, 0, w, 13))
+	fillImage(fullRed, red)
+
+	be := NewBandEncoder(sixel.PaletteWebSafe, w, 13)
+	if _, err := be.EncodeBand(fullRed, 6, 6); err != nil {
+		t.Fatal(err)
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, w, 13))
+	fillImage(img, red)
+	for x := 0; x < w; x++ {
+		img.Set(x, 12, blue) // one-row final band
+	}
+	got, err := be.EncodeBand(img, 12, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fresh := NewBandEncoder(sixel.PaletteWebSafe, w, 13)
+	want, err := fresh.EncodeBand(img, 12, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("reused encoder exposed stale rows:\ngot  %q\nwant %q", got, want)
+	}
+}
+
+// TestSixelShortBandTransitions exercises short final bands of every possible
+// height (remainders 1-5) across full/short band transitions and verifies the
+// decoded pixels plus byte-for-byte reuse when returning to a previous frame.
+func TestSixelShortBandTransitions(t *testing.T) {
+	const w = 24
+	red := color.RGBA{R: 255, A: 255}
+	blue := color.RGBA{B: 255, A: 255}
+
+	for h := 7; h <= 11; h++ { // final band heights 1 through 5
+		t.Run(fmt.Sprintf("height%d", h), func(t *testing.T) {
+			lastBand := (h - 1) / SIXEL_BAND_HEIGHT
+
+			a := image.NewRGBA(image.Rect(0, 0, w, h))
+			fillImage(a, red)
+			fillBand(a, lastBand, blue) // short final band differs from full bands
+
+			b := image.NewRGBA(image.Rect(0, 0, w, h))
+			fillImage(b, blue)
+			fillBand(b, lastBand, red) // colors swapped: buffer holds A's rows below the short band
+
+			p := &framePreparer{renderer: "sixel", palette: "websafe"}
+			var generation uint64
+			prepareNext := func(img *image.RGBA) *Frame {
+				generation++
+				frame, err := p.prepare(pngFrame(t, img, generation))
+				if err != nil {
+					t.Fatalf("prepare generation %d: %v", generation, err)
+				}
+				return frame
+			}
+
+			first := prepareNext(a)
+			assertSixelPixels(t, first.Graphics, w, h, func(x, y int) color.Color {
+				if y >= lastBand*SIXEL_BAND_HEIGHT {
+					return blue
+				}
+				return red
+			})
+
+			second := prepareNext(b)
+			assertSixelPixels(t, second.Graphics, w, h, func(x, y int) color.Color {
+				if y >= lastBand*SIXEL_BAND_HEIGHT {
+					return red
+				}
+				return blue
+			})
+
+			back := prepareNext(a)
+			if !bytes.Equal(first.Graphics, back.Graphics) {
+				t.Fatal("returning to the previous frame did not reproduce its output")
+			}
+		})
+	}
+}
+
 func TestPacingRespondsToSlowPreparationAndOutput(t *testing.T) {
 	p := newFramePipeline()
 	p.cost.Store(int64(300 * time.Millisecond))

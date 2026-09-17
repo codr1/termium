@@ -159,7 +159,7 @@ When a tab or document changes, queued input stamped for the old document is can
 
 ## Implemented: exact Sixel band comparison and stable band buffers
 
-Recorded 2026-09-17. Status: implementation committed on branch `sixel-band-optimizations`; independent review and validation are pending. See [frame preparation](client/frame_pipeline.go), [band encoding](client/sixel_band_encoder.go), and the Sixel regression tests in [the frame pipeline test file](client/frame_pipeline_test.go).
+Recorded 2026-09-17. Status: source review complete; validated on this Linux machine on 2026-09-17 — the focused Sixel/band regression tests passed, `go vet ./client` and the TypeScript typecheck were clean, and the full `npm test` suite (build, lint, server tests, Go tests with race detector, browser integration, website) passed. This is Linux-only validation on this machine, not Mac validation. See [frame preparation](client/frame_pipeline.go), [band encoding](client/sixel_band_encoder.go), and the Sixel regression tests in [the frame pipeline test file](client/frame_pipeline_test.go).
 
 ### Change 1: exact per-band comparison, no hashing
 
@@ -180,7 +180,7 @@ Controlled microbenchmark on this machine: AMD Ryzen 9 9900X3D under WSL2, Go 1.
 | Workload | Before (ns/op) | Change 1 only (ns/op) | Both changes (ns/op) |
 |---|---:|---:|---:|
 | One pixel changed per frame | 381,620–392,004 | 183,903–195,793 | 168,528–174,261 |
-| All pixels changed per frame | 14.52–14.64 ms | 14.72–15.62 ms | 14.20–14.58 ms |
+| All pixels changed per frame | 14,522,456–14,642,873 | 14,716,620–15,618,818 | 14,202,040–14,579,612 |
 
 - One-pixel workload (microbenchmark only): the median drops from 385,905 ns/op to 190,531 with change 1 alone (−50.6%) and to 171,992 with both changes (−55.4%); the incremental saving of about 19 µs from adding change 2 is unattributed — no explanation is claimed for it.
 - All-pixels workload: change 1's range lies above the before range, while both changes' range overlaps it; no cause is asserted for these observations. Allocations drop from ~2,976,958 B/op to ~2,919,487 B/op (−57,471 B/op) and 30/3089 allocs/op to 30/3085 allocs/op.

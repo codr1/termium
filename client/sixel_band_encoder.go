@@ -66,13 +66,11 @@ func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (s
 	bandRect := image.Rect(0, bandY, be.width, bandY+bandHeight)
 	bandSubImg := img.SubImage(bandRect).(*image.RGBA)
 
-	// Reuse the pre-allocated normalized image buffer
-	// Adjust bounds if band height is different (e.g., last band)
+	// The buffer always keeps its maximum height; a short final band encodes a
+	// bounded view of it. Stale rows below the band are harmless because the
+	// encoder reads through accessors that respect the view's bounds; do not
+	// index Pix directly in the encoder.
 	normalizedRect := image.Rect(0, 0, be.width, bandHeight)
-	if normalizedRect != be.normalizedImg.Bounds() {
-		// Only reallocate if dimensions changed (rare - only for last band)
-		be.normalizedImg = image.NewRGBA(normalizedRect)
-	}
 	draw.Draw(be.normalizedImg, normalizedRect, bandSubImg, bandSubImg.Bounds().Min, draw.Src)
 
 	// Temporarily set the encoder dimensions to just this band

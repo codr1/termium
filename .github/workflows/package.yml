@@ -1,7 +1,7 @@
 name: Package
 on:
   pull_request:
-    paths: ['client/**', 'server/**', 'scripts/**', 'site/**', 'proto/**', 'tests/**', 'go.*', 'package*.json', 'third_party/**', '.github/workflows/**']
+    paths: ['client/**', 'internal/**', 'server/**', 'scripts/**', 'site/**', 'proto/**', 'tests/**', 'go.*', 'package*.json', 'third_party/**', '.github/workflows/**']
   workflow_dispatch:
   workflow_call:
 permissions:
@@ -29,11 +29,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install build tools
+      - name: Install shells for installation tests
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = Linux ]; then sudo apt-get update && sudo apt-get install -y protobuf-compiler zsh fish; else brew install protobuf fish; fi
-          npm run setup:proto
+          if [ "$RUNNER_OS" = Linux ]; then sudo apt-get update && sudo apt-get install -y zsh fish; else brew install fish; fi
       - run: npm ci
       - name: Check installed shell integration
         run: npm run build:proto && go test -race -run TestInstalledShells -v ./client

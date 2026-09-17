@@ -4,14 +4,15 @@ These instructions are for contributors building the current version. End users 
 
 ## Toolchain
 
-Use the Node.js and Go requirements declared in [package.json](../package.json) and [go.mod](../go.mod). CI uses the toolchains configured in [the test workflow](../.github/workflows/test.yml). Install `protoc` using your development environment’s package manager, then install the pinned Go protobuf plugins:
+Use the Node.js and Go requirements declared in [package.json](../package.json) and [go.mod](../go.mod). CI uses the toolchains configured in [the test workflow](../.github/workflows/test.yml). `npm ci` supplies the pinned protobuf compiler and TypeScript generator. The first build automatically installs the pinned Go generators into `node_modules/.cache/termium/protobuf`; subsequent builds reuse them. No system `protoc`, global generator installation, or PATH edit is needed.
+
+To prepare the build tools ahead of time after `npm ci`:
 
 ```bash
 npm run setup:proto
-export PATH="$(go env GOPATH)/bin:$PATH"
 ```
 
-Dependency and tool versions live in manifests and build scripts so updates do not require editing this guide.
+The initial npm install and Go generator setup require internet access. Dependency and tool versions live in manifests and build scripts so updates do not require editing this guide.
 
 ## Build, install, and run
 

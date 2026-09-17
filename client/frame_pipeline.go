@@ -153,34 +153,30 @@ func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {
 			p.bands = NewBandManager(w, h)
 			p.bandEncoder = NewBandEncoder(sixel.PaletteWebSafe, w, h)
 		}
-		p.bands.DetectDirtyBands(img)
+		var previous *image.RGBA
+		if p.last != nil {
+			previous = p.last.Image
+		}
 		bands := make([]string, p.bands.NumBands)
 		size := 8192 // Palette and raster header allowance.
 		for i := range p.bands.Bands {
 			b := &p.bands.Bands[i]
-			// A hash can reject equality, never prove it. Without this check a
-			// CRC collision could preserve an old band indefinitely.
-			if !b.IsDirty {
-				previous := p.last
-				if previous == nil || previous.Image == nil || previous.Image.Bounds() != img.Bounds() {
-					b.IsDirty = true
-				} else {
-					start, end := b.Y*img.Stride, (b.Y+b.Height)*img.Stride
-					b.IsDirty = !bytes.Equal(img.Pix[start:end], previous.Image.Pix[start:end])
-				}
-			}
-			if b.IsDirty || b.CachedRLE == "" {
+			if b.CachedRLE == "" || bandChanged(img, previous, b.Y, b.Height) {
 				encoded, err := p.bandEncoder.EncodeBand(img, b.Y, b.Height)
 				if err != nil {
 					return nil, err
 				}
-				b.CachedRLE, b.IsDirty = encoded, false
+				bands[i] = encoded // Staged; committed only after every band succeeds.
+			} else {
+				bands[i] = b.CachedRLE
 			}
-			bands[i] = b.CachedRLE
-			size += len(b.CachedRLE) + 1
+			size += len(bands[i]) + 1
 			if size > maxFrameBytes {
 				return nil, fmt.Errorf("Sixel output exceeds 32 MiB; reduce the terminal size")
 			}
+		}
+		for i := range p.bands.Bands {
+			p.bands.Bands[i].CachedRLE = bands[i]
 		}
 		return []byte(ComposeFullSixel(bands, w, h, p.bandEncoder.palette)), nil
 	}
@@ -196,6 +192,21 @@ func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {
 		return nil, err
 	}
 	return bytes.Clone(p.buffer.Bytes()), nil
+}
+
+// bandChanged reports whether one horizontal strip of img differs from the
+// last successfully prepared image. bytes.Equal short-circuits on the first
+// differing byte, so an unchanged frame costs a single scan instead of a hash
+// pass plus per-band confirmation.
+func bandChanged(img, previous *image.RGBA, y, height int) bool {
+	if previous == nil || img.Bounds() != previous.Bounds() {
+		return true
+	}
+	start := y * img.Stride
+	end := start + height*img.Stride
+	prevStart := y * previous.Stride
+	prevEnd := prevStart + height*previous.Stride
+	return !bytes.Equal(img.Pix[start:end], previous.Pix[prevStart:prevEnd])
 }
 
 type boundedFrameWriter struct{ buffer *bytes.Buffer }

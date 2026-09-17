@@ -535,6 +535,7 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 
 	// Disable the injection. C changes only band 1, so band 0 — changed only
 	// during the failed attempt — must be served from A's cache as red.
+	tw.failed = false
 	tw.remaining = -1
 	c := image.NewRGBA(image.Rect(0, 0, w, h))
 	fillImage(c, red)
@@ -784,6 +785,8 @@ func TestEncodeBandPropagatesWriterFailures(t *testing.T) {
 		be := NewBandEncoder(sixel.PaletteWebSafe, w, SIXEL_BAND_HEIGHT)
 		cut := &cutOffWriter{buffer: &bytes.Buffer{}, allow: 4}
 		be.encoder = sixel.NewEncoder(cut)
+		be.encoder.Dither = false
+		be.encoder.Palette = sixel.PaletteWebSafe
 		got, err := be.EncodeBand(img, 0, SIXEL_BAND_HEIGHT)
 		if !errors.Is(err, errInjectedBandWrite) {
 			t.Fatalf("expected the injected failure, got %v", err)
@@ -793,6 +796,8 @@ func TestEncodeBandPropagatesWriterFailures(t *testing.T) {
 		}
 
 		framed := sixel.NewEncoder(&cutOffWriter{buffer: &bytes.Buffer{}, allow: 4})
+		framed.Dither = false
+		framed.Palette = sixel.PaletteWebSafe
 		if err := framed.Encode(img); !errors.Is(err, errInjectedBandWrite) {
 			t.Fatalf("framed encode did not preserve the injected failure: %v", err)
 		}
@@ -801,6 +806,8 @@ func TestEncodeBandPropagatesWriterFailures(t *testing.T) {
 	t.Run("short write", func(t *testing.T) {
 		be := NewBandEncoder(sixel.PaletteWebSafe, w, SIXEL_BAND_HEIGHT)
 		be.encoder = sixel.NewEncoder(&oneByteWriter{buffer: &bytes.Buffer{}})
+		be.encoder.Dither = false
+		be.encoder.Palette = sixel.PaletteWebSafe
 		got, err := be.EncodeBand(img, 0, SIXEL_BAND_HEIGHT)
 		if !errors.Is(err, io.ErrShortWrite) {
 			t.Fatalf("expected %v, got %v", io.ErrShortWrite, err)
@@ -810,6 +817,8 @@ func TestEncodeBandPropagatesWriterFailures(t *testing.T) {
 		}
 
 		framed := sixel.NewEncoder(&oneByteWriter{buffer: &bytes.Buffer{}})
+		framed.Dither = false
+		framed.Palette = sixel.PaletteWebSafe
 		if err := framed.Encode(img); !errors.Is(err, io.ErrShortWrite) {
 			t.Fatalf("framed encode did not preserve the short write: %v", err)
 		}

@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Termium benchmark</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101722;color:#ecf4ef;font:18px monospace}
+main{padding:24px}p{height:32px;margin:0}#patch{position:fixed;bottom:12px;right:12px;width:160px;height:24px;background:#33cc66}
+canvas{position:fixed;inset:0;display:none}
+</style>
+<main><h1>Termium performance fixture</h1></main><div id="patch"></div><canvas></canvas>
+<script>
+const scene=new URLSearchParams(location.search).get('scene');
+const main=document.querySelector('main');
+for(let i=0;i<400;i++){const p=document.createElement('p');p.textContent=`Line ${String(i).padStart(3,'0')}: tabs, mouse keys, terminal graphics, Chromium.`;main.append(p)}
+const canvas=document.querySelector('canvas'), ctx=canvas.getContext('2d');
+canvas.width=innerWidth;canvas.height=innerHeight;
+if(scene==='canvas')canvas.style.display='block';
+const tile=document.createElement('canvas');tile.width=256;tile.height=256;
+const tc=tile.getContext('2d'), pixels=tc.createImageData(256,256);let seed=1234567;
+for(let i=0;i<pixels.data.length;i+=4){seed=(Math.imul(seed,1664525)+1013904223)>>>0;pixels.data[i]=seed&255;pixels.data[i+1]=(seed>>>8)&255;pixels.data[i+2]=(seed>>>16)&255;pixels.data[i+3]=255}
+tc.putImageData(pixels,0,0);const pattern=ctx.createPattern(tile,'repeat');
+let start=performance.now(),last=-1;
+function tick(now){const frame=Math.floor((now-start)/1000*30);
+if(frame!==last){last=frame;
+if(scene==='patch')document.querySelector('#patch').style.background=frame%2?'#cc6633':'#33cc66';
+if(scene==='scroll')scrollTo(0,(frame*8)%8000);
+if(scene==='canvas'){if(canvas.width!==innerWidth||canvas.height!==innerHeight){canvas.width=innerWidth;canvas.height=innerHeight}ctx.save();ctx.translate(-(frame*3)%256,-(frame*5)%256);ctx.fillStyle=pattern;ctx.fillRect(0,0,canvas.width+256,canvas.height+256);ctx.restore()}}
+requestAnimationFrame(tick)}
+requestAnimationFrame(()=>{fetch('/ready',{method:'POST'});requestAnimationFrame(tick)});
+</script>

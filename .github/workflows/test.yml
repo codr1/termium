@@ -35,15 +35,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install protoc (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Install protoc (macOS)
-        if: runner.os == 'macOS'
-        run: brew install protobuf
-      - name: Install protobuf generators
-        run: |
-          npm run setup:proto
       - run: npm ci
       - name: Install browser as the runner user
         run: npm run test:browser:install
@@ -57,6 +48,17 @@ jobs:
         run: |
           set -o pipefail
           npm test 2>&1 | tee test-output.log
+      - name: Smoke-test the performance harness (no speed thresholds)
+        run: |
+          npm run build:client
+          go run ./cmd/benchmark --label ci-smoke --out dist/performance/ci-smoke --scenes idle,patch --warmup 1s --duration 2s --repeats 1
+      - name: Keep benchmark smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-smoke-${{ matrix.os }}
+          path: dist/performance/ci-smoke
+          if-no-files-found: ignore
       - name: Keep failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

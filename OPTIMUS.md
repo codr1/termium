@@ -23,6 +23,21 @@ Reviewed 2026-09-16. These items are unfinished; candidate optimizations have no
 - [ ] **Investigate partial terminal image updates.** Unchanged-image reuse and Sixel band-encoding caches already exist. Updating only changed regions on screen is separate unfinished work. Validate palette/background behavior, cursor placement, scrolling, resize, overlays, and recovery from dropped or failed output across supported terminals before claiming a gain.
 - [ ] **Consolidate capture snapshots and decouple metadata refresh from frame rate.** [BrowserSession.capture](server/src/browser-session.ts) takes two snapshots and then calls `state()`, whose `readState()` takes two more around a navigation-history read. Each sequential snapshot refresh enumerates tabs through `Target.getTargets`; the in-flight refresh sharing does not reuse completed snapshots. Redesign this as part of the dedicated best-effort capture pipeline above: use cached page/state references, update metadata from commands and browser events, and reconcile separately when needed. Remove the requirement for pre/post browser snapshots around each frame; a brief stale image during a transition is acceptable. Background-tab titles, navigation history, and loading state can change without screenshot pixels changing, so image equality must not suppress state updates. Cover navigation, same-document history, back/forward restoration, background-tab changes, selection races, and tab closure. See the verified call count below; latency savings are not yet measured.
 
+### Client audit follow-ups
+
+Source-reviewed 2026-09-16 against the current tree. These are investigation candidates, not measured speedups. The external audit also described the screenshot stream and `prepareCapture`, which were removed in PR #18; tests calling an API did not establish a production consumer.
+
+- [x] **Replace band CRCs with direct pixel comparison (first small change).** The websafe path hashes every band and then compares pixels before trusting matching hashes. Compare each band's pixels directly against the last successfully prepared image and remove CRC bookkeeping. Preserve exact equality, short final bands, resize behavior, and recovery after failed preparation. `bytes.Equal` can stop at the first difference, so the audit's three full scans per changed frame is not a measured traffic estimate. Remove the unused column arrays, frame counter, and band-manager methods alongside this change; column arrays alone occupy about 675 KiB at 1920 × 1080.
+- [x] **Keep maximum capacity for the normalized band buffer.** Encoding a short final band currently reallocates the buffer, then a subsequent full band reallocates it again. Retain a six-row backing image and pass a bounded view. Test alternating heights and stale-pixel exclusion; measure allocations on heights not divisible by six.
+- [ ] **Encode band pixels without generating and stripping complete Sixel documents.** Each dirty band currently writes a header and a full palette through go-sixel, then `stripSixelWrapper` scans the result and discards that framing. A completely changed 1080-row websafe frame generates 180 discarded palettes, or 38,880 color definitions, before its final palette. Investigate a band-only encoder entry point, cache the final fixed-palette bytes, and reduce intermediate copies. Preserve palette indices, short bands, writer errors, and decoded pixels. Websafe has 216 colors, not 256. Profile tiny writes and intermediate allocations before attributing the recorded allocation counts to GC or a specific cause.
+- [ ] **Extend band reuse to Plan9.** Both Plan9 and websafe have fixed palettes. Adaptive palettes need a separate design because changes to color-register meanings invalidate cached band data. Compare partial-change and full-change workloads; retain the Plan9 white/register regression coverage.
+- [ ] **Reuse decoded RGBA images when eligible.** Avoid the extra copy for an already suitable tightly packed, origin-zero RGBA decode, preserving immutable published frame ownership. Go's JPEG decoder normally returns YCbCr, so this does not remove the default JPEG-to-RGBA conversion. Measure PNG and JPEG paths separately.
+- [ ] **Reuse Kitty payload bytes across generation changes.** Identical encoded image data can share prepared graphics, but must carry the new generation, state, and capture metadata and still trigger required image placement. Removing the generation guard alone is unsafe because `reuse()` retains the old generation. Byte equality does not solve different PNG encodings of identical pixels; decoding solely for dedup needs separate evidence.
+
+Lower-priority cleanup: remove the custom `min` definition in favor of the builtin (its callers are live), the unused `lastScreenshotTime`, and duplicate integer formatting where useful. Shared URL parsing must preserve the distinct Home/new-tab/navigation allowances. Parallel modifier key-downs require ordering and failure-cleanup tests; do not apply `Promise.all` as an assumed safe speedup.
+
+Server audit clarification: viewport overrides use the persistent control session, not the temporary capture session. Session reuse and avoiding repeated viewport overrides are independent changes. The session-wide desired viewport is needed to propagate sizing across tabs; it is not automatically redundant with each tab's control state. The existing capture backlog above covers these changes and the already measured command count.
+
 ### Verified capture protocol overhead
 
 On 2026-09-16, an ad hoc trace wrapped Puppeteer's connection `_rawSend` around three sequential `BrowserSession.capture('png')` calls after warmup. The real headless Chromium browser used a pipe, Vimium enabled, one static data-URL page, and a 640 × 360 viewport. Every capture issued this sequence:
@@ -42,6 +57,14 @@ Target.getTargets                   # readState: final validation
 The second and third screenshot buffers were byte-for-byte equal to their predecessors. All nine commands still ran before the client could perform image reuse. This verifies the steady-state command count for that scenario, not command latency or an FPS improvement; initialization, retries, multiple windows, and concurrent input can add work. The current capture microbenchmark measures neither these tab/history reads nor the viewport/session churn.
 
 When an item is completed, record its implementation, correctness checks, and measured results below. Keep unmeasured ideas labelled as such.
+
+## Performance harness: baseline before client optimization
+
+The [benchmark harness](docs/benchmarking.md) exercises the actual client/server/browser pipeline on local idle, patch, scroll, and seeded-canvas scenes. It saves repeated runs and comparisons of capture/write rates, latency distributions, reuse/pending drops, process CPU/RSS, Go allocation/GC costs, and payload sizes. Drained-PTY and real-terminal modes are distinct; neither claims visible presentation FPS. The band-only benchmark isolates one-pixel and full-image changes with warm caches.
+
+The CRC/band cleanup above is paused until baseline measurements are available. No band-encoding optimization has been applied as part of the harness. Keep full laptop/terminal profiling and server-phase attribution on the backlog; harness smoke runs are validation, not a performance study.
+
+Validation on 2026-09-16: the full regression suite and typecheck passed. Linux smoke runs completed all four scenes with both graphics protocols, with no capture/preparation/write errors; idle scenes made zero graphics writes after warmup. Comparison of a report with itself produced zero deltas. Foreground-terminal launch and cleanup were also exercised inside a PTY, and the harness test binary cross-compiled for macOS ARM64. Native Mac execution and visible terminal presentation remain separate checks; CI now includes a short native harness smoke run without performance thresholds.
 
 ## Implemented: remove unused capture paths
 
@@ -133,6 +156,46 @@ The older synthetic Sixel probe below measured roughly 68 KB resent per unchange
 ## Implemented: avoid repeated stale-input recovery RPCs
 
 When a tab or document changes, queued input stamped for the old document is cancelled rather than replayed. Previously, each queued event could make another failing write and state-refresh read. The input dispatcher now uses the first successful recovery read to cancel the remaining obsolete queue locally. A regression test checks that thirty-one stale events require only one rejected write and one recovery read, while fresh input still reaches Chromium. This is separate from the graphics optimization above.
+
+## Implemented: exact Sixel band comparison and stable band buffers
+
+Recorded 2026-09-17. Status: source review complete; validated on this Linux machine on 2026-09-17 — the focused Sixel/band regression tests passed, `go vet ./client` and the TypeScript typecheck were clean, and the full `npm test` suite (build, lint, server tests, Go tests with race detector, browser integration, website) passed. This is Linux-only validation on this machine, not Mac validation. See [frame preparation](client/frame_pipeline.go), [band encoding](client/sixel_band_encoder.go), and the Sixel regression tests in [the frame pipeline test file](client/frame_pipeline_test.go).
+
+### Change 1: exact per-band comparison, no hashing
+
+The websafe band path previously hashed each incoming band with CRC-32 and compared it against the hash retained in that band's cache entry; a matching hash still required a pixel-by-pixel confirmation against the last successfully prepared image before reuse. The new code removes all hashing and compares each band's pixels directly against the last successfully prepared frame, reusing the cached encoding only on exact equality.
+
+The comparison is staged: per-band results are accumulated first, and cache entries are updated only after every band has been encoded or reused successfully. Staging is what makes hash-free lazy comparison safe — with hashing removed, the per-band pixel comparison against the last good frame is the only reuse decision, so a failed preparation must not leave any cache entry holding an encoding from the failed attempt. The old design's retained hashes plus pixel confirmation masked the same latent hazard; no corruption was observed or reproduced in it. Staging now guards against it by construction.
+
+Invariants preserved: exact equality (a hash can reject equality, never prove it — direct comparison keeps that property), short final bands, resize behavior (geometry changes rebuild the band manager and encoder with empty caches), and recovery after failed preparation. `bytes.Equal` stops at the first differing byte, so an unchanged band costs a single scan instead of re-encoding; whole-frame equality already has fast paths in `prepare`.
+
+### Change 2: stable maximum-capacity band buffer
+
+The normalized band image keeps its full six-row height and capacity for every encode. A short final band is encoded through a bounded view (`SubImage`) of that buffer, so encoding it no longer reallocates the backing array, and a subsequent full-height band does not reallocate again. The encoder reads pixels only through accessors that respect the view's bounds, so stale rows below the band are never read; the code comment now states that invariant instead of claiming the toolchain would clear them (it does not).
+
+### Evidence
+
+Controlled microbenchmark on this machine: AMD Ryzen 9 9900X3D under WSL2, Go 1.27.1, five repetitions per configuration (`-count=5`), `BenchmarkSixelBandChanges`. This is a CPU cost of the band-change path, not an FPS measurement; concurrent user workloads on this machine make end-to-end numbers unreliable, so claims below are limited to these controlled runs and the saved evidence files.
+
+| Workload | Before (ns/op) | Change 1 only (ns/op) | Both changes (ns/op) |
+|---|---:|---:|---:|
+| One pixel changed per frame | 381,620–392,004 | 183,903–195,793 | 168,528–174,261 |
+| All pixels changed per frame | 14,522,456–14,642,873 | 14,716,620–15,618,818 | 14,202,040–14,579,612 |
+
+- One-pixel workload (microbenchmark only): the median drops from 385,905 ns/op to 190,531 with change 1 alone (−50.6%) and to 171,992 with both changes (−55.4%); the incremental saving of about 19 µs from adding change 2 is unattributed — no explanation is claimed for it.
+- All-pixels workload: change 1's range lies above the before range, while both changes' range overlaps it; no cause is asserted for these observations. Allocations drop from ~2,976,958 B/op to ~2,919,487 B/op (−57,471 B/op) and 30/3089 allocs/op to 30/3085 allocs/op.
+- End-to-end browser runs were drained-PTY runs (`Display: false` in the saved results; no real terminal rendering). They were inconclusive in either direction: the canvas client CPU range was 89.29–92.99% of one core before and 100.38–106.65% with change 1 only (nonoverlapping), while the both-changes run was load-contaminated (writes/s 5.30–15.03; canvas CPU 50.88–96.85%), overlapping the before range and falling below change 1's entire range. No end-to-end speedup is claimed.
+
+Saved evidence: `/tmp/termium-sixel-before.txt`, `/tmp/termium-sixel-after-1.txt`, `/tmp/termium-sixel-after.txt`; comparison outputs `/tmp/termium-compare-change1.txt` and `/tmp/termium-compare-after.txt`; per-run JSON under `dist/performance/sixel-{before,change1,after}/result.json`.
+
+### Commands
+
+```sh
+go test ./client -run '^$' -bench '^BenchmarkSixelBandChanges$' -benchmem -count=5
+npm run benchmark -- --label sixel-before --renderer sixel --out dist/performance/sixel-before
+```
+
+The end-to-end harness (see [benchmarking](docs/benchmarking.md)) supports the scenes `idle`, `patch`, `scroll`, and `canvas`; the saved runs used all four, three repeats, 30 s measured per run, on the default drained PTY. It is load-sensitive on this machine.
 
 ## Historical investigation and backlog
 

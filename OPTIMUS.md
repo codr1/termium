@@ -175,16 +175,16 @@ The normalized band image keeps its full six-row height and capacity for every e
 
 ### Evidence
 
-Controlled microbenchmark on this machine: AMD Ryzen 9 9900X3D under WSL2, Go 1.27.1 (`-N -l`), three repetitions per configuration, `BenchmarkSixelBandChanges`. This is a CPU cost of the band-change path, not an FPS measurement; concurrent user workloads on this machine make end-to-end numbers unreliable, so claims below are limited to these controlled runs and the saved evidence files.
+Controlled microbenchmark on this machine: AMD Ryzen 9 9900X3D under WSL2, Go 1.27.1, five repetitions per configuration (`-count=5`), `BenchmarkSixelBandChanges`. This is a CPU cost of the band-change path, not an FPS measurement; concurrent user workloads on this machine make end-to-end numbers unreliable, so claims below are limited to these controlled runs and the saved evidence files.
 
 | Workload | Before (ns/op) | Change 1 only (ns/op) | Both changes (ns/op) |
 |---|---:|---:|---:|
 | One pixel changed per frame | 381,620–392,004 | 183,903–195,793 | 168,528–174,261 |
-| All pixels changed per frame | ~14.2–14.6 ms | ~14.2–14.6 ms | ~14.2–14.6 ms |
+| All pixels changed per frame | 14.52–14.64 ms | 14.72–15.62 ms | 14.20–14.58 ms |
 
-- One-pixel workload: change 1 alone removes about half the time (microbenchmark only); both changes together remove about 57% versus before, with a residual of roughly 20 µs that is unattributed — no explanation is claimed for it.
-- All-pixels workload: unchanged in time; allocations drop from ~2,976,958 B/op to ~2,919,487 B/op (−57,471 B/op) and 30/3089 allocs/op to 30/3085 allocs/op.
-- End-to-end browser runs were inconclusive in either direction: the canvas client CPU range moved from 89.29–92.99% of one core (before) to 100.38–106.65% (change 1 only), nonoverlapping ranges, and the both-changes run was load-contaminated (writes/s 5.30–15.03; canvas CPU 50.88–96.85%), straddling both earlier configurations. No end-to-end speedup is claimed.
+- One-pixel workload (microbenchmark only): the median drops from 385,905 ns/op to 190,531 with change 1 alone (−50.6%) and to 171,992 with both changes (−55.4%); the incremental saving of about 19 µs from adding change 2 is unattributed — no explanation is claimed for it.
+- All-pixels workload: change 1's range lies above the before range, while both changes' range overlaps it; no cause is asserted for these observations. Allocations drop from ~2,976,958 B/op to ~2,919,487 B/op (−57,471 B/op) and 30/3089 allocs/op to 30/3085 allocs/op.
+- End-to-end browser runs were drained-PTY runs (`Display: false` in the saved results; no real terminal rendering). They were inconclusive in either direction: the canvas client CPU range was 89.29–92.99% of one core before and 100.38–106.65% with change 1 only (nonoverlapping), while the both-changes run was load-contaminated (writes/s 5.30–15.03; canvas CPU 50.88–96.85%), overlapping the before range and falling below change 1's entire range. No end-to-end speedup is claimed.
 
 Saved evidence: `/tmp/termium-sixel-before.txt`, `/tmp/termium-sixel-after-1.txt`, `/tmp/termium-sixel-after.txt`; comparison outputs `/tmp/termium-compare-change1.txt` and `/tmp/termium-compare-after.txt`; per-run JSON under `dist/performance/sixel-{before,change1,after}/result.json`.
 
@@ -192,8 +192,10 @@ Saved evidence: `/tmp/termium-sixel-before.txt`, `/tmp/termium-sixel-after-1.txt
 
 ```sh
 go test ./client -run '^$' -bench '^BenchmarkSixelBandChanges$' -benchmem -count=5
-npm run benchmark:sixel -- --scene one-pixel --repeats 3   # e2e; load-sensitive on this machine
+npm run benchmark -- --label sixel-before --renderer sixel --out dist/performance/sixel-before
 ```
+
+The end-to-end harness (see [benchmarking](docs/benchmarking.md)) supports the scenes `idle`, `patch`, `scroll`, and `canvas`; the saved runs used all four, three repeats, 30 s measured per run, on the default drained PTY. It is load-sensitive on this machine.
 
 ## Historical investigation and backlog
 

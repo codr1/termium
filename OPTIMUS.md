@@ -29,7 +29,8 @@ Source-reviewed 2026-09-16 against the current tree. These are investigation can
 
 - [x] **Replace band CRCs with direct pixel comparison (first small change).** The websafe path hashes every band and then compares pixels before trusting matching hashes. Compare each band's pixels directly against the last successfully prepared image and remove CRC bookkeeping. Preserve exact equality, short final bands, resize behavior, and recovery after failed preparation. `bytes.Equal` can stop at the first difference, so the audit's three full scans per changed frame is not a measured traffic estimate. Remove the unused column arrays, frame counter, and band-manager methods alongside this change; column arrays alone occupy about 675 KiB at 1920 × 1080.
 - [x] **Keep maximum capacity for the normalized band buffer.** Encoding a short final band currently reallocates the buffer, then a subsequent full band reallocates it again. Retain a six-row backing image and pass a bounded view. Test alternating heights and stale-pixel exclusion; measure allocations on heights not divisible by six.
-- [ ] **Encode band pixels without generating and stripping complete Sixel documents.** Each dirty band currently writes a header and a full palette through go-sixel, then `stripSixelWrapper` scans the result and discards that framing. A completely changed 1080-row websafe frame generates 180 discarded palettes, or 38,880 color definitions, before its final palette. Investigate a band-only encoder entry point, cache the final fixed-palette bytes, and reduce intermediate copies. Preserve palette indices, short bands, writer errors, and decoded pixels. Websafe has 216 colors, not 256. Profile tiny writes and intermediate allocations before attributing the recorded allocation counts to GC or a specific cause.
+- [x] **Encode band pixels without generating and stripping complete Sixel documents.** Each dirty band previously wrote a header and a full palette through go-sixel, then `stripSixelWrapper` scanned the result and discarded that framing. A completely changed 1080-row websafe frame generated 180 discarded palettes, or 38,880 color definitions, before its final palette. Implemented as a band-only encoder entry point in the forked go-sixel module; see [Implemented: band-only Sixel encoding](#implemented-band-only-sixel-encoding). Caching the final fixed-palette bytes is separate unfinished work below. Preserve palette indices, short bands, writer errors, and decoded pixels. Websafe has 216 colors, not 256.
+- [ ] **Cache the final fixed-palette Sixel bytes.** `ComposeFullSixel` regenerates the shared header and full palette definitions on every frame composition. Cache fixed-palette definitions by palette. Keep the dimension-dependent raster header separate, or include dimensions in its cache key. Adaptive palettes need separate handling because changed color-register meanings must invalidate the cached bytes.
 - [ ] **Extend band reuse to Plan9.** Both Plan9 and websafe have fixed palettes. Adaptive palettes need a separate design because changes to color-register meanings invalidate cached band data. Compare partial-change and full-change workloads; retain the Plan9 white/register regression coverage.
 - [ ] **Reuse decoded RGBA images when eligible.** Avoid the extra copy for an already suitable tightly packed, origin-zero RGBA decode, preserving immutable published frame ownership. Go's JPEG decoder normally returns YCbCr, so this does not remove the default JPEG-to-RGBA conversion. Measure PNG and JPEG paths separately.
 - [ ] **Reuse Kitty payload bytes across generation changes.** Identical encoded image data can share prepared graphics, but must carry the new generation, state, and capture metadata and still trigger required image placement. Removing the generation guard alone is unsafe because `reuse()` retains the old generation. Byte equality does not solve different PNG encodings of identical pixels; decoding solely for dedup needs separate evidence.
@@ -196,6 +197,58 @@ npm run benchmark -- --label sixel-before --renderer sixel --out dist/performanc
 ```
 
 The end-to-end harness (see [benchmarking](docs/benchmarking.md)) supports the scenes `idle`, `patch`, `scroll`, and `canvas`; the saved runs used all four, three repeats, 30 s measured per run, on the default drained PTY. It is load-sensitive on this machine.
+
+## Implemented: band-only Sixel encoding
+
+Recorded 2026-09-17. Status: source review complete (two test defects found and fixed); validated on this Linux machine on 2026-09-17 — the focused Sixel/band regression tests passed, `go vet ./client` and the TypeScript typecheck were clean, and the full `npm test` suite (build, lint, server tests, Go tests with race detector, browser integration, website) passed. This is Linux-only validation on this machine, not Mac validation. See [band encoding](client/sixel_band_encoder.go), the pixel-only entry point in [the forked go-sixel module](third_party/go-sixel/sixel.go), and the Sixel regression tests in [the frame pipeline test file](client/frame_pipeline_test.go).
+
+### What changed
+
+The websafe band path previously called `Encoder.Encode` for every dirty band, generating a complete Sixel document — header, full 216-color palette definitions, pixel data, terminator — which `stripSixelWrapper` then scanned and discarded down to the pixels. The forked go-sixel module (vendored under `third_party/go-sixel`, its own Go module) now exposes `EncodePixelData`, which runs the same setup and pixel-writing path without header, palette, or terminator; `Encoder.Encode` shares those helpers. `BandEncoder.EncodeBand` returns an owned copy of that pixel-only output, so the per-band framing is no longer generated at all instead of being generated and stripped.
+
+Commits on branch `sixel-band-only-encoder`: 9303f91 (fork entry point), 0054a32 (client switch to pixel-only encoding; `stripSixelWrapper` removed), c68b231 (review fixes: failure-recovery disarming and error-path encoder configuration in tests).
+
+### Review and validation
+
+Source review found no production defects but two test defects, both fixed in c68b231 before validation: the writer-failure recovery path never disabled a latched failure (`tw.failed`/`tw.remaining`), and the error-propagation tests' replacement encoders accidentally ran adaptive palettes instead of the websafe configuration under test.
+
+Validation on this Linux machine at c68b231: focused Sixel/band regression tests passed; `go vet ./client` and TypeScript typecheck were clean; one complete `npm test` run (build, lint, server tests, Go tests with race detector, browser integration, website) passed. Native macOS validation has not been performed for this change.
+
+### A/B measurements: bab0139 (A) vs c68b231 (B)
+
+Interleaved comparison in isolated detached worktrees (`/tmp/termium-ab-A` at bab0139, main @ PR #19 merge; `/tmp/termium-ab-B` at c68b231), benchmark source verified byte-identical between them, compilation caches warmed before measuring, identical toolchain (Go 1.27.1) and settings, runs sequential in the order A → B → B → A. The untracked generated `client/pb` package was copied from the main tree into both worktrees; the `.proto` sources are identical across A..B, so compilation is valid in both:
+
+```sh
+go test ./client -run '^$' -bench '^BenchmarkSixelBandChanges$' -benchmem -count=5
+```
+
+Medians of five repetitions; ranges over all five:
+
+**one-pixel (ns/op)**
+
+| Run | Median | Range | B/op | allocs/op |
+|---|---:|---:|---:|---:|
+| A1 (bab0139) | 172,938 | 171,514–192,865 | 64,372 | 30 |
+| B1 (c68b231) | 162,852 | 160,561–163,590 | 61,052 | 28 |
+| B2 (c68b231) | 162,574 | 159,513–171,199 | 61,052 | 28 |
+| A2 (bab0139) | 187,122 | 179,112–248,049 | 64,372 | 30 |
+
+**all-pixels (ns/op)**
+
+| Run | Median | Range | B/op | allocs/op |
+|---|---:|---:|---:|---:|
+| A1 (bab0139) | 14,283,307 | 14,257,460–16,449,373 | ~2,919,487 (±5) | 3,085 |
+| B1 (c68b231) | 13,277,627 | 13,214,266–13,304,980 | ~2,337,389 (±4) | 2,723 |
+| B2 (c68b231) | 13,245,916 | 13,229,937–13,287,481 | ~2,337,386 (±2) | 2,723 |
+| A2 (bab0139) | 14,517,451 | 14,285,828–15,008,506 | ~2,919,488 (±4) | 3,085 |
+
+- Timing: B is faster than A in both directions — one-pixel −10,086 ns (−5.8%) for A1→B1 and −24,548 ns (−13.1% vs A2) for B2→A2; all-pixels −1,005,680 ns ≈ −1.01 ms (−7.0%) and −1,271,535 ns ≈ −1.27 ms (−8.8%). The improvement persisted across both run orders in this experiment. Its measured magnitude varied; these runs do not establish the cause of that variation or eliminate all environmental effects.
+- Memory: The one-pixel workload allocated 3,320 fewer bytes and used two fewer allocations per operation. The all-pixels workload allocated approximately 582 KB fewer bytes and used 362 fewer allocations per operation—about 20% and 12% reductions, respectively.
+- End-to-end FPS has not been measured for this change; these are controlled microbenchmark numbers only.
+
+Concurrent-workload caveat: user workloads ran on this machine throughout — the 1-min load average fell monotonically across the sequence (4.36 at start → 3.29 after A1 → 2.71 after B1 → 2.43 after B2 → 2.03 after A2), with codebase-memory-mcp (~23% CPU), claude/codex agent workloads, and hashd running; user Termium sessions were left untouched. No cause is inferred from load averages; persistence across both orders is the basis for the timing claim.
+
+Saved evidence: raw outputs `/tmp/termium-ab-compare/A1.txt`, `B1.txt`, `B2.txt`, `A2.txt`; earlier single-revision runs (load-contaminated, not used for the A/B claim) at `/tmp/termium-sixel-after.txt` (d781982), `/tmp/termium-bandonly-after-c68b231.txt`, and `-run2.txt`.
 
 ## Historical investigation and backlog
 

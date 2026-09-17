@@ -47,11 +47,11 @@ CPU/RSS sampling runs once per second. Linux CPU totals use `/proc` clock ticks 
 ## Workloads and settings
 
 - `idle`: fixed text, to measure steady-state capture overhead and deduplication.
-- `patch`: a small fixed rectangle changes color at a target 30 Hz, exercising partial image changes.
+- `patch`: a small fixed rectangle cycles through eight distinct colors, each held for 250 ms (period 2 s), exercising partial image changes.
 - `scroll`: a long text page scrolls on a fixed schedule.
 - `canvas`: a seeded noise texture moves at a target 30 Hz, stressing changed-image encoding. It is not a representative average web page.
 
-Page animation uses wall-clock time and `requestAnimationFrame`, so an overloaded browser can skip animation steps. Input-to-paint timing and scripted mouse keys/Vimium interaction are separate future measurements.
+Page animation uses wall-clock time and `requestAnimationFrame`, so an overloaded browser can skip animation steps. The patch schedule was previously a two-state 30 Hz toggle; on loaded CI runners the capture loop settled near 15 Hz — exactly one color period per capture — so every screenshot landed in the same phase and the scene produced zero writes (the smoke step's failure mode). A deterministic regression test in `cmd/benchmark/patch_fixture_test.go` reproduces that aliasing against the old schedule and verifies the current one under slow sampling, all phases, and dropped animation ticks. Changing this fixture changes its recorded hash (`fixture_sha256`), which the comparison command rejects as a mismatch: end-to-end comparisons require matching fixture versions on both sides. Input-to-paint timing and scripted mouse keys/Vimium interaction are separate future measurements.
 
 Select a smaller matrix or one setting at a time:
 

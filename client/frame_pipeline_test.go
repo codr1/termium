@@ -257,19 +257,7 @@ func TestSixelPaletteRoundTripAndPartialBands(t *testing.T) {
 				if bytes.Contains(data, []byte("#256")) {
 					t.Fatal("palette exceeds 256 registers")
 				}
-				var decoded image.Image
-				if err := sixel.NewDecoder(bytes.NewReader(data)).Decode(&decoded); err != nil {
-					t.Fatal(err)
-				}
-				for y := 0; y < h; y++ {
-					for x := 0; x < 1024; x++ {
-						want := color.RGBAModel.Convert(img.At(x, y)).(color.RGBA)
-						got := color.RGBAModel.Convert(decoded.At(x, y)).(color.RGBA)
-						if got.A != 255 || channelDistance(got.R, want.R) > 3 || channelDistance(got.G, want.G) > 3 || channelDistance(got.B, want.B) > 3 {
-							t.Fatalf("pixel %d,%d: got %v want %v", x, y, got, want)
-						}
-					}
-				}
+				assertSixelPixels(t, data, 1024, h, func(x, y int) color.Color { return img.At(x, y) })
 			})
 		}
 	}
@@ -443,6 +431,117 @@ func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
 		t.Fatalf("recovery prepare: %v", err)
 	}
 	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color { return blue })
+}
+
+// bandFailureWriter forwards Sixel output into a buffer, counts completed
+// bands by their ESC \ terminators (with one-byte carryover across writes),
+// and can fail the first write after a configured number of them.
+type bandFailureWriter struct {
+	buffer      *bytes.Buffer
+	terminators int
+	carry       byte
+	hasCarry    bool
+	failAfter   int // fail on the first write after this many terminators; <0 disables
+	failed      bool
+}
+
+var errInjectedBandWrite = errors.New("injected band encode failure")
+
+func (w *bandFailureWriter) Write(p []byte) (int, error) {
+	if w.failed {
+		return 0, errInjectedBandWrite
+	}
+	for _, b := range p {
+		if w.hasCarry && w.carry == 0x1b && b == 0x5c {
+			w.terminators++
+			w.hasCarry = false
+		} else {
+			w.carry = b
+			w.hasCarry = true
+		}
+	}
+	n, err := w.buffer.Write(p)
+	if err != nil {
+		return n, err
+	}
+	if w.failAfter >= 0 && w.terminators > w.failAfter {
+		w.failed = true // armed: the next band's first write fails
+	}
+	return n, nil
+}
+
+// TestSixelPreparationRecoversMixedBandsAfterEncodeFailure verifies that a
+// preparation failing after some bands have already been encoded leaves every
+// cache entry holding the last good frame's encoding. A later frame unchanged
+// in an earlier band must be served from that cache, not from the partially
+// encoded failed frame: with per-band commits, band 0 below would still hold
+// B's pixels and the decoded output would mix two different frames.
+func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
+	const w = 12
+	const h = 25 // four full bands plus a one-row final band
+
+	red := color.RGBA{R: 255, A: 255}
+	blue := color.RGBA{B: 255, A: 255}
+	green := color.RGBA{G: 255, A: 255}
+
+	base := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(base, red)
+
+	p := &framePreparer{renderer: "sixel", palette: "websafe"}
+	if _, err := p.prepare(pngFrame(t, base, 1)); err != nil {
+		t.Fatalf("prepare A: %v", err)
+	}
+	cachedAfterA := make([]string, len(p.bands.Bands))
+	for i := range p.bands.Bands {
+		cachedAfterA[i] = p.bands.Bands[i].CachedRLE
+	}
+
+	// Route band encoding through a writer that lets the first changed band
+	// complete, then fails the next band's first write with a sentinel error.
+	tw := &bandFailureWriter{buffer: p.bandEncoder.buffer, failAfter: 0}
+	failing := sixel.NewEncoder(tw)
+	failing.Dither = false
+	failing.Palette = sixel.PaletteWebSafe
+	p.bandEncoder.encoder = failing
+
+	// B changes band 0 and band 3: the loop encodes band 0 (terminator #1),
+	// reuses unchanged bands from cache, then fails on band 3's first write.
+	b := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(b, red)
+	fillBand(b, 0, blue)
+	fillBand(b, 3, green)
+	if _, err := p.prepare(pngFrame(t, b, 2)); !errors.Is(err, errInjectedBandWrite) {
+		t.Fatalf("expected the injected band failure, got %v", err)
+	}
+	if tw.terminators != 1 {
+		t.Fatalf("completed bands before failure = %d, want exactly one", tw.terminators)
+	}
+	for i := range p.bands.Bands {
+		if p.bands.Bands[i].CachedRLE != cachedAfterA[i] {
+			t.Fatalf("band %d cache changed after failed preparation", i)
+		}
+	}
+	if p.last.Generation != 1 {
+		t.Fatalf("p.last advanced to generation %d after failure", p.last.Generation)
+	}
+
+	// Disable the injection. C changes only band 1, so band 0 — changed only
+	// during the failed attempt — must be served from A's cache as red.
+	tw.failed = false
+	tw.failAfter = -1
+	c := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(c, red)
+	fillBand(c, 1, green)
+	frame, err := p.prepare(pngFrame(t, c, 3))
+	if err != nil {
+		t.Fatalf("recovery prepare: %v", err)
+	}
+	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color {
+		if y >= SIXEL_BAND_HEIGHT && y < 2*SIXEL_BAND_HEIGHT {
+			return green // band 1 changed in C and was re-encoded
+		}
+		return red // bands 0, 2, 3, and the short final band are A's pixels
+	})
 }
 
 // TestEncodeBandShortBandHasNoStaleRows verifies that a short final band

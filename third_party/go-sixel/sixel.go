@@ -184,6 +184,41 @@ const (
 
 // Encode do encoding
 func (e *Encoder) Encode(img image.Image) error {
+	paletted, width, height, nc, ok := e.setupEncode(img)
+	if !ok {
+		return nil
+	}
+	w := &checkedWriter{writer: e.w}
+	e.writeHeader(w, width, height)
+	e.writePalette(w, paletted.Palette)
+	e.writePixelData(w, img, paletted, width, height, nc)
+	// string terminator(ST)
+	w.Write([]byte{0x1b, 0x5c})
+
+	return w.err
+}
+
+// EncodePixelData writes only the pixel data of a Sixel document: DECGNL row
+// separators and per-register RLE runs. It omits the DECSIXEL introducer,
+// raster dimensions, palette definitions, and string terminator; callers must
+// supply matching palette definitions themselves (for example by composing one
+// shared frame header around several pixel-only encodings). Use fixed palettes
+// for this output; adaptive-palette band support is out of scope.
+func (e *Encoder) EncodePixelData(img image.Image) error {
+	paletted, width, height, nc, ok := e.setupEncode(img)
+	if !ok {
+		return nil
+	}
+	w := &checkedWriter{writer: e.w}
+	e.writePixelData(w, img, paletted, width, height, nc)
+
+	return w.err
+}
+
+// setupEncode quantizes img and resolves the effective raster dimensions and
+// register count shared by Encode and EncodePixelData. It reports ok=false for
+// empty images, which encode to nothing.
+func (e *Encoder) setupEncode(img image.Image) (*image.Paletted, int, int, int, bool) {
 	nc := e.Colors // (>= 2, 8bit, index 0 is reserved for transparent key color)
 	if nc < 2 {
 		nc = 255
@@ -192,7 +227,7 @@ func (e *Encoder) Encode(img image.Image) error {
 	bounds := img.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	if width == 0 || height == 0 {
-		return nil
+		return nil, 0, 0, nc, false
 	}
 	if e.Width > 0 {
 		width = e.Width
@@ -237,7 +272,11 @@ func (e *Encoder) Encode(img image.Image) error {
 		}
 	}
 
-	w := &checkedWriter{writer: e.w}
+	return paletted, width, height, nc, true
+}
+
+// writeHeader writes the DECSIXEL introducer and raster dimensions.
+func (e *Encoder) writeHeader(w io.Writer, width, height int) {
 	// DECSIXEL Introducer(\033P0;0;8q) + DECGRA ("Pan;Pad;Ph;Pv): Set Raster Attributes
 	// Format: ESC P 0;0;8 q " Pan;Pad;Ph;Pv
 	// Pan=1 (pixel aspect ratio numerator), Pad=1 (denominator), Ph=width, Pv=height
@@ -253,10 +292,13 @@ func (e *Encoder) Encode(img image.Image) error {
 	// height
 	idx += writeInt(headerBuf[idx:], height)
 	w.Write(headerBuf[:idx])
+}
 
+// writePalette writes one DECGCI definition per palette entry.
+func (e *Encoder) writePalette(w io.Writer, pal color.Palette) {
 	// Pre-allocate a buffer for color palette
 	var palBuf [32]byte
-	for n, v := range paletted.Palette {
+	for n, v := range pal {
 		r, g, b, _ := v.RGBA()
 		r = r * 100 / 0xFFFF
 		g = g * 100 / 0xFFFF
@@ -281,7 +323,12 @@ func (e *Encoder) Encode(img image.Image) error {
 		idx += writeInt(palBuf[idx:], int(b))
 		w.Write(palBuf[:idx])
 	}
+}
 
+// writePixelData writes DECGNL row separators and per-register RLE runs for the
+// quantized image. It never stops early: after a writer failure, remaining
+// fragments are still attempted so checkedWriter preserves the first error.
+func (e *Encoder) writePixelData(w io.Writer, img image.Image, paletted *image.Paletted, width, height, nc int) {
 	// Reuse or resize buffers as needed
 	bufSize := width * nc
 	if cap(e.buf) < bufSize {
@@ -417,10 +464,6 @@ func (e *Encoder) Encode(img image.Image) error {
 			ch0 = specialChCr
 		}
 	}
-	// string terminator(ST)
-	w.Write([]byte{0x1b, 0x5c})
-
-	return w.err
 }
 
 // Preserve the first output error, including short writes. Encode can finish

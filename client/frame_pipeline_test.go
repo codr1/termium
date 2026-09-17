@@ -275,6 +275,176 @@ func TestSixelPaletteRoundTripAndPartialBands(t *testing.T) {
 	}
 }
 
+func fillImage(img *image.RGBA, c color.Color) {
+	bounds := img.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			img.Set(x, y, c)
+		}
+	}
+}
+
+func fillBand(img *image.RGBA, index int, c color.Color) {
+	bounds := img.Bounds()
+	y := index * SIXEL_BAND_HEIGHT
+	end := min(y+SIXEL_BAND_HEIGHT, bounds.Max.Y)
+	for yy := y; yy < end; yy++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			img.Set(x, yy, c)
+		}
+	}
+}
+
+func decodeSixel(t *testing.T, data []byte) image.Image {
+	t.Helper()
+	var decoded image.Image
+	if err := sixel.NewDecoder(bytes.NewReader(data)).Decode(&decoded); err != nil {
+		t.Fatalf("decode Sixel: %v", err)
+	}
+	return decoded
+}
+
+func assertSixelPixels(t *testing.T, data []byte, w, h int, want func(x, y int) color.Color) {
+	t.Helper()
+	img := decodeSixel(t, data)
+	bounds := img.Bounds()
+	if bounds.Dx() != w || bounds.Dy() != h {
+		t.Fatalf("decoded size = %dx%d, want %dx%d", bounds.Dx(), bounds.Dy(), w, h)
+	}
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			got := color.RGBAModel.Convert(img.At(x, y)).(color.RGBA)
+			wantC := color.RGBAModel.Convert(want(x, y)).(color.RGBA)
+			if got.A != 255 || channelDistance(got.R, wantC.R) > 3 || channelDistance(got.G, wantC.G) > 3 || channelDistance(got.B, wantC.B) > 3 {
+				t.Fatalf("pixel %d,%d: got %v want %v", x, y, got, wantC)
+			}
+		}
+	}
+}
+
+// TestSixelBandExactComparison verifies per-band dirty detection is exact: a
+// single changed pixel re-encodes only its band, unchanged bands are reused
+// byte-for-byte, and A -> B -> A reproduces the original output.
+func TestSixelBandExactComparison(t *testing.T) {
+	const w = 12
+	const h = 19 // three full bands plus a one-row final band
+
+	red := color.RGBA{R: 255, A: 255}
+	blue := color.RGBA{B: 255, A: 255}
+
+	base := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(base, red)
+
+	p := &framePreparer{renderer: "sixel", palette: "websafe"}
+	var generation uint64
+	prepareNext := func(img *image.RGBA) *Frame {
+		generation++
+		frame, err := p.prepare(pngFrame(t, img, generation))
+		if err != nil {
+			t.Fatalf("prepare generation %d: %v", generation, err)
+		}
+		return frame
+	}
+
+	first := prepareNext(base)
+	assertSixelPixels(t, first.Graphics, w, h, func(x, y int) color.Color { return red })
+
+	cases := []struct {
+		name string
+		x, y int
+	}{
+		{"first band", 0, 0},
+		{"middle band", 6, 9},
+		{"short final band", w - 1, h - 1},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			img := image.NewRGBA(image.Rect(0, 0, w, h))
+			fillImage(img, red)
+			img.Set(tc.x, tc.y, blue)
+
+			frame := prepareNext(img)
+			assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color {
+				if x == tc.x && y == tc.y {
+					return blue
+				}
+				return red
+			})
+
+			back := prepareNext(base)
+			if !bytes.Equal(first.Graphics, back.Graphics) {
+				t.Fatal("A -> B -> A did not reproduce the original Sixel output")
+			}
+		})
+	}
+
+	t.Run("geometry change", func(t *testing.T) {
+		wide := image.NewRGBA(image.Rect(0, 0, 18, 10))
+		fillImage(wide, blue)
+		assertSixelPixels(t, prepareNext(wide).Graphics, 18, 10, func(x, y int) color.Color { return blue })
+
+		back := prepareNext(base)
+		if !bytes.Equal(first.Graphics, back.Graphics) {
+			t.Fatal("geometry change and restore did not reproduce the original output")
+		}
+	})
+}
+
+// TestSixelPreparationRecoversAfterEncodeFailure verifies that a preparation
+// which fails after partial band work leaves the band cache and p.last
+// untouched, so the next frame re-encodes from the last good image instead of
+// mixing bands from two different frames.
+func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
+	const w = 12
+	const h = 117 // nineteen full bands plus a three-row final band
+
+	red := color.RGBA{R: 255, A: 255}
+	blue := color.RGBA{B: 255, A: 255}
+
+	base := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(base, red)
+
+	p := &framePreparer{renderer: "sixel", palette: "websafe"}
+	if _, err := p.prepare(pngFrame(t, base, 1)); err != nil {
+		t.Fatalf("prepare A: %v", err)
+	}
+
+	// Trip the real output-size check mid-loop: every cached band is oversized,
+	// so only a dirty band's genuine re-encoding keeps the total under 32 MiB.
+	dummy := strings.Repeat("x", 1_900_000)
+	for i := range p.bands.Bands {
+		p.bands.Bands[i].CachedRLE = dummy
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(img, red)
+	fillBand(img, 0, blue) // first band changed
+	fillBand(img, 19, blue) // short final band changed
+
+	if _, err := p.prepare(pngFrame(t, img, 2)); err == nil {
+		t.Fatal("expected the size check to fail mid-encode")
+	} else if !strings.Contains(err.Error(), "32 MiB") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	for i := range p.bands.Bands {
+		if p.bands.Bands[i].CachedRLE != dummy {
+			t.Fatalf("band %d cache changed after failed preparation", i)
+		}
+	}
+	if p.last.Generation != 1 {
+		t.Fatalf("p.last advanced to generation %d after failure", p.last.Generation)
+	}
+
+	recovery := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillImage(recovery, blue) // every band differs from A: a full re-encode fits
+	frame, err := p.prepare(pngFrame(t, recovery, 3))
+	if err != nil {
+		t.Fatalf("recovery prepare: %v", err)
+	}
+	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color { return blue })
+}
+
 func TestPacingRespondsToSlowPreparationAndOutput(t *testing.T) {
 	p := newFramePipeline()
 	p.cost.Store(int64(300 * time.Millisecond))
@@ -331,35 +501,6 @@ func BenchmarkUnchangedPreparation(b *testing.B) {
 		if _, err := p.prepare(frame); err != nil {
 			b.Fatal(err)
 		}
-	}
-}
-
-func TestBandCacheConfirmsHashMatchesWithPixels(t *testing.T) {
-	p := &framePreparer{renderer: "sixel", palette: "websafe"}
-	old := image.NewRGBA(image.Rect(0, 0, 12, 6))
-	for y := 0; y < 6; y++ {
-		for x := 0; x < 12; x++ {
-			old.SetRGBA(x, y, color.RGBA{255, 0, 0, 255})
-		}
-	}
-	first, err := p.prepare(pngFrame(t, old, 1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	changed := image.NewRGBA(old.Bounds())
-	for y := 0; y < 6; y++ {
-		for x := 0; x < 12; x++ {
-			changed.SetRGBA(x, y, color.RGBA{0, 0, 255, 255})
-		}
-	}
-	// Force the hash-equality branch without depending on a particular collision.
-	p.bands.Bands[0].Hash = HashBand(changed, 0, 6, 12)
-	second, err := p.prepare(pngFrame(t, changed, 1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if bytes.Equal(first.Graphics, second.Graphics) {
-		t.Fatal("hash match concealed changed pixels")
 	}
 }
 

@@ -195,9 +195,10 @@ func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {
 }
 
 // bandChanged reports whether one horizontal strip of img differs from the
-// last successfully prepared image. bytes.Equal short-circuits on the first
-// differing byte, so an unchanged frame costs a single scan instead of a hash
-// pass plus per-band confirmation.
+// last successfully prepared image. The benefit concerns unchanged bands
+// within a changed frame: bytes.Equal short-circuits on the first differing
+// byte, so each unchanged band costs a single scan instead of re-encoding.
+// Whole-frame equality already has fast paths in prepare.
 func bandChanged(img, previous *image.RGBA, y, height int) bool {
 	if previous == nil || img.Bounds() != previous.Bounds() {
 		return true

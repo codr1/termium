@@ -27,8 +27,8 @@ Reviewed 2026-09-16. These items are unfinished; candidate optimizations have no
 
 Source-reviewed 2026-09-16 against the current tree. These are investigation candidates, not measured speedups. The external audit also described the screenshot stream and `prepareCapture`, which were removed in PR #18; tests calling an API did not establish a production consumer.
 
-- [ ] **Replace band CRCs with direct pixel comparison (first small change).** The websafe path hashes every band and then compares pixels before trusting matching hashes. Compare each band's pixels directly against the last successfully prepared image and remove CRC bookkeeping. Preserve exact equality, short final bands, resize behavior, and recovery after failed preparation. `bytes.Equal` can stop at the first difference, so the audit's three full scans per changed frame is not a measured traffic estimate. Remove the unused column arrays, frame counter, and band-manager methods alongside this change; column arrays alone occupy about 675 KiB at 1920 × 1080.
-- [ ] **Keep maximum capacity for the normalized band buffer.** Encoding a short final band currently reallocates the buffer, then a subsequent full band reallocates it again. Retain a six-row backing image and pass a bounded view. Test alternating heights and stale-pixel exclusion; measure allocations on heights not divisible by six.
+- [x] **Replace band CRCs with direct pixel comparison (first small change).** The websafe path hashes every band and then compares pixels before trusting matching hashes. Compare each band's pixels directly against the last successfully prepared image and remove CRC bookkeeping. Preserve exact equality, short final bands, resize behavior, and recovery after failed preparation. `bytes.Equal` can stop at the first difference, so the audit's three full scans per changed frame is not a measured traffic estimate. Remove the unused column arrays, frame counter, and band-manager methods alongside this change; column arrays alone occupy about 675 KiB at 1920 × 1080.
+- [x] **Keep maximum capacity for the normalized band buffer.** Encoding a short final band currently reallocates the buffer, then a subsequent full band reallocates it again. Retain a six-row backing image and pass a bounded view. Test alternating heights and stale-pixel exclusion; measure allocations on heights not divisible by six.
 - [ ] **Encode band pixels without generating and stripping complete Sixel documents.** Each dirty band currently writes a header and a full palette through go-sixel, then `stripSixelWrapper` scans the result and discards that framing. A completely changed 1080-row websafe frame generates 180 discarded palettes, or 38,880 color definitions, before its final palette. Investigate a band-only encoder entry point, cache the final fixed-palette bytes, and reduce intermediate copies. Preserve palette indices, short bands, writer errors, and decoded pixels. Websafe has 216 colors, not 256. Profile tiny writes and intermediate allocations before attributing the recorded allocation counts to GC or a specific cause.
 - [ ] **Extend band reuse to Plan9.** Both Plan9 and websafe have fixed palettes. Adaptive palettes need a separate design because changes to color-register meanings invalidate cached band data. Compare partial-change and full-change workloads; retain the Plan9 white/register regression coverage.
 - [ ] **Reuse decoded RGBA images when eligible.** Avoid the extra copy for an already suitable tightly packed, origin-zero RGBA decode, preserving immutable published frame ownership. Go's JPEG decoder normally returns YCbCr, so this does not remove the default JPEG-to-RGBA conversion. Measure PNG and JPEG paths separately.
@@ -156,6 +156,44 @@ The older synthetic Sixel probe below measured roughly 68 KB resent per unchange
 ## Implemented: avoid repeated stale-input recovery RPCs
 
 When a tab or document changes, queued input stamped for the old document is cancelled rather than replayed. Previously, each queued event could make another failing write and state-refresh read. The input dispatcher now uses the first successful recovery read to cancel the remaining obsolete queue locally. A regression test checks that thirty-one stale events require only one rejected write and one recovery read, while fresh input still reaches Chromium. This is separate from the graphics optimization above.
+
+## Implemented: exact Sixel band comparison and stable band buffers
+
+Recorded 2026-09-17. Status: implementation committed on branch `sixel-band-optimizations`; independent review and validation are pending. See [frame preparation](client/frame_pipeline.go), [band encoding](client/sixel_band_encoder.go), and the Sixel regression tests in [the frame pipeline test file](client/frame_pipeline_test.go).
+
+### Change 1: exact per-band comparison, no hashing
+
+The websafe band path previously hashed each incoming band with CRC-32 and compared it against the hash retained in that band's cache entry; a matching hash still required a pixel-by-pixel confirmation against the last successfully prepared image before reuse. The new code removes all hashing and compares each band's pixels directly against the last successfully prepared frame, reusing the cached encoding only on exact equality.
+
+The comparison is staged: per-band results are accumulated first, and cache entries are updated only after every band has been encoded or reused successfully. Staging is what makes hash-free lazy comparison safe — with hashing removed, the per-band pixel comparison against the last good frame is the only reuse decision, so a failed preparation must not leave any cache entry holding an encoding from the failed attempt. The old design's retained hashes plus pixel confirmation masked the same latent hazard; no corruption was observed or reproduced in it. Staging now guards against it by construction.
+
+Invariants preserved: exact equality (a hash can reject equality, never prove it — direct comparison keeps that property), short final bands, resize behavior (geometry changes rebuild the band manager and encoder with empty caches), and recovery after failed preparation. `bytes.Equal` stops at the first differing byte, so an unchanged band costs a single scan instead of re-encoding; whole-frame equality already has fast paths in `prepare`.
+
+### Change 2: stable maximum-capacity band buffer
+
+The normalized band image keeps its full six-row height and capacity for every encode. A short final band is encoded through a bounded view (`SubImage`) of that buffer, so encoding it no longer reallocates the backing array, and a subsequent full-height band does not reallocate again. The encoder reads pixels only through accessors that respect the view's bounds, so stale rows below the band are never read; the code comment now states that invariant instead of claiming the toolchain would clear them (it does not).
+
+### Evidence
+
+Controlled microbenchmark on this machine: AMD Ryzen 9 9900X3D under WSL2, Go 1.27.1 (`-N -l`), three repetitions per configuration, `BenchmarkSixelBandChanges`. This is a CPU cost of the band-change path, not an FPS measurement; concurrent user workloads on this machine make end-to-end numbers unreliable, so claims below are limited to these controlled runs and the saved evidence files.
+
+| Workload | Before (ns/op) | Change 1 only (ns/op) | Both changes (ns/op) |
+|---|---:|---:|---:|
+| One pixel changed per frame | 381,620–392,004 | 183,903–195,793 | 168,528–174,261 |
+| All pixels changed per frame | ~14.2–14.6 ms | ~14.2–14.6 ms | ~14.2–14.6 ms |
+
+- One-pixel workload: change 1 alone removes about half the time (microbenchmark only); both changes together remove about 57% versus before, with a residual of roughly 20 µs that is unattributed — no explanation is claimed for it.
+- All-pixels workload: unchanged in time; allocations drop from ~2,976,958 B/op to ~2,919,487 B/op (−57,471 B/op) and 30/3089 allocs/op to 30/3085 allocs/op.
+- End-to-end browser runs were inconclusive in either direction: the canvas client CPU range moved from 89.29–92.99% of one core (before) to 100.38–106.65% (change 1 only), nonoverlapping ranges, and the both-changes run was load-contaminated (writes/s 5.30–15.03; canvas CPU 50.88–96.85%), straddling both earlier configurations. No end-to-end speedup is claimed.
+
+Saved evidence: `/tmp/termium-sixel-before.txt`, `/tmp/termium-sixel-after-1.txt`, `/tmp/termium-sixel-after.txt`; comparison outputs `/tmp/termium-compare-change1.txt` and `/tmp/termium-compare-after.txt`; per-run JSON under `dist/performance/sixel-{before,change1,after}/result.json`.
+
+### Commands
+
+```sh
+go test ./client -run '^$' -bench '^BenchmarkSixelBandChanges$' -benchmem -count=5
+npm run benchmark:sixel -- --scene one-pixel --repeats 3   # e2e; load-sensitive on this machine
+```
 
 ## Historical investigation and backlog
 

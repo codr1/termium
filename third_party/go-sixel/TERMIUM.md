@@ -14,6 +14,11 @@ This checked-in module carries the fixes needed by the rendering pipeline:
 - Own fixed-palette caches per encoder, reset on palette changes, and cap entries
   at 65,536. Opaque websafe pixels use a direct RGB calculation instead of a map,
   and RGBA pixel loops avoid allocating color interfaces.
+- Add `EncodePixelData`, which writes only the Sixel pixel data (DECGNL row
+  separators and per-register RLE runs) without the introducer, raster
+  dimensions, palette definitions, or terminator. It shares quantization and
+  pixel writing with `Encode`; callers must supply matching palette definitions
+  themselves. Adaptive-palette band support is out of scope for this entry point.
 
 The client uses one preparation worker and encodes into bounded memory before
 writing the terminal. Encoder instances are not safe for concurrent use.

@@ -5,6 +5,7 @@ main{padding:24px}p{height:32px;margin:0}#patch{position:fixed;bottom:12px;right
 canvas{position:fixed;inset:0;display:none}
 </style>
 <main><h1>Termium performance fixture</h1></main><div id="patch"></div><canvas></canvas>
+<!-- patch scene: eight distinct colors, each held 250 ms (period 2 s), computed from wall-clock time. Long states keep consecutive captures distinguishable when the browser skips animation frames or the capture rhythm aliases a slow rate; all eight colors are exact websafe entries. Keep this schedule in sync with cmd/benchmark/patch_fixture_test.go: changing it changes the fixture hash recorded in result.json, and the comparison command refuses to pair runs with different fixtures. -->
 <script>
 const scene=new URLSearchParams(location.search).get('scene');
 const main=document.querySelector('main');
@@ -16,10 +17,10 @@ const tile=document.createElement('canvas');tile.width=256;tile.height=256;
 const tc=tile.getContext('2d'), pixels=tc.createImageData(256,256);let seed=1234567;
 for(let i=0;i<pixels.data.length;i+=4){seed=(Math.imul(seed,1664525)+1013904223)>>>0;pixels.data[i]=seed&255;pixels.data[i+1]=(seed>>>8)&255;pixels.data[i+2]=(seed>>>16)&255;pixels.data[i+3]=255}
 tc.putImageData(pixels,0,0);const pattern=ctx.createPattern(tile,'repeat');
-let start=performance.now(),last=-1;
+const PATCH_COLORS=['#ff0000','#ffff00','#00ff00','#00ffff','#0000ff','#ff00ff','#ffffff','#000000'];let start=performance.now(),last=-1,lastP=-1;
 function tick(now){const frame=Math.floor((now-start)/1000*30);
 if(frame!==last){last=frame;
-if(scene==='patch')document.querySelector('#patch').style.background=frame%2?'#cc6633':'#33cc66';
+if(scene==='patch'){const p=Math.floor((now-start)/250)%PATCH_COLORS.length;if(p!==lastP){lastP=p;document.querySelector('#patch').style.background=PATCH_COLORS[p]}}
 if(scene==='scroll')scrollTo(0,(frame*8)%8000);
 if(scene==='canvas'){if(canvas.width!==innerWidth||canvas.height!==innerHeight){canvas.width=innerWidth;canvas.height=innerHeight}ctx.save();ctx.translate(-(frame*3)%256,-(frame*5)%256);ctx.fillStyle=pattern;ctx.fillRect(0,0,canvas.width+256,canvas.height+256);ctx.restore()}}
 requestAnimationFrame(tick)}

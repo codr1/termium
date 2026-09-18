@@ -10,6 +10,7 @@ import (
 	"image"
 	"image/color"
 	"image/color/palette"
+	"image/draw"
 	"image/png"
 	"io"
 	"strings"
@@ -406,7 +407,7 @@ func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
 
 	img := image.NewRGBA(image.Rect(0, 0, w, h))
 	fillImage(img, red)
-	fillBand(img, 0, blue) // first band changed
+	fillBand(img, 0, blue)  // first band changed
 	fillBand(img, 19, blue) // short final band changed
 
 	if _, err := p.prepare(pngFrame(t, img, 2)); err == nil {
@@ -433,40 +434,35 @@ func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
 	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color { return blue })
 }
 
-// bandFailureWriter forwards Sixel output into a buffer, counts completed
-// bands by their ESC \ terminators (with one-byte carryover across writes),
-// and can fail the first write after a configured number of them.
-type bandFailureWriter struct {
-	buffer      *bytes.Buffer
-	terminators int
-	carry       byte
-	hasCarry    bool
-	failAfter   int // fail on the first write after this many terminators; <0 disables
-	failed      bool
+// budgetFailureWriter forwards Sixel pixel output into a buffer and fails the
+// first write that would exceed its remaining byte budget. A band's writes sum
+// to exactly its encoded size, so a budget of one complete band lets that band
+// finish and then fails the next band's first write.
+type budgetFailureWriter struct {
+	buffer    *bytes.Buffer
+	remaining int // bytes still allowed; negative disables failure
+	forwarded int
+	failed    bool
 }
 
 var errInjectedBandWrite = errors.New("injected band encode failure")
 
-func (w *bandFailureWriter) Write(p []byte) (int, error) {
+func (w *budgetFailureWriter) Write(p []byte) (int, error) {
 	if w.failed {
 		return 0, errInjectedBandWrite
 	}
-	for _, b := range p {
-		if w.hasCarry && w.carry == 0x1b && b == 0x5c {
-			w.terminators++
-			w.hasCarry = false
-		} else {
-			w.carry = b
-			w.hasCarry = true
-		}
+	if w.remaining >= 0 && len(p) > w.remaining {
+		w.failed = true
+		return 0, errInjectedBandWrite
 	}
 	n, err := w.buffer.Write(p)
 	if err != nil {
 		return n, err
 	}
-	if w.failAfter >= 0 && w.terminators > w.failAfter {
-		w.failed = true // armed: the next band's first write fails
+	if w.remaining >= 0 {
+		w.remaining -= n
 	}
+	w.forwarded += n
 	return n, nil
 }
 
@@ -498,14 +494,26 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 
 	// Route band encoding through a writer that lets the first changed band
 	// complete, then fails the next band's first write with a sentinel error.
-	tw := &bandFailureWriter{buffer: p.bandEncoder.buffer, failAfter: 0}
+	// The budget is one complete band's pixel output, encoded independently so
+	// the injection point is exact: writes within a band sum to its size, so
+	// band 0 finishes and band 3's first write exceeds the exhausted budget.
+	budgetBuf := &bytes.Buffer{}
+	budgetEnc := sixel.NewEncoder(budgetBuf)
+	budgetEnc.Dither = false
+	budgetEnc.Palette = sixel.PaletteWebSafe
+	band0 := image.NewRGBA(image.Rect(0, 0, w, SIXEL_BAND_HEIGHT))
+	fillImage(band0, blue) // band 0 of B is solid blue
+	if err := budgetEnc.EncodePixelData(band0); err != nil {
+		t.Fatalf("budget encode: %v", err)
+	}
+	tw := &budgetFailureWriter{buffer: p.bandEncoder.buffer, remaining: budgetBuf.Len()}
 	failing := sixel.NewEncoder(tw)
 	failing.Dither = false
 	failing.Palette = sixel.PaletteWebSafe
 	p.bandEncoder.encoder = failing
 
-	// B changes band 0 and band 3: the loop encodes band 0 (terminator #1),
-	// reuses unchanged bands from cache, then fails on band 3's first write.
+	// B changes band 0 and band 3: the loop encodes band 0 in full, reuses
+	// unchanged bands from cache, then fails on band 3's first write.
 	b := image.NewRGBA(image.Rect(0, 0, w, h))
 	fillImage(b, red)
 	fillBand(b, 0, blue)
@@ -513,8 +521,8 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 	if _, err := p.prepare(pngFrame(t, b, 2)); !errors.Is(err, errInjectedBandWrite) {
 		t.Fatalf("expected the injected band failure, got %v", err)
 	}
-	if tw.terminators != 1 {
-		t.Fatalf("completed bands before failure = %d, want exactly one", tw.terminators)
+	if tw.forwarded != budgetBuf.Len() || tw.remaining != 0 {
+		t.Fatalf("forwarded = %d (remaining %d), want exactly one complete band (%d)", tw.forwarded, tw.remaining, budgetBuf.Len())
 	}
 	for i := range p.bands.Bands {
 		if p.bands.Bands[i].CachedRLE != cachedAfterA[i] {
@@ -528,7 +536,7 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 	// Disable the injection. C changes only band 1, so band 0 — changed only
 	// during the failed attempt — must be served from A's cache as red.
 	tw.failed = false
-	tw.failAfter = -1
+	tw.remaining = -1
 	c := image.NewRGBA(image.Rect(0, 0, w, h))
 	fillImage(c, red)
 	fillBand(c, 1, green)
@@ -541,6 +549,279 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 			return green // band 1 changed in C and was re-encoded
 		}
 		return red // bands 0, 2, 3, and the short final band are A's pixels
+	})
+}
+
+// stripSixelWrapperReference is preserved verbatim from the pre-change band
+// path (complete Sixel document through Encoder.Encode, framing stripped) so
+// pixel-only output can be compared against it byte-for-byte.
+func stripSixelWrapperReference(sixelStr string) string {
+	// Sixel format: ESC P params q "dimensions" #palette_entries pixel_data ESC \
+	// We want ONLY the pixel data part
+
+	// Strategy: Find where palette definitions end and pixel data begins
+	// Palette entries look like: #N;2;R;G;B
+	// Pixel data starts with color selections like #N followed by pixel chars
+
+	lastPaletteEnd := -1
+
+	// Find all palette entries (they have ;2; after the number)
+	for i := 0; i < len(sixelStr)-7; i++ {
+		if sixelStr[i] == '#' {
+			j := i + 1
+			// Skip the number
+			numStart := j
+			for j < len(sixelStr) && sixelStr[j] >= '0' && sixelStr[j] <= '9' {
+				j++
+			}
+			// Check if this is a palette definition
+			if j > numStart && j+2 < len(sixelStr) && sixelStr[j:j+3] == ";2;" {
+				// This is a palette entry, find where it ends
+				j += 3 // Skip ;2;
+				// Skip R value
+				for j < len(sixelStr) && sixelStr[j] != ';' {
+					j++
+				}
+				if j < len(sixelStr) {
+					j++ // Skip semicolon
+					// Skip G value
+					for j < len(sixelStr) && sixelStr[j] != ';' {
+						j++
+					}
+					if j < len(sixelStr) {
+						j++ // Skip semicolon
+						// Skip B value
+						for j < len(sixelStr) && sixelStr[j] >= '0' && sixelStr[j] <= '9' {
+							j++
+						}
+						// j now points to first char after this palette entry
+						lastPaletteEnd = j
+					}
+				}
+			}
+		}
+	}
+
+	pixelStart := -1
+	if lastPaletteEnd != -1 {
+		pixelStart = lastPaletteEnd
+	} else {
+		// Fallback: look for pixel data after 'q' and optional dimension spec
+		for i := 0; i < len(sixelStr)-1; i++ {
+			if sixelStr[i] == 'q' {
+				j := i + 1
+				// Skip optional dimension spec like "1;1;896;900
+				if j < len(sixelStr) && sixelStr[j] == '"' {
+					// Skip until we're past the dimension spec
+					for j < len(sixelStr) && sixelStr[j] != '#' && sixelStr[j] != '$' && !(sixelStr[j] >= '?' && sixelStr[j] <= '~') {
+						j++
+					}
+				}
+				// If we hit a #, there are palette entries to skip
+				if j < len(sixelStr) && sixelStr[j] == '#' {
+					// Already handled above, this shouldn't happen
+					continue
+				}
+				// Otherwise we should be at pixel data
+				if j < len(sixelStr) && (sixelStr[j] == '$' || (sixelStr[j] >= '?' && sixelStr[j] <= '~')) {
+					pixelStart = j
+					break
+				}
+			}
+		}
+	}
+
+	if pixelStart == -1 {
+		return ""
+	}
+
+	// Find end (before ESC \)
+	endIdx := len(sixelStr)
+	for i := len(sixelStr) - 2; i >= 0; i-- {
+		if sixelStr[i] == 0x1b && sixelStr[i+1] == '\\' {
+			endIdx = i
+			break
+		}
+	}
+
+	if pixelStart < endIdx {
+		return sixelStr[pixelStart:endIdx]
+	}
+	return ""
+}
+
+// legacyBandPixels encodes a band the old way: complete Sixel document with
+// introducer, dimensions, palette definitions, and terminator, then strips the
+// framing to leave only pixel data.
+func legacyBandPixels(t *testing.T, img image.Image) string {
+	t.Helper()
+	buf := &bytes.Buffer{}
+	enc := sixel.NewEncoder(buf)
+	enc.Dither = false
+	enc.Palette = sixel.PaletteWebSafe
+	if err := enc.Encode(img); err != nil {
+		t.Fatalf("legacy encode: %v", err)
+	}
+	return stripSixelWrapperReference(buf.String())
+}
+
+// TestEncodeBandMatchesLegacyFramedPath verifies that pixel-only band output is
+// byte-identical to the old path (full document with framing stripped) for
+// representative multicolor content and every short-band height.
+func TestEncodeBandMatchesLegacyFramedPath(t *testing.T) {
+	const w = 24
+
+	websafe := []color.Color{
+		color.RGBA{R: 255, A: 255},
+		color.RGBA{G: 255, A: 255},
+		color.RGBA{B: 255, A: 255},
+		color.RGBA{R: 255, G: 255, A: 255},
+		color.RGBA{A: 255},
+	}
+	offSafe := color.RGBA{R: 10, G: 20, B: 30, A: 255} // quantized to nearest websafe
+
+	pattern := func(x, y int) color.Color {
+		switch (x + y*7) % 6 {
+		case 0:
+			return offSafe
+		case 1:
+			return color.RGBA{} // transparent pixel
+		default:
+			return websafe[(x+y)%5]
+		}
+	}
+
+	t.Run("full band", func(t *testing.T) {
+		img := image.NewRGBA(image.Rect(0, 0, w, SIXEL_BAND_HEIGHT))
+		for y := 0; y < img.Rect.Dy(); y++ {
+			for x := 0; x < w; x++ {
+				img.Set(x, y, pattern(x, y))
+			}
+		}
+		be := NewBandEncoder(sixel.PaletteWebSafe, w, SIXEL_BAND_HEIGHT)
+		got, err := be.EncodeBand(img, 0, SIXEL_BAND_HEIGHT)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := legacyBandPixels(t, img)
+		if got != want {
+			t.Fatalf("full band mismatch:\ngot  %q\nwant %q", got, want)
+		}
+	})
+
+	for h := 1; h < SIXEL_BAND_HEIGHT; h++ {
+		t.Run(fmt.Sprintf("short%d", h), func(t *testing.T) {
+			frameH := SIXEL_BAND_HEIGHT + h // one full band plus a short final band
+			img := image.NewRGBA(image.Rect(0, 0, w, frameH))
+			for y := 0; y < frameH; y++ {
+				for x := 0; x < w; x++ {
+					img.Set(x, y, pattern(x, y))
+				}
+			}
+			be := NewBandEncoder(sixel.PaletteWebSafe, w, frameH)
+			got, err := be.EncodeBand(img, SIXEL_BAND_HEIGHT, h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			band := image.NewRGBA(image.Rect(0, 0, w, h))
+			draw.Draw(band, band.Bounds(), img, image.Point{0, SIXEL_BAND_HEIGHT}, draw.Src)
+			want := legacyBandPixels(t, band)
+			if got != want {
+				t.Fatalf("short band %d mismatch:\ngot  %q\nwant %q", h, got, want)
+			}
+		})
+	}
+}
+
+// cutOffWriter forwards up to allow bytes total, then fails; when a write
+// exceeds the remaining budget it forwards the prefix first, like a real
+// writer that consumes input before failing.
+type cutOffWriter struct {
+	buffer *bytes.Buffer
+	allow  int
+	failed bool
+}
+
+func (w *cutOffWriter) Write(p []byte) (int, error) {
+	if w.failed {
+		return 0, errInjectedBandWrite
+	}
+	if len(p) > w.allow {
+		w.buffer.Write(p[:w.allow])
+		w.failed = true
+		return w.allow, errInjectedBandWrite
+	}
+	n, err := w.buffer.Write(p)
+	if err != nil {
+		return n, err
+	}
+	w.allow -= n
+	return n, nil
+}
+
+// oneByteWriter always writes at most one byte and reports success; the
+// encoder must convert that to io.ErrShortWrite.
+type oneByteWriter struct{ buffer *bytes.Buffer }
+
+func (w *oneByteWriter) Write(p []byte) (int, error) {
+	n := 1
+	if len(p) < n {
+		n = len(p)
+	}
+	w.buffer.Write(p[:n])
+	return n, nil
+}
+
+// TestEncodeBandPropagatesWriterFailures verifies that writer failures and
+// short writes surface through the pixel-only entry point exactly as they do
+// through the framed one.
+func TestEncodeBandPropagatesWriterFailures(t *testing.T) {
+	const w = 12
+	red := color.RGBA{R: 255, A: 255}
+	img := image.NewRGBA(image.Rect(0, 0, w, SIXEL_BAND_HEIGHT))
+	fillImage(img, red)
+
+	t.Run("injected failure after partial bytes", func(t *testing.T) {
+		be := NewBandEncoder(sixel.PaletteWebSafe, w, SIXEL_BAND_HEIGHT)
+		cut := &cutOffWriter{buffer: &bytes.Buffer{}, allow: 4}
+		be.encoder = sixel.NewEncoder(cut)
+		be.encoder.Dither = false
+		be.encoder.Palette = sixel.PaletteWebSafe
+		got, err := be.EncodeBand(img, 0, SIXEL_BAND_HEIGHT)
+		if !errors.Is(err, errInjectedBandWrite) {
+			t.Fatalf("expected the injected failure, got %v", err)
+		}
+		if got != "" {
+			t.Fatalf("failed encode returned output: %q", got)
+		}
+
+		framed := sixel.NewEncoder(&cutOffWriter{buffer: &bytes.Buffer{}, allow: 4})
+		framed.Dither = false
+		framed.Palette = sixel.PaletteWebSafe
+		if err := framed.Encode(img); !errors.Is(err, errInjectedBandWrite) {
+			t.Fatalf("framed encode did not preserve the injected failure: %v", err)
+		}
+	})
+
+	t.Run("short write", func(t *testing.T) {
+		be := NewBandEncoder(sixel.PaletteWebSafe, w, SIXEL_BAND_HEIGHT)
+		be.encoder = sixel.NewEncoder(&oneByteWriter{buffer: &bytes.Buffer{}})
+		be.encoder.Dither = false
+		be.encoder.Palette = sixel.PaletteWebSafe
+		got, err := be.EncodeBand(img, 0, SIXEL_BAND_HEIGHT)
+		if !errors.Is(err, io.ErrShortWrite) {
+			t.Fatalf("expected %v, got %v", io.ErrShortWrite, err)
+		}
+		if got != "" {
+			t.Fatalf("failed encode returned output: %q", got)
+		}
+
+		framed := sixel.NewEncoder(&oneByteWriter{buffer: &bytes.Buffer{}})
+		framed.Dither = false
+		framed.Palette = sixel.PaletteWebSafe
+		if err := framed.Encode(img); !errors.Is(err, io.ErrShortWrite) {
+			t.Fatalf("framed encode did not preserve the short write: %v", err)
+		}
 	})
 }
 

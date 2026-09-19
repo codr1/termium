@@ -13,6 +13,9 @@ export class BrowserControls {
     private page?: Page;
     private cdp?: Promise<CDPSession>;
     private target?: Target;
+    private captureCdp?: Promise<CDPSession>;
+    private captureTarget?: Target;
+    private captureLive?: CDPSession;
     private inputTail: Promise<unknown> = Promise.resolve();
     private held = 0;
     private x = 0; private y = 0;
@@ -62,6 +65,45 @@ export class BrowserControls {
         });
     }
 
+    // Capture keeps a dedicated session, isolated from input/history. A
+    // healthy session is reused by consecutive captures and disposed only on
+    // target replacement or failure.
+    private captureSession(): Promise<CDPSession> {
+        const target = this.page!.target();
+        // Back/forward cache activation swaps Puppeteer's primary target. A
+        // session attached to the old target cannot control the restored page,
+        // so scope the reusable session to the current target identity.
+        if (this.captureTarget !== target || !this.captureCdp) {
+            if (this.captureCdp) void this.captureCdp.then(session => session.detach()).catch(() => { });
+            this.captureTarget = target;
+            const created = target.createCDPSession();
+            this.captureCdp = created;
+            // Both handlers compare promise references so a late settle from an
+            // obsolete creation cannot claim or clear a replacement session.
+            void created.then(session => { if (this.captureCdp === created) this.captureLive = session; });
+            void created.catch(() => {
+                if (this.captureCdp === created) {
+                    this.captureCdp = undefined;
+                    this.captureTarget = undefined;
+                    this.captureLive = undefined;
+                }
+            });
+        }
+        return this.captureCdp;
+    }
+
+    // Detaching rejects the session's pending CDP call, bounding a stalled
+    // capture. Clear tracking only while this is still the live session so
+    // late cleanup from an old attempt cannot drop a replacement.
+    private abortCapture(session: CDPSession) {
+        void session.detach().catch(() => { });
+        if (this.captureLive === session) {
+            this.captureCdp = undefined;
+            this.captureTarget = undefined;
+            this.captureLive = undefined;
+        }
+    }
+
     async setViewport(width: number, height: number) {
         await this.ensurePage();
         if (width < 1 || height < 1 || width > 16384 || height > 16384 || width * height > 16 * 1024 * 1024) fail(grpc.status.INVALID_ARGUMENT, 'Invalid viewport size');
@@ -74,12 +116,13 @@ export class BrowserControls {
         // Render committed content even while images/scripts keep load pending.
         // Document changes are handled by aborting the capture session below.
         const generation = this.generation;
-        // A navigation can strand a capture waiting for the old compositor.
-        // Give capture its own session: detaching aborts its pending CDP call
+        // A navigation can strand a capture waiting for the old compositor, so
+        // capture keeps its own session: detaching aborts its pending CDP call
         // without interrupting the input/history session or leaving a live RPC
-        // behind a timer race. The viewport queue waits for that rejection.
-        const session = await page.target().createCDPSession();
-        const abort = () => { void session.detach().catch(() => {}); };
+        // behind a timer race. Successful captures keep the session; only an
+        // aborted or failed attempt disposes it for the next frame.
+        const session = await this.captureSession();
+        const abort = () => this.abortCapture(session);
         const navigated = (frame: Frame) => { if (frame === page.mainFrame()) abort(); };
         page.on('framenavigated', navigated);
         page.on('close', abort);
@@ -92,13 +135,15 @@ export class BrowserControls {
             });
             return Buffer.from(result.data, 'base64');
         } catch (error) {
+            // A failed or aborted attempt must not be reused; the next capture
+            // attaches a fresh session for the current target.
+            this.abortCapture(session);
             if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
             throw error;
         } finally {
             clearTimeout(timer);
             page.off('framenavigated', navigated);
             page.off('close', abort);
-            await session.detach().catch(() => {});
         }
     }
 

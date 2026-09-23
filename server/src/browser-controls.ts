@@ -78,16 +78,20 @@ export class BrowserControls {
             this.captureTarget = target;
             const created = target.createCDPSession();
             this.captureCdp = created;
-            // Both handlers compare promise references so a late settle from an
-            // obsolete creation cannot claim or clear a replacement session.
-            void created.then(session => { if (this.captureCdp === created) this.captureLive = session; });
-            void created.catch(() => {
-                if (this.captureCdp === created) {
-                    this.captureCdp = undefined;
-                    this.captureTarget = undefined;
-                    this.captureLive = undefined;
-                }
-            });
+            // One two-handler chain settles both ways on its own, so no derived
+            // promise rejects unhandled while `created` still rejects for the
+            // caller. Handlers compare promise references so a late settle from
+            // an obsolete creation cannot claim or clear a replacement session.
+            void created.then(
+                session => { if (this.captureCdp === created) this.captureLive = session; },
+                () => {
+                    if (this.captureCdp === created) {
+                        this.captureCdp = undefined;
+                        this.captureTarget = undefined;
+                        this.captureLive = undefined;
+                    }
+                },
+            );
         }
         return this.captureCdp;
     }

@@ -274,3 +274,44 @@ test('target replacement during attach disposes the obsolete capture session', a
     await controls.capture('png');
     assert.equal(creations, 3, 'steady-state captures reattached the CDP session');
 });
+
+test('a target closed between captures disposes the retained session on next use', async () => {
+    const { page } = makePage();
+    let creations = 0;
+    const sessions = [];
+    const target = {
+        createCDPSession() {
+            creations++;
+            if (creations === 1) return Promise.resolve({
+                async send(method) { assert.equal(method, 'Emulation.setDeviceMetricsOverride'); return {}; },
+                async detach() {},
+            });
+            const session = {
+                detaches: 0,
+                dead: false,
+                async send(method) {
+                    if (this.dead) throw new Error('Target closed');
+                    assert.equal(method, 'Page.captureScreenshot');
+                    return { data: Buffer.from('frame').toString('base64') };
+                },
+                async detach() { this.detaches++; },
+            };
+            sessions.push(session);
+            return Promise.resolve(session);
+        },
+    };
+    page.target = () => target;
+    const controls = new BrowserControls(async () => page);
+    await controls.attach(page);
+    assert.ok((await controls.capture('png')).length > 0);
+    assert.equal(creations, 2);
+    // The target dies between captures: the retained session's next send fails.
+    sessions[1].dead = true;
+    const error = await controls.capture('png').catch(e => e);
+    assert.ok(error instanceof Error && /Target closed/.test(error.message), 'stale session must fail its capture');
+    // The failed attempt disposed the retained session...
+    assert.equal(sessions[1].detaches, 1, 'closed session was not detached on failure');
+    // ...and the next capture attaches a fresh one that succeeds.
+    assert.ok((await controls.capture('png')).length > 0);
+    assert.equal(creations, 3, 'recovery did not attach a new session after closure');
+});

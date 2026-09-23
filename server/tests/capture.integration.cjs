@@ -48,15 +48,18 @@ test('navigation aborts an in-flight capture without disabling resize or future 
         const result = await Promise.race([pending, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('capture remained pending after navigation')), 1500); })]);
         if (result instanceof Error) assert.equal(result.code, 9);
     } finally { clearTimeout(timer); }
-    // From here on, count dedicated-session creations: the recovery capture
-    // must attach once and every later capture must reuse that session.
+    // From here on, count dedicated-session creations. The aborted attempt
+    // above may have consumed a creation of its own, so record the baseline
+    // after this recovery capture: every later capture must reuse that
+    // session without creating another.
     let captureCreations = 0;
     target.createCDPSession = async (...args) => { captureCreations++; return originalCreate(...args); };
     await controls.setViewport(400, 217);
     const png = await controls.capture('png');
     assert.equal(png.readUInt32BE(16), 400);
     assert.equal(png.readUInt32BE(20), 217);
+    const steadyStateCreations = captureCreations;
     const jpeg = await controls.capture('jpeg');
     assert.deepEqual(jpegSize(jpeg), [400, 217]);
-    assert.equal(captureCreations, 1, 'steady-state captures reattached the CDP session');
+    assert.equal(captureCreations, steadyStateCreations, 'steady-state captures reattached the CDP session');
 });

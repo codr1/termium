@@ -14,6 +14,21 @@ ASCII graphics approximate the screenshot using colored blocks. This is not a te
 
 The default is `auto`: bounded probes check Kitty support and sixel device attributes, then fall back to ASCII graphics. ASCII mode skips graphics calibration entirely. If graphics do not appear, use a manual override. Menus and dialogs temporarily pause graphics output to keep local controls visible.
 
+## Terminals
+
+For the best result, use a terminal that implements the Kitty graphics protocol. Sixel-capable terminals work well too, and every other terminal falls back to ASCII (pure ANSI) graphics automatically.
+
+| Terminal | Graphics protocols available to Termium |
+| --- | --- |
+| Kitty | Kitty graphics (primary target) |
+| Ghostty | Kitty graphics (primary target) |
+| foot | Kitty graphics, sixel |
+| WezTerm | Kitty graphics, sixel |
+| xterm with sixel enabled | Sixel |
+| Any other terminal | ASCII fallback |
+
+`auto` probes for Kitty first and then sixel, so a terminal offering both uses the Kitty protocol. These entries describe each terminal's protocol support; as noted under Compatibility status, they are intended compatibility, not certification of every version.
+
 ## Compatibility status
 
 Kitty and Ghostty are primary graphics targets. A release-tested matrix of terminal versions, Linux distributions, and macOS versions has not been published yet. The names above describe intended protocol compatibility, not certification of every version.

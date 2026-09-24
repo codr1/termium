@@ -8,7 +8,11 @@ Termium renders a real Chromium browser in your terminal, with keyboard and mous
 
 ## Quickstart
 
-Paste this into your terminal on Linux x86-64 or macOS (Apple Silicon or Intel):
+Supported platforms: **Linux x86-64**, **macOS (Apple Silicon or Intel)**, and **Windows (WSL2 x86-64)**.
+
+On Windows, open your WSL2 Linux shell in [Windows Terminal (Preview), available from the Microsoft Store](https://apps.microsoft.com/detail/9n8g5rfz9xk3). This setup is supported with Sixel graphics. Run the command below inside WSL2.
+
+On Linux and macOS, run it directly in your terminal:
 
 ```bash
 curl -fsSL https://termium.dev/install | bash
@@ -51,7 +55,7 @@ Read the [getting started guide](docs/getting-started.md) for controls and displ
 
 1. **Distribution polish:** expand clean-machine testing and automate compatible dependency updates.
 2. **Browser polish:** expand terminal compatibility testing, persistent browsing sessions, and clipboard integration around bundled Vimium and tabs.
-3. **Windows:** add native installation and terminal support after Linux and macOS.
+3. **Native Windows:** add native packages; Windows through WSL2 is supported today.
 
 The [installation plan](docs/plans/one-command-install.md) and [browser UI plan](docs/plans/browser-ui.md) define the work and release checks. See [GitHub Releases](https://github.com/codr1/termium/releases) for native packages and release notes.
 

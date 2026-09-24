@@ -63,10 +63,11 @@ Each normal launch uses a private Unix socket and a separate temporary Chromium 
 | Linux x86-64 | glibc with working unprivileged Chromium sandbox support; setup checks the required minimum |
 | macOS Apple Silicon | Native ARM64 bundle; tested through the macOS CI runner |
 | macOS Intel | Native AMD64 bundle; tested through the macOS CI runner |
+| Windows (WSL2 x86-64) | Linux x86-64 bundle, installed and run inside WSL2 |
 | Linux ARM64 | Not packaged yet |
 | Native Windows | Later work |
 
-WSL2 runs the Linux build. Windows Terminal's graphics support does not imply a native Windows executable.
+On Windows, open a WSL2 Linux shell in [Windows Terminal (Preview), available from the Microsoft Store](https://apps.microsoft.com/detail/9n8g5rfz9xk3), and run the install command there. This setup is supported with Sixel graphics, and user reports confirm successful use. Stable Windows Terminal also supports Sixel. Termium runs as the Linux build inside WSL2; native Windows builds remain later work.
 
 The installer tests the actual host rather than silently disabling security features when browser startup fails. Distribution policies can restrict sandbox namespaces, notably on Ubuntu. Ubuntu CI explicitly allows Chromium user namespaces through a targeted AppArmor profile on the disposable runner; installation does not change host policy. A green hosted-runner test is not certification of every stock distribution or macOS Gatekeeper configuration. Clean native-machine distribution testing remains part of release acceptance.
 

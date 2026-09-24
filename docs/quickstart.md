@@ -1,8 +1,10 @@
 # Quickstart
 
-From your terminal to your first page in one command. Linux x86-64 and macOS Apple Silicon/Intel.
+From your terminal to your first page in one command. Linux x86-64, macOS Apple Silicon/Intel, and Windows (WSL2 x86-64).
 
 ## Install and open
+
+On Windows, open your WSL2 Linux shell in [Windows Terminal (Preview)](https://apps.microsoft.com/detail/9n8g5rfz9xk3), available from the Microsoft Store, and run the command below there. This setup supports Sixel graphics.
 
 ```bash
 curl -fsSL https://termium.dev/install | bash

@@ -14,11 +14,26 @@ ASCII graphics approximate the screenshot using colored blocks. This is not a te
 
 The default is `auto`: bounded probes check Kitty support and sixel device attributes, then fall back to ASCII graphics. ASCII mode skips graphics calibration entirely. If graphics do not appear, use a manual override. Menus and dialogs temporarily pause graphics output to keep local controls visible.
 
+## Terminals
+
+For the best image quality, use a terminal that implements the [Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/): it renders true color, while Sixel output is quantized to Termium's default 216-color websafe palette. Sixel remains a good supported option on terminals without Kitty graphics.
+
+| Terminal | Graphics protocols available to Termium |
+| --- | --- |
+| [Kitty](https://sw.kovidgoyal.net/kitty/) | Kitty graphics (primary target) |
+| [Ghostty](https://ghostty.org/) | Kitty graphics (primary target) |
+| [WezTerm](https://wezterm.org/) | Kitty graphics; Sixel, which upstream labels experimental |
+| [foot](https://codeberg.org/dnkl/foot) | Sixel |
+| [xterm](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), when its build or configuration supports sixel | Sixel |
+| [Windows Terminal (Preview)](https://apps.microsoft.com/detail/9n8g5rfz9xk3), with Termium running as the Linux build under WSL2 | Sixel; supported setup with successful user reports. Stable Windows Terminal also supports Sixel |
+
+`auto` probes for Kitty graphics first, then Sixel, and selects ASCII graphics when neither protocol is detected. Protocol support in a terminal is not certification that Termium has been tested on it; see Compatibility status for the current testing state.
+
 ## Compatibility status
 
 Kitty and Ghostty are primary graphics targets. A release-tested matrix of terminal versions, Linux distributions, and macOS versions has not been published yet. The names above describe intended protocol compatibility, not certification of every version.
 
-Run Termium directly in a terminal while diagnosing display problems. SSH, tmux, and screen introduce additional graphics and input behavior that still needs testing. Windows terminal support will follow the Linux and macOS releases.
+Run Termium directly in a terminal while diagnosing display problems. SSH, tmux, and screen introduce additional graphics and input behavior that still needs testing. Native Windows builds are planned.
 
 ## Sixel performance
 

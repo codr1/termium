@@ -295,6 +295,25 @@ Table values are medians across the two per-run summaries of each revision (A1/A
 
 This stage completes local evidence and documentation only — it is not approval to merge. Remaining before landing: tail-latency acceptance/targeted qualification, cross-platform CI, integration with current main, then the decision to land. Unit 2 (viewport caching) and Unit 3 (metadata redesign) remain untouched; their backlog items stay open above.
 
+### Short follow-up on ea (2026-09-27)
+
+At the user's suggestion, repeated only the patch workload on `ea` (AMD Ryzen AI 9 HX 370, native Linux amd64), with the same A = `92f8e2f` and B = `7a649f3`. Used isolated temporary checkouts, copied the previously validated normal client/server builds and dependencies, and verified client and `browser-controls.js` hashes against the source-machine artifacts. Both revisions used the same Chromium build as the earlier experiment and ea's Node runtime. This was a separate within-machine comparison, not a comparison of absolute timings between machines; no rebuild or full correctness-suite rerun was performed on ea.
+
+Sequential A1 → B1 → B2 → A2, patch only, both default renderers/formats, 30 s measurement + 5 s warmup, one repeat per suite: eight measurements in about five minutes, excluding setup. All four suites and both compatibility comparisons exited 0; all results were complete with no reported error counters. Existing checkout and user workloads were untouched. Load averages recorded before suites ranged from 0.10 to 0.40; this is context, not proof of an otherwise idle machine or an explanation of individual timings.
+
+Values below are medians across two per-run summaries, not pooled frame percentiles. CPU sums Node, Chromium and Go percentages (100% = one core).
+
+| Patch renderer | Capture p50 A → B (ms) | Capture p95 A → B (ms) | Total CPU A → B | Writes/s A → B |
+| --- | ---: | ---: | ---: | ---: |
+| Sixel/JPEG | 37.44 → 37.13 | 54.97 → 53.41 | 48.88% → 47.00% | 4 → 4 |
+| Kitty/PNG | 39.84 → 38.83 | 52.87 → 52.47 | 51.88% → 48.31% | 4 → 4 |
+
+Combined CPU decreased in both pair orders (summary reductions about 3.8% for Sixel and 6.9% for Kitty, relative). Sixel capture p95 improved by 1.512 and 1.605 ms; Kitty p95 changed by +2.192 and −3.002 ms. Other tails remain mixed: Sixel capture p99 changed by −5.222/+1.100 ms and frame-age p95 by −4.730/+3.252 ms; Kitty p99 changed by +1.584/−1.329 ms and frame-age p95 by +1.841/−0.601 ms. These short runs do not establish equivalence, but the earlier patch p95 increases did not reproduce consistently on this second machine. The combined evidence supports a CPU benefit with largely unchanged delivery; it does not support claiming every latency metric improves.
+
+No further benchmark repetitions are planned for this unit before the next review/CI checkpoint. This is bounded additional performance qualification, not merge approval or native macOS coverage. The next gates remain cross-platform CI and review against current main, with the documented mixed tails considered in acceptance. Unit 2 and Unit 3 remain unstarted.
+
+Raw evidence is preserved on ea under `/tmp/termium-unit1-ea-Lc3622/` and copied locally to `/tmp/termium-unit1-ea-results/`: `{A1,B1,B2,A2}/result.json` and per-run artifacts, suite logs, `driver.sh`, `conditions.log`, and `exits.txt`. Local analysis adds `codex-summary.json`, `compare-A1-B1.txt`, and `compare-A2-B2.txt`. The benchmark ran directly from the prebuilt production harness after setup, with `--scenes patch --renderer both --duration 30s --warmup 5s --repeats 1`; each run used a fresh output directory.
+
 ## Historical investigation and backlog
 
 The remaining sections preserve earlier measurements and proposals. References to the old fixed ticker, debug screenshot writes, repeated full-image transmission, or dialog compositing describe the pre-refactor implementation; consult the implemented record above and current code before treating them as open work.

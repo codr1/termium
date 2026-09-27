@@ -560,7 +560,24 @@ Key findings (30 s windows; cumulative percentages overlap and are not summed):
 - Live heap: arena retention dominates end-of-window inuse — ~40 MiB of ~51 MiB (720p) and ~320 MiB of ~394 MiB (4K). That is Go live heap after a forced GC, not process RSS (~777 MiB 4K peak from sweep evidence). Current arenas do **not** cover third-party encoder temporaries.
 - GC vs allocator: `mallocgcTinySC2` 8.3% / 7.4% flat is tiny-object allocator overhead, not GC; GC-related sampled stacks are approximately 2.02% / 0.78% of CPU. Separately, accumulated GC pauses are 7.12 ms / 1.16 ms; pause time alone is not a measure of GC CPU.
 
-Next candidate focus: **small-byte-slice allocations and writer calls in Sixel emission** (targets both the sampled-allocation share and writer-call CPU); the full-width per-color scan is a second observed hotspot, not a proven fix. GC is not the target. This completes the bounded Go-client profiling pass. Real-terminal rendering and Chromium capture internals remain unprofiled. No rendering optimization is implemented in this record.
+Next candidate focus: **small-byte-slice allocations and writer calls in Sixel emission** (targets both the sampled-allocation share and writer-call CPU); the full-width per-color scan is a second observed hotspot, not a proven fix. GC is not the target. This completes the bounded Go-client profiling pass. This initial pass did not profile Chromium or Kitty. The whole-pipeline follow-up below now covers them; real-terminal paint remains unmeasured. No rendering optimization is implemented in this record.
+
+## Investigated: whole-pipeline capture, Kitty and Sixel (2026-09-27)
+
+The Sixel-only report above was insufficient to explain bottlenecks. Follow-up on ea covers Go work/wait spans, Node V8 profiles and Chromium capture events for **both** renderers at 1280×720 and 3840×2160. Four 10-second traced canvas runs plus two 30-second Kitty CPU/timeline runs completed successfully. This is diagnostic evidence, not an A/B speedup claim.
+
+Full [pipeline report](docs/performance/2026-09-27-pipeline-profiling.md), [interactive measured timeline](docs/performance/2026-09-27-pipeline-timeline.html), and [Kitty/Node CPU functions](docs/performance/2026-09-27-cpu-hot-functions.md).
+
+- **Work/wait:** Sixel preparation works 71.5% / 80.1% of wall time at 720p / 4K and waits for input the remainder. Kitty preparation works only 0.67% / 1.14%; its capture RPC is outstanding 97.9% / 98.9% of the time. Capture and preparation overlap; never add their independent durations to estimate FPS. Existing 1.25× adaptive pacing leaves intentional headroom.
+- **4K mean completed spans:** Sixel capture RPC 135.0 ms, preparation 342.4 ms; Kitty capture 100.7 ms, preparation 1.16 ms. Diagnostic writes/s: 2.3 / 9.8, drained PTY, not terminal paint.
+- **Chromium:** forced-redraw to surface-copy request ~27 ms, copy request to image encoder ~17–18 ms. These include asynchronous work and scheduling, not pure CPU. JPEG image encoding 38.5 ms; PNG 31.7 ms. After image encoding, the browser task continues for ~44.8 / 19.5 ms of thread CPU outside the encoder. Response serialization/copies/cleanup require finer native profiling to assign individual costs.
+- **Bridge:** mean Node base64 decode 0.30 / 0.19 ms, protobuf encode 0.72 / 0.46 ms; Go RPC minus server handler 2.46 / 1.52 ms (includes transport/client decode/scheduling, not pure IPC). These do not account for the ~100 ms screenshot latency.
+- **Kitty CPU:** Go samples total 1.16 / 2.00 s over 30 s (3.9% / 6.7% of one core). Hot functions are base64, syscalls and tcell cell drawing. Node profiles are mostly idle; inspector overhead is separated. Whole-process-tree CPU must not be confused with Go-only CPU.
+- **Environment:** all four traced Termium runs report software compositing/rasterization and SwiftShader on ea. No GPU flags changed; no acceleration benefit is established.
+
+Candidate follow-ups: batch Sixel tiny writes/reuse emission scratch; compare screenshot versus streaming with matching output/freshness measurements; identify the browser response-task CPU and separately test acceleration; evaluate capped capture resolution plus upscaling. Adaptive pacing and text-UI redraw CPU are smaller scheduling/CPU candidates. The fourth-arena scratchpad idea remains deferred. No arena, renderer, pacing, capture format or transport optimization was implemented in this investigation.
+
+Artifacts: `/tmp/termium-pipeline-profile/results` (also `/tmp/termium-pipeline-ea-fGpsxF/results` on ea); exact diagnostic binary, patch, drivers and analysis scripts in `/tmp/termium-pipeline-profile`. The report documents trace boundaries, clock uncertainty, instrumentation overhead and remaining native-stack/real-terminal limitations. Source/static review, Go client race tests and server tests passed; no release/merge/push occurred.
 
 ## Historical investigation and backlog
 

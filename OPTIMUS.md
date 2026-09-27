@@ -14,10 +14,10 @@ Evaluate the redesign by steady-state command counts, latency, CPU, and responsi
 
 ## Current performance backlog
 
-Reviewed 2026-09-16. These items are unfinished; candidate optimizations have no measured benefit yet. Keep the current Go/Node/Puppeteer/Chromium stack as the baseline. Older proposals below are historical notes, not an implementation queue.
+Reviewed 2026-09-16, updated 2026-09-27 (reusable capture session implemented). The remaining unchecked items are unfinished; their candidate optimizations have no measured benefit yet. Keep the current Go/Node/Puppeteer/Chromium stack as the baseline. Older proposals below are historical notes, not an implementation queue.
 
 - [ ] **Run the full local performance comparison.** Start on the weaker laptop using the [profiling procedure](docs/testing.md#full-local-performance-run-planned). Separate capture, Node/CDP, local RPC, Go preparation/GC, terminal writes, and visible presentation. Compare input latency and long-frame tails as well as frame delivery.
-- [ ] **Measure and prototype a reusable, dedicated capture CDP session.** Successful frames currently attach a session, capture, and detach in [BrowserControls.capture](server/src/browser-controls.ts). Keep capture isolated from input/history, but investigate reusing its session until navigation, target replacement, closure, timeout, or a session failure requires disposal. Preserve one in-flight capture and the capture/resize queue; guard against stale cleanup detaching a replacement session. Exercise navigation, back/forward restoration, tab closure/switching, watchdog recovery, resize, and shutdown. Detachment rejects the pending Puppeteer request; it is not proof that all Chromium compositor work has stopped. Measure attach/capture/detach separately and compare complete production capture latency. The [existing capture microbenchmark](scripts/benchmark-capture.mjs) already reuses one session, so its timings exclude this production session churn.
+- [x] **Reusable, dedicated capture CDP session.** Implemented; locally validated/measured 2026-09-27 on Linux/WSL2 (source change predates this stage; A = 92f8e2f vs B = 7a649f3); cross-platform CI and performance acceptance still pending. The steady-state path reuses one capture session across consecutive captures instead of attaching and detaching per frame; see [Implemented: reusable dedicated capture CDP session](#implemented-reusable-dedicated-capture-cdp-session).
 - [ ] **Profile Sixel allocation and palette costs.** The recorded preparation probes show substantial allocations per frame. Locate the allocation/GC and quantization costs before choosing buffer reuse or cache changes; retain pixel correctness and bounded memory. Allocation counts alone do not identify the bottleneck.
 - [ ] **Avoid reapplying an unchanged viewport on every capture.** [BrowserSession.capture](server/src/browser-session.ts) calls `controls.setViewport` for every frame, and [BrowserControls.setViewport](server/src/browser-controls.ts) unconditionally sends `Emulation.setDeviceMetricsOverride`. Track successfully applied dimensions per control session/target, distinct from the desired dimensions. Still initialize a new session/target and propagate the current size to a tab selected after a resize; an unchanged width/height alone is not sufficient to skip work. Do not mark a failed apply as successful. Session creation already applies the viewport, so avoid applying it twice during initialization as well. Verify repeated steady-state captures send no redundant overrides, while resize, tab changes, back/forward restoration, session replacement, and failed-apply recovery retain correct screenshot dimensions. Measure the eliminated command latency; a repeated command alone does not prove Chromium performs another layout or repaint. The capture microbenchmark also omits this per-frame production call.
 - [ ] **Investigate partial terminal image updates.** Unchanged-image reuse and Sixel band-encoding caches already exist. Updating only changed regions on screen is separate unfinished work. Validate palette/background behavior, cursor placement, scrolling, resize, overlays, and recovery from dropped or failed output across supported terminals before claiming a gain.
@@ -56,6 +56,8 @@ Target.getTargets                   # readState: final validation
 ```
 
 The second and third screenshot buffers were byte-for-byte equal to their predecessors. All nine commands still ran before the client could perform image reuse. This verifies the steady-state command count for that scenario, not command latency or an FPS improvement; initialization, retries, multiple windows, and concurrent input can add work. The current capture microbenchmark measures neither these tab/history reads nor the viewport/session churn.
+
+This nine-command sequence is the pre-Unit-1 baseline (A = 92f8e2f). As of B = 7a649f3 the steady-state path issues seven commands per warmed capture — only the attach/detach pair above no longer runs; see [Implemented: reusable dedicated capture CDP session](#implemented-reusable-dedicated-capture-cdp-session).
 
 When an item is completed, record its implementation, correctness checks, and measured results below. Keep unmeasured ideas labelled as such.
 
@@ -249,6 +251,49 @@ Medians of five repetitions; ranges over all five:
 Concurrent-workload caveat: user workloads ran on this machine throughout — the 1-min load average fell monotonically across the sequence (4.36 at start → 3.29 after A1 → 2.71 after B1 → 2.43 after B2 → 2.03 after A2), with codebase-memory-mcp (~23% CPU), claude/codex agent workloads, and hashd running; user Termium sessions were left untouched. No cause is inferred from load averages; persistence across both orders is the basis for the timing claim.
 
 Saved evidence: raw outputs `/tmp/termium-ab-compare/A1.txt`, `B1.txt`, `B2.txt`, `A2.txt`; earlier single-revision runs (load-contaminated, not used for the A/B claim) at `/tmp/termium-sixel-after.txt` (d781982), `/tmp/termium-bandonly-after-c68b231.txt`, and `-run2.txt`.
+
+## Implemented: reusable dedicated capture CDP session
+
+Recorded 2026-09-27. Status: implemented and locally validated/measured on Linux/WSL2 (A = 92f8e2f, B = 7a649f3); cross-platform CI and performance acceptance still pending — the no-regression acceptance gate is not marked passed. See [BrowserControls.capture](server/src/browser-controls.ts) and the capture-session handling in [browser-session](server/src/browser-session.ts).
+
+### What changed
+
+The steady-state capture path previously created a dedicated CDP session for every frame (`Target.attachToTarget`) and detached it afterwards (`Target.detachFromTarget`). It now reuses one capture CDPSession across consecutive captures, recreating it only when the target identity changes or the session fails or is aborted. One in-flight capture and the capture/resize queue are preserved; failure and abort dispose of the session so a replacement starts clean.
+
+### Validation
+
+Source review is complete; eight focused tests, TypeScript typecheck, and one full `npm test` run all exited 0 on this Linux/WSL2 machine at B = 7a649f3 — the review itself has no command exit. The normal client was restored afterwards. Evidence: `/tmp/termium-validate-7a649f/` (this spelling is intentional). No native macOS validation and no new CI were added in this stage.
+
+### Production trace: nine commands down to seven
+
+A probe of the real production `BrowserSession` path measured four frames per PNG/JPEG format per revision, each after five warmup captures, at 640 × 360 with dimensions/formats checked and static consecutive payloads verified equal. A issued exactly nine CDP commands per warmed capture; B issued seven — only the attach/detach pair was eliminated. The unchanged remainder is four `Target.getTargets` calls plus viewport override, navigation-history read, and screenshot. The trace establishes command counts only: it is separate from timings and does not by itself establish speed. Probe script `/tmp/termium-capture-unit1-measurement/codex-trace.cjs`; outputs under the same root at `trace/A.json`, `trace/B.json`.
+
+### Paired harness A-B-B-A
+
+Sequential runs in isolated worktrees, order A1 → B1 → B2 → A2: eight configurations each (idle/patch/scroll/canvas × Sixel JPEG / Kitty PNG), 30 s measurement with 5 s warmup, one repeat per suite, drained PTY with no real terminal, matching source fixture/runtime/settings, normal binaries. All 32 runs completed; both `benchmark:compare` comparisons exited 0. Exact commands and exit markers: `/tmp/termium-capture-unit1-measurement/logs/harness-driver.sh` and `exits.txt`. Raw per-run data in `{A1,B1,B2,A2}/result.json`; comparison outputs in `logs/compare-A1-B1.log`, `logs/compare-A2-B2.log`; extracted metrics in `extracted-metrics.{json,txt}`. The table values below come from `codex-summary.json` checked against the result files.
+
+Table values are medians across the two per-run summaries of each revision (A1/A2, B1/B2), not pooled per-frame percentiles. Total CPU is the sum of Node + Chromium + Go CPU percentages, where 100% equals one core; changes are given in percentage points and relative %.
+
+| Scene/renderer | Capture p50 A → B (ms) | Total CPU A → B (% / Δpp / Δ%) | Writes/s A → B |
+| --- | ---: | ---: | ---: |
+| idle/Sixel JPEG | 36.07 → 35.30 | 44.4 → 40.8 (−3.6 pp, −8.2%) | 0 → 0 |
+| idle/Kitty PNG | 37.58 → 36.86 | 50.1 → 46.0 (−4.1 pp, −8.2%) | 0 → 0 |
+| patch/Sixel JPEG | 36.09 → 35.30 | 47.6 → 44.0 (−3.6 pp, −7.6%) | 4 → 4 |
+| patch/Kitty PNG | 37.93 → 37.09 | 49.8 → 46.6 (−3.2 pp, −6.4%) | 4 → 4 |
+| scroll/Sixel JPEG | 34.23 → 33.95 | 78.5 → 74.7 (−3.8 pp, −4.8%) | 20 → 20 |
+| scroll/Kitty PNG | 33.98 → 33.71 | 50.1 → 47.1 (−3.1 pp, −6.2%) | 20 → 20 |
+| canvas/Sixel JPEG | 65.49 → 65.43 | 137.0 → 134.4 (−2.6 pp, −1.9%) | 15.1 → 15.1 |
+| canvas/Kitty PNG | 65.53 → 65.42 | 56.0 → 55.2 (−0.7 pp, −1.3%) | 15.0 → 15.4 |
+
+### Results and limitations
+
+- CPU: total CPU is lower on B in both pair orders across all eight configurations; the Node (server) component is lower in all sixteen paired comparisons as well (smallest delta 0.035 pp, canvas/Kitty A2→B2). This is a measured CPU benefit, not an FPS claim.
+- Median capture p50 improves on idle and patch (and by ~0.3 ms on scroll); observed canvas p50 summary differences were below 0.2 ms, but these runs do not establish equivalence. No visible-FPS gain is demonstrated and no universal no-slowdown claim is made.
+- Tails are mixed: patch/Sixel capture p95 rose +0.610 ms (A1→B1) and +0.185 ms (A2→B2); patch/Kitty rose +0.024/+3.814 ms, while its frame-age p95 improved ~6–7 ms in both pairs. Two runs per revision provide only limited between-run evidence — not proof of neutrality; these tails are recorded as mixed, not dismissed as noise, and the tail-latency tradeoff remains open for acceptance.
+- Write rates are largely unchanged: patch is fixture-limited at 4 changes/s, and capture rate is scheduler-capped near 24 captures/s. Writes/s are not visible FPS. RSS results are mixed: server canvas/Kitty peaked at 122.5 MiB (A1) vs 145.4 (B1), and 139.8 (B2) vs 143.4 (A2); these short runs establish neither a leak nor a memory reduction.
+- No error counters are reported in this record; that absence does not imply recovery paths never fired. Concurrent user workloads were recorded around each suite, but load averages are context, not causal evidence, and no environmental cause is inferred for any delta.
+
+This stage completes local evidence and documentation only — it is not approval to merge. Remaining before landing: tail-latency acceptance/targeted qualification, cross-platform CI, integration with current main, then the decision to land. Unit 2 (viewport caching) and Unit 3 (metadata redesign) remain untouched; their backlog items stay open above.
 
 ## Historical investigation and backlog
 

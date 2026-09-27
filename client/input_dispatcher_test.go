@@ -149,6 +149,39 @@ func TestSnapshotBegunBeforeNavigationReplyCannotRestoreOldError(t *testing.T) {
 		t.Fatal("fresh state was also rejected")
 	}
 }
+
+func TestSnapshotBegunBeforeInputReplyCannotRestoreOldMetadata(t *testing.T) {
+	kh, _ := recorder()
+	kh.state.Generation = 9
+	started := time.Now().Add(-time.Second)
+	kh.result(operationResult{
+		operation: browserOperation{input: &pb.InputEvent{Kind: pb.InputKind_KEY_INPUT, Key: "Enter"}},
+		state:     &pb.BrowserState{Generation: 9, Title: "After", CanBack: true},
+	})
+	kh.applySnapshot(&pb.BrowserState{Generation: 9, Title: "Before", Loading: true}, started)
+	if kh.state.Title != "After" || !kh.state.CanBack || kh.state.Loading {
+		t.Fatal("older same-generation poll overwrote input acknowledgement")
+	}
+	kh.applySnapshot(&pb.BrowserState{Generation: 9, Title: "Settled"}, time.Now())
+	if kh.state.Title != "Settled" {
+		t.Fatal("fresh metadata poll was rejected")
+	}
+}
+
+func TestIgnoredInputReplyDoesNotFenceFreshState(t *testing.T) {
+	kh, _ := recorder()
+	kh.state.Generation = 9
+	fence := time.Unix(100, 0)
+	kh.snapshotAfter = fence
+	kh.result(operationResult{
+		operation: browserOperation{input: &pb.InputEvent{Kind: pb.InputKind_KEY_INPUT}},
+		state:     &pb.BrowserState{Generation: 8, Title: "Old document"},
+	})
+	if !kh.snapshotAfter.Equal(fence) || kh.state.Generation != 9 {
+		t.Fatal("ignored older-generation reply changed the snapshot fence")
+	}
+}
+
 func (s *cancelledInputServer) SendInput(ctx context.Context, _ *pb.InputEvent) (*pb.Message, error) {
 	return nil, s.reject(ctx)
 }

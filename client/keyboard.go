@@ -147,6 +147,11 @@ func (kh *KeyboardHandler) result(result operationResult) {
 		}
 		return
 	}
+	if result.operation.input != nil && result.state != nil && !kh.awaitingNavigation && result.state.Generation >= kh.state.Generation {
+		// A key or click can change title/history/loading within the same
+		// document. An older in-flight state poll must not undo its reply.
+		kh.snapshotAfter = time.Now()
+	}
 	if result.stale {
 		kh.applyState(result.state)
 		// Reset and hover/release events routinely arrive after navigation.

@@ -25,7 +25,7 @@ For the best image quality, use a terminal that implements the [Kitty graphics p
 | [WezTerm](https://wezterm.org/) | Kitty graphics; Sixel, which upstream labels experimental |
 | [foot](https://codeberg.org/dnkl/foot) | Sixel |
 | [xterm](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html), when its build or configuration supports sixel | Sixel |
-| [Windows Terminal](https://github.com/microsoft/terminal), with Termium running as the Linux build under WSL2 | Sixel; user reports confirm successful use, and a Preview build is not required |
+| [Windows Terminal (Preview)](https://apps.microsoft.com/detail/9n8g5rfz9xk3), with Termium running as the Linux build under WSL2 | Sixel; supported setup with successful user reports. Stable Windows Terminal also supports Sixel |
 
 `auto` probes for Kitty graphics first, then Sixel, and selects ASCII graphics when neither protocol is detected. Protocol support in a terminal is not certification that Termium has been tested on it; see Compatibility status for the current testing state.
 

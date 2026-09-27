@@ -20,12 +20,13 @@ Reviewed 2026-09-16, updated 2026-09-27 (reusable capture session implemented). 
 - [x] **Reusable, dedicated capture CDP session.** Landed with optimization 1 via PR #22 after all six Linux/macOS test and package checks passed. Earlier local measurements (A = 92f8e2f vs B = 7a649f3) remain recorded below. The steady-state path reuses one capture session across consecutive captures instead of attaching and detaching per frame; see [Implemented: reusable dedicated capture CDP session](#implemented-reusable-dedicated-capture-cdp-session).
 - [x] **Profile Sixel allocation and palette costs (optimization 3).** Bounded CPU/allocation profiling and a fixed-palette storage-reuse experiment are complete. The candidate saved synthetic encoder allocations but slowed the live production canvas workload in both pairings, so it was backed out. A later identical-JPEG replay was 11.9–15.1% faster; the live-pipeline discrepancy remains unexplained. See [the rejected experiment](#investigated-optimization-3--fixed-palette-scratch-reuse-rejected). Broader real-terminal profiling remains open; no runtime change from this experiment is retained.
 - [x] **Avoid reapplying an unchanged viewport on every capture.** Implemented; validated on WSL2 and measured on native Linux ea on 2026-09-27 (A = e663a5e vs B = 41f94b0); its own cross-platform CI still pending. The steady-state path caches successfully applied dimensions per control CDP session, distinct from the desired viewport, and skips `Emulation.setDeviceMetricsOverride` when they match; see [Implemented: optimization 2 — skip unchanged viewport updates](#implemented-optimization-2--skip-unchanged-viewport-updates).
+- [x] **Reuse four frame arenas (optimization 3 follow-up).** Shared Sixel/Kitty/ASCII ownership path implemented and Linux-validated; bounded ea measurements show lower allocation traffic, a Sixel preparation benefit, higher retained memory and an unexplained small Kitty throughput decrease. See [the arena record](#implemented-four-reusable-frame-arenas). Native CI/package qualification remains pending.
 - [ ] **Investigate partial terminal image updates.** Unchanged-image reuse and Sixel band-encoding caches already exist. Updating only changed regions on screen is separate unfinished work. Validate palette/background behavior, cursor placement, scrolling, resize, overlays, and recovery from dropped or failed output across supported terminals before claiming a gain.
 - [x] **Remove per-frame tab/history polling (optimization 1).** Landed via PR #22 with all six Linux/macOS test/package checks green on its exact head; locally validated earlier on the stacked `capture-metadata-fast-path` branch. Capture reuses the retained selected tab and omits optional screenshot metadata; the existing independent client state poll and explicit commands/input reconcile state. Warmed captures issue two CDP commands with viewport application still retained. Sixel improved in the short ea comparison. See [the implementation record](#implemented-optimization-1--remove-per-frame-tabhistory-polling).
 
 ### Numbered optimization priorities
 
-User-selected order (2026-09-27): **1.** Remove per-frame tab/history polling — landed via PR #22, with all six Linux/macOS test/package checks green on its exact head. **2.** Skip unchanged viewport updates — implemented and locally validated/measured 2026-09-27; performance qualifications below, its own cross-platform CI pending. **3.** Profile Sixel quantization/allocations — investigation complete; buffer-reuse candidate rejected and backed out after production slowdown. **4.** Investigate partial terminal image updates — deferred by user until after release work. These numbers supersede the future-work order, not the historical unit names in earlier briefs. PR #22's CI covers session reuse and optimization 1; it does not cover optimization 2. Optimization 3 adds an investigation record, with no retained runtime change.
+User-selected order (2026-09-27): **1.** Remove per-frame tab/history polling — landed via PR #22, with all six Linux/macOS test/package checks green on its exact head. **2.** Skip unchanged viewport updates — implemented and locally validated/measured 2026-09-27; performance qualifications below, its own cross-platform CI pending. **3.** Profile Sixel quantization/allocations — investigation complete; buffer-reuse candidate rejected and backed out after production slowdown. **4.** Investigate partial terminal image updates — deferred by user until after release work. These numbers supersede the future-work order, not the historical unit names in earlier briefs. PR #22's CI covers session reuse and optimization 1; it does not cover optimization 2. The initial optimization 3 palette-index candidate remains backed out. Its subsequent four-arena follow-up is implemented and locally validated/measured; the shared path is retained at the user’s direction, with the small Kitty throughput difference explicitly unresolved. See the arena record below.
 
 ### Client audit follow-ups
 
@@ -401,6 +402,74 @@ Table values are medians of the two per-run summaries of each revision (A1/A2, B
 - Recommendation: record this bounded tradeoff for the next review/CI checkpoint rather than launching more timing runs.
 
 Raw evidence is preserved on ea under `/tmp/termium-opt2-ea-WCNx20/` and copied locally to `/tmp/termium-opt2-ea-results/`: `{A1,B1,B2,A2}/result.json` and per-run artifacts, `trace-{A,B}.json`, compare outputs, `qwen-summary.json` / `coordinator-summary.json`, `conditions.log`, and `exits.txt`. The production harness ran with `--scenes idle,patch --renderer both --duration 15s --warmup 5s --repeats 1`, using fresh outputs each time.
+
+## Implemented: four reusable frame arenas
+
+**2026-09-27. Source `3a5525a`, parent `bb76b52`, branch `frame-arena-pool`; final source at `42ffd50` is byte-identical to `3a5525a`.** This is a separate follow-up to optimization 3; the earlier palette-index reuse candidate remains backed out. Four rotating byte arenas now hold decoded RGBA pixels and final terminal payloads. Each starts with 10 MiB on first use, doubles when required, and resets its allocation cursor without clearing reused bytes. All exposed pixels and payload bytes are overwritten before publication. Growth retains capacity; it does not shrink after a resize.
+
+There is still **one pending display frame**, replaced by newer work. Explicit leases cover the preparation worker's previous frame, pending publication and the UI's current frame (including terminal writes and later redraws). A slot is reusable only after its last owner releases it. If all four slots are occupied, preparation drops the incoming frame instead of waiting or allocating a fifth slot. Unchanged pixels/metadata reuse share a lease. Cancellation, pause, supersession, resize, failure and shutdown release their respective owners. Sixel cached band strings retain independent storage across frames; they are committed only after composition succeeds. No `unsafe`, finalizers or Go experimental arena API is involved.
+
+Sixel composition writes directly into frame storage, removing the intermediate full-document string/copy. Kitty framing also writes into frame storage. Image decoding, band quantization and the encoder's many small allocations remain unchanged: this is not an allocation-free renderer.
+
+### Review and validation
+
+An independent source review found no concrete defects in ownership, output bounds, error/shutdown paths or band cache lifetimes. Focused tests passed with `-race`, including a blocked terminal write while other frames rotate, pending supersession, exhausted-pool recovery, metadata/generation reuse, failed decoding/composition, cancellation/pause, transparent pixels, dimension changes, overlays and resize. Deliberately removing pending-frame release caused the test to exhaust the pool; removing allocation slice-cap bounds caused the neighboring-slice sentinel test to fail. These mutations ran through temporary Go overlays, not edits to the tested production tree.
+
+`npm run typecheck` and one full `npm test` invocation passed: build, lint, server tests, Go race/shuffle tests, real Chromium/Go integration and website tests. The previously intermittent `TestShutdownDuringBrowserLaunch` passed in this run; its earlier failure is not erased or explained by this result. After strengthening the final slice-cap test assertion, the focused arena race suite passed again. The normal non-race client was restored and rebuilt at the source commit. Validation is Linux/WSL2 only; this change and optimization 2 still need their own native macOS/Linux CI and package qualification before release. No PR, push or release was performed.
+
+### Bounded comparison on ea
+
+A = `bb76b52` (runtime identical to `3ff7241`), B = `3a5525a`. Both executables were built with Go 1.27.1-X:nodwarf5 and ran sequentially on ea, native Linux amd64/Ryzen AI 9 HX 370. Server build, browser, Node, lockfile, fixture and dimensions match. The benchmark source was identical; baseline-only test shims make `release()` a no-op and `close()` clear `last`, preserving the old heap-owned benchmark behavior. GC controls were unset. No tests, builds or profiles overlapped timing, and no user workload was killed.
+
+Frozen 1280 × 720 production-fixture captures were replayed without Chromium running during timing. A1 → B1 → B2 → A2, three samples per invocation; commands and input hashes are preserved with the artifacts. These measurements force full preparation and exclude RPC, browser capture, asynchronous output and previous-frame retention. Initial arena allocation is included and amortized over each benchmark's iteration count; B/op is not a warmed steady-state allocation claim.
+
+| Replay workload / pair | Median ms/op A → B | Median bytes/op A → B |
+| --- | ---: | ---: |
+| sixel JPEG A1/B1 | 51.866 → 49.366 | 22,242,136 → 11,491,930 |
+| sixel JPEG A2/B2 | 50.050 → 48.124 | 22,242,130 → 11,328,615 |
+| kitty PNG A1/B1 | 0.305 → 0.196 | 603,441 → 12,379 |
+| kitty PNG A2/B2 | 0.320 → 0.195 | 603,442 → 13,316 |
+
+The production harness then ran canvas with default capture format/palette, each renderer separately in A1 → B1 → B2 → A2 order, 5 s warmup and 15 s measurement. It includes capture, RPC, preparation, pacing and drained-PTY output. Writes/s are **not visible-terminal FPS**.
+
+```sh
+benchmark --scenes canvas --renderer <sixel|kitty> --duration 15s --warmup 5s --repeats 1 --label <run> --out <fresh-directory>
+```
+
+| Renderer / pair | Prepare p50 A → B (ms) | Prepare p95 A → B (ms) | Writes/s A → B | Summed CPU A → B (% one core) |
+| --- | ---: | ---: | ---: | ---: |
+| sixel A1/B1 | 45.153 → 43.150 | 60.180 → 57.930 | 15.333 → 15.333 | 131.291 → 124.783 |
+| sixel A2/B2 | 44.142 → 42.241 | 58.009 → 54.401 | 15.467 → 16.800 | 129.552 → 125.999 |
+| kitty A1/B1 | 0.523 → 0.494 | 0.924 → 0.643 | 15.600 → 15.533 | 55.073 → 56.824 |
+| kitty A2/B2 | 0.516 → 0.509 | 0.913 → 0.618 | 15.800 → 15.400 | 55.524 → 56.132 |
+
+| Renderer / pair | Allocated MB/prepared frame A → B | GC cycles/prepared frame A → B | Sampled client peak RSS MiB A → B |
+| --- | ---: | ---: | ---: |
+| sixel A1/B1 | 24.688 → 10.580 | 1.039 → 0.200 | 77.64 → 132.52 |
+| sixel A2/B2 | 24.472 → 10.538 | 1.017 → 0.198 | 78.86 → 128.50 |
+| kitty A1/B1 | 1.676 → 0.588 | 0.214 → 0.013 | 41.49 → 88.92 |
+| kitty A2/B2 | 1.471 → 0.579 | 0.173 → 0.013 | 41.71 → 88.87 |
+
+Sixel preparation p50 improved 4.3–4.4% in both live pairings, allocated bytes per preparation fell about 57%, and client CPU time per written frame fell from 52.6–54.0 ms to 47.5–50.0 ms. Sixel output rate was equal in one pairing and 8.6% higher in the other. These are benefits measured on Sixel; it does not establish a universal FPS gain or prove that GC caused the speed difference. The tradeoff is higher retained memory: roughly 50–55 MiB more sampled client RSS. The pool can retain more after larger frames.
+
+Kitty initially reduced allocated bytes per preparation by 61–65%, improved preparation tails and client CPU per frame, but writes/s fell 0.4% and 2.5% while summed browser/server/client CPU rose slightly. A single bounded Kitty-only confirmation was therefore run; its results follow below. All original 16 invocations passed without retries, reported no error/arena-exhaustion counters, and retained matching fixture/server hashes.
+
+### Kitty confirmation and shared-path decision
+
+One further Kitty-only A3 → B3 → B4 → A4 sequence used the same binaries/options and fresh artifact directories on ea. All four invocations passed without retries or error/exhaustion counters.
+
+| Pair | Prepare p50 A → B (ms) | Prepare p95 A → B (ms) | Writes/s A → B | Client CPU ms/write A → B |
+| --- | ---: | ---: | ---: | ---: |
+| A3/B3 | 0.433 → 0.490 | 0.814 → 0.617 | 16.000 → 15.800 | 2.833 → 2.489 |
+| A4/B4 | 0.528 → 0.510 | 0.914 → 0.653 | 15.667 → 15.400 | 3.021 → 2.597 |
+
+Across all four Kitty pairings, B wrote 1–6 fewer frames per 15 s (0.4–2.5% lower throughput). Every captured frame was prepared and written; there were no discarded frames or exhausted arenas. Median capture latency was approximately 65 ms versus roughly 0.5 ms preparation. Preparation tails and client CPU time per frame improved in every pairing, while browser/server CPU and capture timing varied. This does **not** establish the cause of the throughput difference. Browser scheduling, pipeline timing, GC and cache behavior are hypotheses, not findings; no profiler or causal experiment was run here. There is no demonstrated Kitty end-to-end speedup. Retained Kitty client RSS rose from roughly 41–44 MiB to 89–101 MiB; ASCII performance was not measured.
+
+A temporary local renderer-specific rollback (`542595c`) was independently reviewed and passed another full suite, but the user explicitly rejected separate allocation paths. It was reverted by `42ffd50` before any further timing or publication. `git diff 3a5525a 42ffd50 -- client` is empty. **The retained implementation uses the same arena ownership/allocation path for Sixel, Kitty and ASCII graphics.** Native renderer encoding remains format-specific. The final normal executable was rebuilt. This preserves the measured shared implementation, including its unresolved small Kitty throughput difference; it does not relabel those measurements as a win.
+
+Evidence: `/tmp/termium-arena-validation/` (review, focused races, full-suite logs, expected-failure mutations and normal builds); `/tmp/termium-arena-results/` (raw replay outputs, all production reports, conditions, executable/source hashes, benchmark source and baseline compatibility shim, driver scripts, derived `summary.json` and `confirmation-summary.json`). Remote originals: `ea:/tmp/termium-arena-ea-8d37H1/`. No performance run was on the busy development workstation. Measurements used drained output, not a real graphical terminal. All twenty timing invocations exited 0; no further rounds or profiler runs were performed.
+
+**Stop boundary:** this arena unit is implemented, reviewed, validated and measured locally/on ea; nothing is pushed. Remaining release work is native Linux/macOS CI and package/installer-update qualification of the chosen revision, terminal smoke tests (including WSL2), and follow-up on the previously intermittent shutdown test. Optimization 4, encoder small-allocation work, and broader profiling remain deferred; they are not automatic release blockers.
 
 ## Investigated: optimization 3 — fixed-palette scratch reuse (rejected)
 

@@ -39,6 +39,9 @@ test('public site is complete, links resolve, and the welcome page stays separat
     await page.evaluate(() => document.fonts.ready);
     const loadedFonts = await page.evaluate(() => [...document.fonts].filter(f => f.status === 'loaded').map(f => f.family));
     for (const family of ['Inter', 'JetBrains Mono']) assert.ok(loadedFonts.includes(family), `${family} did not load under the site CSP on ${route}`);
+    for (const logo of await page.$$('.ascii-mark')) {
+      assert.equal(await logo.evaluate(e => getComputedStyle(e).fontVariantLigatures), 'none', `ASCII logo ligatures enabled on ${route}`);
+    }
     assert.equal(await page.$$eval('h1', es => es.length), 1, route);
     assert.equal(await page.$('meta[name="termium-welcome"]'), null, `Marketing content must never become an offline welcome: ${route}`);
     const links = await page.$$eval('a[href]', es => es.map(e => e.getAttribute('href')));
@@ -166,6 +169,7 @@ test('welcome appears with settled fonts and remains usable when fonts stall or 
       return { width, height, family: getComputedStyle(e).fontFamily };
     });
     const visible = await geometry();
+    assert.equal(await page.$eval('.ascii-mark', e => getComputedStyle(e).fontVariantLigatures), 'none');
     if (outcome === 'stalled') {
       // Fonts arriving after the deadline must not cause the second layout jump.
       await Promise.all(held.map(request => request.continue()));

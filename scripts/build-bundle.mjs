@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { install, Browser } from '@puppeteer/browsers';
 import { PUPPETEER_REVISIONS } from 'puppeteer-core';
 import { buildDependencyManifest } from './build-dependency-manifest.mjs';
+import { retainWelcomeOverlay } from './retain-welcome-overlay.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const lock = JSON.parse(await fs.readFile(path.join(root, 'scripts/runtime-lock.json'), 'utf8'));
@@ -95,14 +96,7 @@ try {
     // End users fetch the pinned dependencies during installation. Keep only
     // Termium's welcome-page overlay in the extension directory of the app.
     await fs.rm(path.join(bundle, 'browser'), { recursive: true });
-    const extension = path.join(bundle, 'server/dist/extensions/vimium');
-    const overlay = new Map();
-    for (const file of ['termium.js', 'termium.html', 'termium.css', 'termium-mark.svg']) {
-        overlay.set(file, await fs.readFile(path.join(extension, 'pages', file)));
-    }
-    await fs.rm(extension, { recursive: true });
-    await fs.mkdir(path.join(extension, 'pages'), { recursive: true });
-    for (const [file, data] of overlay) await fs.writeFile(path.join(extension, 'pages', file), data);
+    await retainWelcomeOverlay(path.join(bundle, 'server/dist/extensions/vimium'));
     const artifact = `termium-${platform}.tar.gz`;
     run('tar', ['czf', path.join(root, 'dist', artifact), '-C', bundle, '.']);
     await fs.writeFile(path.join(root, 'dist', `${artifact}.sha256`), `${await hash(path.join(root, 'dist', artifact))}  ${artifact}\n`);

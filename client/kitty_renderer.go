@@ -30,9 +30,6 @@ type kittyEncoder struct {
 // JPEG captures have already been decoded for renderer preparation. Send those
 // opaque pixels directly: Kitty supports zlib-compressed RGB, so no PNG encode is needed.
 func (e *kittyEncoder) encodeRGB(img *image.RGBA) ([]byte, error) {
-	return e.encodeRGBInto(img, nil)
-}
-func (e *kittyEncoder) encodeRGBInto(img *image.RGBA, alloc frameAllocator) ([]byte, error) {
 	if img == nil || img.Bounds().Empty() {
 		return nil, fmt.Errorf("Kitty image is empty")
 	}
@@ -67,7 +64,7 @@ func (e *kittyEncoder) encodeRGBInto(img *image.RGBA, alloc frameAllocator) ([]b
 	if err := e.compressor.Close(); err != nil {
 		return nil, err
 	}
-	return encodeKittyPayloadInto(e.compressed.Bytes(), fmt.Sprintf("f=24,s=%d,v=%d,o=z,%s", bounds.Dx(), bounds.Dy(), kittyPlacement), alloc)
+	return encodeKittyPayload(e.compressed.Bytes(), fmt.Sprintf("f=24,s=%d,v=%d,o=z,%s", bounds.Dx(), bounds.Dy(), kittyPlacement))
 }
 
 // Explicit lossless PNG capture can pass through unchanged. Both this path and
@@ -77,9 +74,6 @@ func encodeKittyPNG(data []byte) ([]byte, error) {
 }
 
 func encodeKittyPayload(data []byte, control string) ([]byte, error) {
-	return encodeKittyPayloadInto(data, control, nil)
-}
-func encodeKittyPayloadInto(data []byte, control string, alloc frameAllocator) ([]byte, error) {
 	encodedSize := base64.StdEncoding.EncodedLen(len(data))
 	chunks := max(1, (encodedSize+kittyChunkSize-1)/kittyChunkSize)
 	// Conservative framing allowance; guard allocation before growing the buffer.
@@ -87,11 +81,8 @@ func encodeKittyPayloadInto(data []byte, control string, alloc frameAllocator) (
 	if size > maxFrameBytes {
 		return nil, fmt.Errorf("Kitty output exceeds 32 MiB; reduce the terminal size")
 	}
-	storage, err := allocateFrameBytes(alloc, size)
-	if err != nil {
-		return nil, err
-	}
-	output := bytes.NewBuffer(storage[:0])
+	var output bytes.Buffer
+	output.Grow(size)
 	var chunk [kittyChunkSize]byte
 	const rawChunkSize = kittyChunkSize / 4 * 3
 	for offset := 0; ; offset += rawChunkSize {

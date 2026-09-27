@@ -6,6 +6,7 @@ import (
 	"errors"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"runtime"
 	"testing"
 	"time"
@@ -124,7 +125,7 @@ func TestArenaExhaustionDropsWorkAndRecovers(t *testing.T) {
 }
 
 func TestArenaReuseKeepsIndependentLeases(t *testing.T) {
-	for _, renderer := range []string{"sixel", "kitty", "tcell"} {
+	for _, renderer := range []string{"sixel", "tcell"} {
 		t.Run(renderer, func(t *testing.T) {
 			p := &framePreparer{renderer: renderer, palette: "websafe"}
 			raw := arenaTestRaw(t, 0)
@@ -155,7 +156,7 @@ func TestArenaReuseKeepsIndependentLeases(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if renderer != "kitty" && generation.storage != first.storage {
+			if generation.storage != first.storage {
 				t.Fatal("identical pixels not shared across generation change")
 			}
 			first.release()
@@ -360,5 +361,32 @@ func TestArenaUIRetainsForOverlayAndReleasesOnResize(t *testing.T) {
 	handleResize(s)
 	if second.storage.refs.Load() != 0 {
 		t.Fatal("resize leaked UI lease")
+	}
+}
+
+// Kitty's lower allocation count did not justify a repeatable live-throughput
+// loss and extra retained memory. Protect the intended renderer boundary.
+func TestKittyPreparationDoesNotReserveFrameArenas(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 37, 19))
+	var jpg bytes.Buffer
+	if err := jpeg.Encode(&jpg, img, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, raw := range []*Frame{pngFrame(t, img, 1), {Data: jpg.Bytes(), Generation: 2}} {
+		p := &framePreparer{renderer: "kitty"}
+		f, err := p.prepare(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.storage != nil || len(f.Graphics) == 0 {
+			t.Fatal("Kitty did not use its heap-owned graphics path")
+		}
+		for _, a := range p.arenas.slots {
+			if a != nil {
+				t.Fatal("Kitty reserved an unused arena")
+			}
+		}
+		f.release()
+		p.close()
 	}
 }

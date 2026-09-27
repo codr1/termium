@@ -115,21 +115,29 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if dim.Width < 1 || dim.Height < 1 || dim.Width > maxFrameDimension || dim.Height > maxFrameDimension || int64(dim.Width)*int64(dim.Height) > maxFramePixels {
 		return nil, fmt.Errorf("Screenshot dimensions exceed 16384 pixels per side or 16 megapixels")
 	}
-	arena := p.arenas.acquire()
-	if arena == nil {
-		return nil, errFrameArenaBusy
+	var arena *frameArena
+	var alloc frameAllocator
+	// The measured arena win is on decoded-pixel paths. Kitty retained less
+	// allocation traffic but repeatedly lost live throughput; keep its proven
+	// heap-owned framing/compression path instead of reserving four buffers.
+	if p.renderer != "kitty" {
+		arena = p.arenas.acquire()
+		if arena == nil {
+			return nil, errFrameArenaBusy
+		}
+		alloc = arena.alloc
 	}
 	// Transfer this working lease only on success. Deduplication and errors
 	// return it to the pool without changing the last successful frame.
 	transferred := false
 	defer func() {
-		if !transferred {
+		if !transferred && arena != nil {
 			arena.release()
 		}
 	}()
 	f := &Frame{storage: arena, Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp, CapturedAt: raw.CapturedAt}
 	if p.renderer == "kitty" && format == "png" {
-		f.Graphics, err = encodeKittyPayloadInto(raw.Data, "f=100,"+kittyPlacement, arena.alloc)
+		f.Graphics, err = encodeKittyPNG(raw.Data)
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +149,7 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if err != nil {
 		return nil, err
 	}
-	pixels, err := arena.alloc(dim.Width * dim.Height * 4)
+	pixels, err := allocateFrameBytes(alloc, dim.Width*dim.Height*4)
 	if err != nil {
 		return nil, err
 	}
@@ -160,9 +168,9 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 		f.Image = rgba
 		if p.renderer != "tcell" {
 			if p.renderer == "kitty" {
-				f.Graphics, err = p.kitty.encodeRGBInto(rgba, arena.alloc)
+				f.Graphics, err = p.kitty.encodeRGB(rgba)
 			} else {
-				f.Graphics, err = p.encodeInto(rgba, arena.alloc)
+				f.Graphics, err = p.encodeInto(rgba, alloc)
 			}
 			if err != nil {
 				return nil, err

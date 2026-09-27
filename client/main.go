@@ -542,7 +542,9 @@ func screenshotLoop(s tcell.Screen) {
 		start := time.Now()
 		if !pipeline.paused.Load() {
 			ctx, cancel := context.WithTimeout(appCtx, 10*time.Second)
+			token := tracePhaseBegin("capture.rpc", start)
 			response, err := grpcClient.CaptureScreenshot(ctx, &pb.ScreenshotRequest{Format: format})
+			tracePhaseEnd(token) // includes failures; frame identity is the capture start
 			cancel()
 			if performance != nil {
 				if err == nil {
@@ -575,7 +577,10 @@ func screenshotLoop(s tcell.Screen) {
 		if pipeline.paused.Load() {
 			delay = 50 * time.Millisecond
 		}
-		if !waitFrameDelay(appCtx, delay) {
+		token := tracePhaseBegin("capture.pacing", time.Time{}) // intentional loop-end sleep only; error backoffs are not paced work
+		done := waitFrameDelay(appCtx, delay)
+		tracePhaseEnd(token) // ended on cancellation too
+		if !done {
 			return
 		}
 	}
@@ -617,6 +622,7 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 	if performance != nil {
 		start = time.Now()
 	}
+	token := tracePhaseBegin("display.write", frame.Timestamp) // early-return paths above are not UI writes
 	var err error
 	switch cfg.Renderer {
 	case "tcell":
@@ -624,6 +630,7 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 	default:
 		err = writeGraphicsFrame(graphicsOutput, frame.Graphics, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
+	tracePhaseEnd(token)
 	if performance != nil {
 		performance.presented(frame, time.Since(start), err)
 	}

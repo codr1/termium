@@ -36,6 +36,9 @@ func startPerformanceRecorder() *performanceRecorder {
 		fmt.Fprintln(os.Stderr, "window profiling:", err)
 		os.Exit(1)
 	}
+	if os.Getenv("TERMIUM_TIMELINE") == "1" {
+		pipelineTimeline = &phaseTimeline{}
+	}
 	p := &performanceRecorder{path: path, profile: profile, counts: make(map[string]uint64), samples: make(map[string][]float64)}
 	shutdownWg.Add(1)
 	go func() {
@@ -108,8 +111,14 @@ func (p *performanceRecorder) run() error {
 	// diagnostic GC/profile I/O must not contaminate recorder totals. The
 	// harness terminates the client once this file appears, so profiles are
 	// complete before the report is published.
+	if err := pipelineTimeline.save(p.path, p.start, p.end); err != nil {
+		return err
+	}
 	if err := p.profile.end(); err != nil {
 		fmt.Fprintln(os.Stderr, "window profiling:", err)
+		return err
+	}
+	if err := waitServerDiagnostics(appCtx, p.path); err != nil {
 		return err
 	}
 	return perf.WriteJSON(p.path, report)

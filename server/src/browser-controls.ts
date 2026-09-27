@@ -1,4 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
+import { beginCapturePhase, endCapturePhase } from './capture-diagnostics';
 import { Page, CDPSession, KeyInput, Target, Frame } from 'puppeteer';
 import { BrowserState, InputEvent, InputKind, NavigationAction, NavigationRequest } from '../generated/bc';
 
@@ -151,11 +152,15 @@ export class BrowserControls {
         const timer = setTimeout(abort, 3000);
         try {
             if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
-            const result = await session.send('Page.captureScreenshot', {
+            const cdpPhase = beginCapturePhase('cdp.screenshot');
+            let result;
+            try { result = await session.send('Page.captureScreenshot', {
                 format, ...(format === 'jpeg' ? { quality: 60 } : {}),
                 captureBeyondViewport: false, fromSurface: true, optimizeForSpeed: true,
-            });
-            return Buffer.from(result.data, 'base64');
+            }); } finally { endCapturePhase(cdpPhase); }
+            const base64Phase = beginCapturePhase('node.base64_decode');
+            try { return Buffer.from(result.data, 'base64'); }
+            finally { endCapturePhase(base64Phase); }
         } catch (error) {
             // A failed or aborted attempt must not be reused; the next capture
             // attaches a fresh session for the current target.

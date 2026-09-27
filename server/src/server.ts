@@ -5,6 +5,7 @@ import { Command } from 'commander';
 import * as fs from 'fs';
 import * as path from 'path';
 import debugFactory from 'debug';
+import { beginCapturePhase, endCapturePhase, captureScope, startCaptureDiagnostics } from './capture-diagnostics';
 
 // Update import paths
 import { ServerUnaryCall, sendUnaryData } from '@grpc/grpc-js';
@@ -170,6 +171,7 @@ async function launchBrowser() {
             ]
         });
     }
+    startCaptureDiagnostics(browser!);
 }
 
 const maxScreenshotBytes = 32 * 1024 * 1024;
@@ -178,8 +180,10 @@ async function captureScreenshot(format: string, cancelled: () => boolean): Prom
     if (format && format !== 'png' && format !== 'jpeg') throw Object.assign(new Error('Use png or jpeg'), { code: grpc.status.INVALID_ARGUMENT });
     if (pendingCaptures >= 2) throw Object.assign(new Error('Capture is busy'), { code: grpc.status.RESOURCE_EXHAUSTED });
     pendingCaptures++;
+    const admission = beginCapturePhase('server.viewport_queue');
     try {
         return await withViewport(async () => {
+            endCapturePhase(admission);
             if (cancelled()) throw Object.assign(new Error('Capture cancelled'), { code: grpc.status.CANCELLED });
             const frame = await controls.capture(format === 'png' ? 'png' : 'jpeg');
             if (frame.data.length > maxScreenshotBytes) throw Object.assign(new Error('Screenshot exceeds 32 MiB'), { code: grpc.status.RESOURCE_EXHAUSTED });
@@ -316,8 +320,15 @@ const browserControlHandlers: BrowserControlServer = {
     },
 
     captureScreenshot: async (call, callback) => {
-        try { callback(null, await captureScreenshot(call.request.format, () => call.cancelled)); }
-        catch (error) { callback(error as Error); }
+        await captureScope(async () => {
+            const handler = beginCapturePhase('server.handler');
+            try {
+                const frame = await captureScreenshot(call.request.format, () => call.cancelled);
+                const response = beginCapturePhase('server.response_callback');
+                try { callback(null, frame); } finally { endCapturePhase(response); }
+            } catch (error) { callback(error as Error); }
+            finally { endCapturePhase(handler); }
+        });
     },
 
     streamDialogs: (call) => {
@@ -374,7 +385,15 @@ const browserControlHandlers: BrowserControlServer = {
 // gRPC server setup
 function main() {
   const server = new grpc.Server();
-  server.addService(BrowserControlService, browserControlHandlers);
+  const service = process.env.TERMIUM_CAPTURE_TRACE === '1' ? {
+      ...BrowserControlService,
+      captureScreenshot: { ...BrowserControlService.captureScreenshot, responseSerialize: (value: Screenshot) => {
+          const phase = beginCapturePhase('grpc.protobuf_encode');
+          try { return BrowserControlService.captureScreenshot.responseSerialize(value); }
+          finally { endCapturePhase(phase); }
+      } },
+  } : BrowserControlService;
+  server.addService(service, browserControlHandlers);
 
   // Determine binding address
   let bindAddress: string;

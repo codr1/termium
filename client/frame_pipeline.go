@@ -52,15 +52,20 @@ func (p *framePipeline) interval() time.Duration {
 }
 func (p *framePipeline) run(ctx context.Context, prepare func(*Frame) (*Frame, error), publish func(*Frame, error)) {
 	for {
+		token := tracePhaseBegin("prepare.wait", time.Time{}) // channel block below; no frame identity until receive
 		select {
 		case <-ctx.Done():
+			tracePhaseEnd(token) // wait interval recorded even when cancelled mid-block
 			return
 		case raw := <-p.pending:
+			tracePhaseEnd(token)
 			if p.paused.Load() {
 				continue
 			}
 			start := time.Now()
+			workToken := tracePhaseBegin("prepare.work", raw.Timestamp)
 			frame, err := prepare(raw)
+			tracePhaseEnd(workToken)
 			p.cost.Store(max(int64(time.Since(start)), p.cost.Load()*7/8))
 			if ctx.Err() != nil {
 				frame.release()

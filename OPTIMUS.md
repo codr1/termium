@@ -471,6 +471,30 @@ Evidence: `/tmp/termium-arena-validation/` (review, focused races, full-suite lo
 
 **Stop boundary:** this arena unit is implemented, reviewed, validated and measured locally/on ea; nothing is pushed. Remaining release work is native Linux/macOS CI and package/installer-update qualification of the chosen revision, terminal smoke tests (including WSL2), and follow-up on the previously intermittent shutdown test. Optimization 4, encoder small-allocation work, and broader profiling remain deferred; they are not automatic release blockers.
 
+## Measured: viewport scaling on ea (2026-09-27)
+
+[Full viewport sweep](docs/performance/2026-09-27-viewport-scaling.md): current
+shared-arena build `2beb236`, unchanged 24 FPS limit, four sizes from 1280×720
+to 3840×2160, default Sixel/JPEG and Kitty/PNG, dense animated canvas. Two passes
+reverse size and renderer order; 16 successful workloads, 5s warmup +15s measured
+each. The near-1080p step is 1920×1072 because the harness uses 16-pixel rows.
+
+| Viewport | Sixel writes/s | Kitty writes/s |
+| --- | ---: | ---: |
+| 1280×720 | 15.93–16.07 | 15.27–15.40 |
+| 1920×1072 | 8.47–8.60 | 15.00 |
+| 2560×1440 | 4.87–4.93 | 14.87–14.93 |
+| 3840×2160 | 2.27 | 10.00 |
+
+At 4K, Sixel preparation p50 is about 350 ms and client peak RSS about 777 MiB;
+Kitty capture p50 is about 99 ms, preparation about 1 ms, and client peak RSS
+157–167 MiB. Size strongly affects the pipeline even below its FPS ceiling.
+No error/drop/arena-exhaustion counters were recorded. These are drained-PTY
+output rates, not visible terminal FPS. No production code or pacing changed.
+Raw evidence: `/tmp/termium-viewport-results`, remote
+`/tmp/termium-viewport-ea-I7TgMm`; reproducible analysis script at
+`/tmp/termium-viewport-comparison/analyze.py`.
+
 ## Measured: whole optimization series on ea (2026-09-27)
 
 Compared `aaf1bd6` (September 16, before the first Sixel band optimizations;

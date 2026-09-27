@@ -18,14 +18,14 @@ Reviewed 2026-09-16, updated 2026-09-27 (reusable capture session implemented). 
 
 - [ ] **Run the full local performance comparison.** Start on the weaker laptop using the [profiling procedure](docs/testing.md#full-local-performance-run-planned). Separate capture, Node/CDP, local RPC, Go preparation/GC, terminal writes, and visible presentation. Compare input latency and long-frame tails as well as frame delivery.
 - [x] **Reusable, dedicated capture CDP session.** Landed with optimization 1 via PR #22 after all six Linux/macOS test and package checks passed. Earlier local measurements (A = 92f8e2f vs B = 7a649f3) remain recorded below. The steady-state path reuses one capture session across consecutive captures instead of attaching and detaching per frame; see [Implemented: reusable dedicated capture CDP session](#implemented-reusable-dedicated-capture-cdp-session).
-- [ ] **Profile Sixel allocation and palette costs.** The recorded preparation probes show substantial allocations per frame. Locate the allocation/GC and quantization costs before choosing buffer reuse or cache changes; retain pixel correctness and bounded memory. Allocation counts alone do not identify the bottleneck.
+- [x] **Profile Sixel allocation and palette costs (optimization 3).** Bounded CPU/allocation profiling and a fixed-palette storage-reuse experiment are complete. The candidate saved synthetic encoder allocations but slowed the production canvas workload in both pairings, so it was backed out. See [the rejected experiment](#investigated-optimization-3--fixed-palette-scratch-reuse-rejected). Broader real-terminal profiling remains open; no runtime change from this experiment is retained.
 - [x] **Avoid reapplying an unchanged viewport on every capture.** Implemented; validated on WSL2 and measured on native Linux ea on 2026-09-27 (A = e663a5e vs B = 41f94b0); its own cross-platform CI still pending. The steady-state path caches successfully applied dimensions per control CDP session, distinct from the desired viewport, and skips `Emulation.setDeviceMetricsOverride` when they match; see [Implemented: optimization 2 — skip unchanged viewport updates](#implemented-optimization-2--skip-unchanged-viewport-updates).
 - [ ] **Investigate partial terminal image updates.** Unchanged-image reuse and Sixel band-encoding caches already exist. Updating only changed regions on screen is separate unfinished work. Validate palette/background behavior, cursor placement, scrolling, resize, overlays, and recovery from dropped or failed output across supported terminals before claiming a gain.
 - [x] **Remove per-frame tab/history polling (optimization 1).** Landed via PR #22 with all six Linux/macOS test/package checks green on its exact head; locally validated earlier on the stacked `capture-metadata-fast-path` branch. Capture reuses the retained selected tab and omits optional screenshot metadata; the existing independent client state poll and explicit commands/input reconcile state. Warmed captures issue two CDP commands with viewport application still retained. Sixel improved in the short ea comparison. See [the implementation record](#implemented-optimization-1--remove-per-frame-tabhistory-polling).
 
 ### Numbered optimization priorities
 
-User-selected order (2026-09-27): **1.** Remove per-frame tab/history polling — landed via PR #22, with all six Linux/macOS test/package checks green on its exact head. **2.** Skip unchanged viewport updates — implemented and locally validated/measured 2026-09-27; performance qualifications below, its own cross-platform CI pending. **3.** Profile and optimize Sixel quantization/allocations — unstarted. **4.** Investigate partial terminal image updates — unstarted. These numbers supersede the future-work order, not the historical unit names in earlier briefs. PR #22's CI covers session reuse and optimization 1; it does not cover optimization 2.
+User-selected order (2026-09-27): **1.** Remove per-frame tab/history polling — landed via PR #22, with all six Linux/macOS test/package checks green on its exact head. **2.** Skip unchanged viewport updates — implemented and locally validated/measured 2026-09-27; performance qualifications below, its own cross-platform CI pending. **3.** Profile Sixel quantization/allocations — investigation complete; buffer-reuse candidate rejected and backed out after production slowdown. **4.** Investigate partial terminal image updates — deferred by user until after release work. These numbers supersede the future-work order, not the historical unit names in earlier briefs. PR #22's CI covers session reuse and optimization 1; it does not cover optimization 2. Optimization 3 adds an investigation record, with no retained runtime change.
 
 ### Client audit follow-ups
 
@@ -401,6 +401,66 @@ Table values are medians of the two per-run summaries of each revision (A1/A2, B
 - Recommendation: record this bounded tradeoff for the next review/CI checkpoint rather than launching more timing runs.
 
 Raw evidence is preserved on ea under `/tmp/termium-opt2-ea-WCNx20/` and copied locally to `/tmp/termium-opt2-ea-results/`: `{A1,B1,B2,A2}/result.json` and per-run artifacts, `trace-{A,B}.json`, compare outputs, `qwen-summary.json` / `coordinator-summary.json`, `conditions.log`, and `exits.txt`. The production harness ran with `--scenes idle,patch --renderer both --duration 15s --warmup 5s --repeats 1`, using fresh outputs each time.
+
+## Investigated: optimization 3 — fixed-palette scratch reuse (rejected)
+
+**2026-09-27. Decision: do not ship this candidate.** Profiling and a bounded experiment are complete. The allocation reduction did not meet the user's no-repeatable-slowdown acceptance criterion: the production canvas workload became slower in both A/B pairings. Source `2461a11` and regression tests `944b384` are preserved in local history; `848c8ff` backs both out. Runtime and tests after the backout match parent `3ff7241` exactly. No PR, push or release was created. Optimization 4 remains deferred; this result is not a reason to continue experimenting indefinitely before a release.
+
+### Profiles and candidate
+
+A dedicated test executable built with Go 1.27.1-X:nodwarf5 ran on ea (native Linux amd64, Ryzen AI 9 HX 370). CPU and allocation profiles were separate: CPU used ordinary memory sampling; allocation profiles used `-test.memprofilerate=1`, whose instrumented timings are not baseline measurements. Both profiled cases are the existing synthetic 1920 × 1081 `BenchmarkSixelBandChanges` workloads, excluding screenshot capture, image decoding and terminal rendering.
+
+- One-pixel CPU: `memeqbody` accounts for 76.59% of sampled CPU, mostly comparing unchanged bands. Scratch allocation is not the dominant cost in this case.
+- All-pixels CPU: `writePixelData` is 30.57% flat / 51.75% cumulative, `cachedDraw` 23.41% / 41.56%. Pixel accessor/bounds work contributes beneath those callers. These process-wide sample shares include startup; cumulative percentages overlap and must not be added.
+- All-pixels allocated bytes: `image.NewPaletted` is 78.96% of the process profile, motivating retained palette-index storage. The 15.52% attributed to `image.NewRGBA` is benchmark fixture setup/calibration before `ResetTimer`, not repeated frame preparation.
+- Allocation objects differ: `writePixelData` is 36.46%, `RGBA.SubImage` 20.83%, `NewPaletted` 20.83%. Removing the largest byte allocation is not the same as removing most allocation objects or most CPU work.
+
+The candidate retained one encoder-owned high-water palette-index buffer for origin-zero WebSafe/Plan9 images. It updated the active length, stride, bounds and palette; non-zero origins kept fresh allocation to preserve source-point-zero clipping behavior. Adaptive quantization and borrowed paletted inputs were unchanged. Neither CPU pixel loop was rewritten.
+
+### Correctness and validation record
+
+Qwen's independent production-source review found no defects. New tests compared reused/fresh output for both entry points, palette changes, full/short bands, resizing, padded source stride, dithering, transparency and adaptive interludes. Independent known-pixel decoding covered WebSafe and Plan9 white; input-ownership checks protected borrowed paletted images. Four temporary source mutations were rejected by those tests: missing palette update, missing stride update, reuse at non-zero origins, and adoption of caller-owned storage.
+
+Focused Sixel tests passed. Typecheck initially failed because generated TypeScript protocol files were absent in the isolated worktree; after `npm run build:proto`, it passed. Full `npm test` passed build/lint, 23 server tests, Go race/shuffle tests and five Node integration tests, then **failed** Go integration `TestShutdownDuringBrowserLaunch`: cleanup reported an owned browser process still present after shutdown. That test starts the Node server and a blocked browser executable, without Sixel encoding. The same test passed once on the unchanged parent. One candidate integration-suite rerun passed, and four website tests passed separately. This does not establish the cause or erase the initial failure; shutdown process cleanup remains a release follow-up. Normal client executables were restored after testing and again after backout. Validation was Linux/WSL2; this candidate did not run native macOS CI.
+
+### Matched A–B–B–A measurements
+
+A = `3ff7241`, B = `944b384`. Same compiler, benchmark source, browser, Node, lockfile, server build, fixture and options; fresh isolated ea checkouts. No tests/builds overlapped timing. Microbenchmarks ran A1 → B1 → B2 → A2, each with five samples:
+
+```sh
+./<role>-test -test.run '^$' -test.bench '^BenchmarkSixelBandChanges$' -test.benchmem -test.count=5
+```
+
+| Workload / pair | Median ns/op A → B | Change | Median B/op A → B | Allocations/op A → B |
+| --- | ---: | ---: | ---: | ---: |
+| one-pixel A1/B1 | 208,552 → 210,059 | +0.72% | 61,052 → 58,908 | 28 → 26 |
+| one-pixel A2/B2 | 225,698 → 214,071 | −5.15% | 61,052 → 58,908 | 28 → 26 |
+| all-pixels A1/B1 | 13,985,892 → 13,592,071 | −2.82% | 2,337,387 → 106,123 | 2,723 → 2,361 |
+| all-pixels A2/B2 | 14,243,103 → 13,595,189 | −4.55% | 2,337,390 → 106,123 | 2,723 → 2,361 |
+
+This is approximately 95.5% fewer allocated bytes in the synthetic all-pixels encoder workload, **not** 95.5% less application memory. One-pixel timing is mixed. Full sample ranges and raw values are preserved in the evidence.
+
+A separate production-harness A1 → B1 → B2 → A2 sequence used canvas/Sixel with default JPEG capture and WebSafe palette, 15 s measurement, 5 s warmup, one repeat, and a drained PTY:
+
+```sh
+benchmark --scenes canvas --renderer sixel --duration 15s --warmup 5s --repeats 1 --label opt3-<run> --out <fresh-directory>
+```
+
+| Pair | Prepare p50 A → B (ms) | Prepare p95 A → B (ms) | Frame-age p95 A → B (ms) | Writes/s A → B | Summed CPU A → B (% of one core) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A1/B1 | 43.29 → 51.26 | 55.81 → 65.21 | 123.85 → 132.68 | 16.33 → 14.53 | 130.48 → 133.38 |
+| A2/B2 | 48.02 → 55.56 | 63.79 → 67.76 | 126.13 → 130.73 | 15.40 → 13.80 | 131.60 → 132.99 |
+
+All eight micro/production invocations exited 0, without timing retries; production reported no error counters. The synthetic win did not transfer to this busier workload: preparation p50 worsened 15.7–18.4%, output rate fell about 10–11%, and frame-age tails and CPU rose in both pairings. These short runs do not establish the mechanism or eliminate environmental effects. No GC, machine-load or cache-locality explanation is claimed. Nevertheless, the consistent adverse production result is sufficient to reject this candidate for release under the agreed bar. No visible-terminal FPS claim is made from drained-PTY writes.
+
+### Evidence and remaining work
+
+- Profiles, exact profiled executable, compiler provenance, baseline and pprof tables: `/tmp/termium-opt3-evidence/`; ea profiling copy `/tmp/termium-opt3-ea-stageA/`. The first driver used incorrect standalone-test flags and exited 2 before measuring; the corrected `-test.*` commands succeeded. Both statuses are retained.
+- Validation, original failure, retry, mutation evidence and independent source review: `/tmp/termium-opt3-validation/`.
+- Comparisons: `/tmp/termium-opt3-comparison/`, including raw `micro-{A1,B1,B2,A2}.txt`, `canvas-*/result.json`, conditions, exits and `coordinator-summary.json`. Exact A/B test executables and runtime checkouts remain on ea at `/tmp/termium-opt3-ea-n3IylT/`.
+- Local `/tmp` paths are evidence from this investigation, not permanent release assets. Preserve them before cleanup; the decision and key measurements are recorded here.
+
+Release work now takes priority: resolve the intermittent shutdown-cleanup failure, obtain native test/package CI for optimization 2, and qualify install/update of the chosen release archives on advertised platforms. The release candidate keeps optimization 2; it does not include scratch-buffer reuse. A future optimization investigation should profile a representative busy frame through the production preparation path before selecting another change. Pixel conversion/writing and unchanged-band comparison remain candidates, not promised improvements.
 
 ## Historical investigation and backlog
 

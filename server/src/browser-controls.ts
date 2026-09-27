@@ -23,6 +23,8 @@ export class BrowserControls {
     private error = '';
     private navigation = 0;
     private viewport = { width: 800, height: 600 };
+    // Successful overrides belong to a control session, not a screenshot session.
+    private appliedViewports = new WeakMap<CDPSession, { width: number; height: number }>();
 
     constructor(private readonly ensurePage: () => Promise<Page>) { }
 
@@ -51,18 +53,34 @@ export class BrowserControls {
         if (this.target !== target || !this.cdp) {
             if (this.cdp) void this.cdp.then(session => session.detach()).catch(() => { });
             this.target = target;
-            this.cdp = target.createCDPSession();
-            const apply = this.cdp.then(async session => { await this.applyViewport(session); return session; });
+            const apply = target.createCDPSession().then(async session => {
+                try {
+                    await this.applyViewport(session);
+                    return session;
+                } catch (error) {
+                    void session.detach().catch(() => { });
+                    throw error;
+                }
+            });
             this.cdp = apply;
-            void this.cdp.catch(() => { this.target = undefined; });
+            void apply.catch(() => {
+                // An obsolete initialization must not invalidate its replacement.
+                if (this.cdp === apply) { this.target = undefined; this.cdp = undefined; }
+            });
         }
         return this.cdp;
     }
 
     private async applyViewport(session: CDPSession) {
+        const desired = this.viewport;
+        const applied = this.appliedViewports.get(session);
+        if (applied?.width === desired.width && applied?.height === desired.height) return;
+        // Failure leaves the browser's size uncertain, including the old size.
+        this.appliedViewports.delete(session);
         await session.send('Emulation.setDeviceMetricsOverride', {
-            ...this.viewport, deviceScaleFactor: 1, mobile: false,
+            ...desired, deviceScaleFactor: 1, mobile: false,
         });
+        this.appliedViewports.set(session, desired);
     }
 
     // Capture keeps a dedicated session, isolated from input/history. A

@@ -59,6 +59,7 @@ test('navigation aborts an in-flight capture without disabling resize or future 
     assert.equal(png.readUInt32BE(16), 400);
     assert.equal(png.readUInt32BE(20), 217);
     const steadyStateCreations = captureCreations;
+    await controls.setViewport(400, 217); // Same size must remain valid with a cached override.
     const jpeg = await controls.capture('jpeg');
     assert.deepEqual(jpegSize(jpeg), [400, 217]);
     assert.equal(captureCreations, steadyStateCreations, 'steady-state captures reattached the CDP session');

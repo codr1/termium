@@ -163,3 +163,37 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     await text('t');
     await waitFor(async () => (await session.state()).tabs.length===2,'replacement welcome input');
 });
+
+test('capture applies the desired viewport to resized, existing and new tabs', { timeout: 60000 }, async t => {
+    const browser = await puppeteer.launch({ headless: true, pipe: true, enableExtensions: true, defaultViewport: null });
+    t.after(() => browser.close());
+    const session = new BrowserSession(async () => browser, () => {}, () => 'about:blank');
+    const first = await session.ensurePage();
+    await first.goto('data:text/html,<title>Viewport first</title><body>first');
+    const dimensions = async (width, height) => {
+        const frame = await session.capture('png');
+        assert.deepEqual([frame.data.readUInt32BE(16), frame.data.readUInt32BE(20)], [width, height]);
+        assert.deepEqual(await (await session.ensurePage()).evaluate(() => [innerWidth, innerHeight]), [width, height]);
+    };
+    await session.setViewport(400, 217);
+    await dimensions(400, 217);
+    await dimensions(400, 217);
+
+    const second = await browser.newPage();
+    await second.goto('data:text/html,<title>Viewport second</title><body>second');
+    await second.bringToFront();
+    await session.state(); // The independent state path discovers external selection.
+    await dimensions(400, 217);
+    await session.setViewport(513, 301);
+    await dimensions(513, 301);
+
+    await first.bringToFront();
+    await session.state();
+    // No explicit resize on the old tab: capture must propagate the session's
+    // desired dimensions rather than trust that tab's previously applied size.
+    await dimensions(513, 301);
+    await first.reload({ waitUntil: 'load' });
+    await dimensions(513, 301);
+    await session.setViewport(400, 217);
+    await dimensions(400, 217);
+});

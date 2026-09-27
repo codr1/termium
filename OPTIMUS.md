@@ -471,6 +471,79 @@ Evidence: `/tmp/termium-arena-validation/` (review, focused races, full-suite lo
 
 **Stop boundary:** this arena unit is implemented, reviewed, validated and measured locally/on ea; nothing is pushed. Remaining release work is native Linux/macOS CI and package/installer-update qualification of the chosen revision, terminal smoke tests (including WSL2), and follow-up on the previously intermittent shutdown test. Optimization 4, encoder small-allocation work, and broader profiling remain deferred; they are not automatic release blockers.
 
+## Measured: whole optimization series on ea (2026-09-27)
+
+Compared `aaf1bd6` (September 16, before the first Sixel band optimizations;
+source-tree equivalent to the pre-attribution-rewrite `d2690fd`) with `2beb236`
+(shared four-arena implementation). This includes band comparison/buffer reuse,
+band-only encoding, capture-session reuse, reduced metadata polling, viewport
+caching, and arenas. Earlier work predating that baseline is outside this total.
+The rejected quantization-scratch experiment is absent from both endpoints.
+
+Both endpoints were built with the same Go toolchain and run on ea
+(`192.168.1.100`, Ryzen AI 9 HX 370, Linux), using the same Node, Chromium,
+dependency lock, protocol, harness executable and current fixture. The current
+fixture was used for both revisions to avoid the old patch-aliasing bug. The
+unchanged `server_sha256` in result.json covers the entrypoint only; separate
+browser-controls/session hashes in `build-provenance.json` record the actual
+server implementation differences.
+
+Method: sequential A1 → B1 → B2 → A2; each suite uses
+`--scenes idle,patch,canvas --renderer both --duration 15s --warmup 5s --repeats 1`,
+1280×720, default Websafe Sixel/JPEG and Kitty/PNG. Four suites and all 24 workload
+runs completed successfully. Output went to a drained PTY: writes/s measures
+pipeline output, not visible terminal FPS. Two runs per revision bound the
+strength of timing conclusions; these are observations, not universal gains.
+No builds/tests ran during the measurement sequence. Recorded one-minute ea
+load at suite starts: 0.23, 0.59, 1.39, 1.03; no environmental cause is inferred.
+
+Full-screen canvas results (ranges over the two runs per revision):
+
+| Metric | Sixel before → after | Kitty before → after |
+| --- | --- | --- |
+| Writes/s | 14.87–15.13 → 16.20–16.27 | 15.07 → 15.33–15.47 |
+| Paired throughput change | +7.0%, +9.4% | +1.8%, +2.7% |
+| Prepare p50, ms | 47.01–50.02 → 42.32–42.36 | 0.422–0.454 → 0.511–0.514 |
+| Prepare p95, ms | 61.06–62.26 → 54.67–56.16 | 0.877–0.887 → 0.611–0.636 |
+| Client CPU, ms/write | 55.37–57.58 → 47.99–48.15 | 2.965–3.142 → 2.629–2.652 |
+| All-process CPU, % of one core | 132.83–134.66 → 125.07–125.99 | 59.72–60.11 → 55.61–55.69 |
+| Go allocated MiB/write | 23.55–23.65 → 10.04–10.06 | 1.496–1.551 → 0.539–0.557 |
+| GC cycles/write | 1.004–1.031 → 0.201–0.202 | 0.190–0.212 → 0.013 |
+| Client peak RSS, MiB | 79.86–80.63 → 127.86–131.64 | 41.38–42.13 → 86.96–88.88 |
+
+The canvas allocation reduction is about 57% for Sixel and 63–65% for Kitty,
+with roughly 45–52 MiB additional peak client RSS. Kitty's median preparation
+cost increased by 0.060–0.088 ms while its p95, CPU per write, and throughput
+improved. Individual stage improvements must not be added into an overall FPS
+percentage. Capture still takes roughly 60–69 ms on this workload; preparation
+and capture overlap.
+
+Idle output stayed at zero writes. Total client/server/browser CPU fell from
+44.88–45.35% to 40.49–41.14% for Sixel and 52.65–52.99% to 48.58–50.50% for Kitty.
+Idle capture p95 fell from 45.65–47.79 to 43.90–44.09 ms (Sixel) and
+48.87–49.52 to 46.07–48.86 ms (Kitty).
+
+**Unresolved small-update tradeoff:** patch/Sixel preparation p95 increased
+from 8.13–8.27 to 10.80–10.96 ms in both pairs (+30.6%, +34.7%); client CPU rose
+from 6.46–6.99% to 7.66–8.18%. The combined comparison does not identify which
+change caused it. All patch runs still wrote exactly four frames/s, the fixture's
+update limit; this cannot establish maximum throughput. Sixel patch allocations
+fell from 32.45–32.58 to 9.92–10.32 MiB/s; Kitty patch allocations fell from
+10.00–10.07 to 5.78–6.18 MiB/s. Investigate the Sixel preparation increase as a
+bounded follow-up before calling the series uniformly faster; no new optimization
+or profiling run was started as part of this comparison.
+
+No explicit error, dropped-frame, or arena-exhaustion counters were recorded.
+B2 canvas/Sixel has 243 captures and 244 prepares/writes in its measurement
+window; stages can straddle the window boundary, so counter equality is not a
+valid loss check. Warmup and shutdown lie outside the measured window.
+
+Evidence: `/tmp/termium-series-results/{A1,B1,B2,A2}/result.json`, paired harness
+comparisons, `conditions.log`, `exits.txt`, scripts and build provenance;
+remote originals at `/tmp/termium-series-ea-cf0nQA`. Local build logs/provenance
+are in `/tmp/termium-series-comparison`. These measurements exclude the separate
+welcome-font fixes subsequently made on `fix/welcome-font-regression`.
+
 ## Investigated: optimization 3 — fixed-palette scratch reuse (rejected)
 
 **2026-09-27. Decision: do not ship this candidate.** Profiling and a bounded experiment are complete. The allocation reduction did not meet the user's no-repeatable-slowdown acceptance criterion: the production canvas workload became slower in both A/B pairings. Source `2461a11` and regression tests `944b384` are preserved in local history; `848c8ff` backs both out. Runtime and tests after the backout match parent `3ff7241` exactly. No PR, push or release was created. Optimization 4 remains deferred; this result is not a reason to continue experimenting indefinitely before a release.

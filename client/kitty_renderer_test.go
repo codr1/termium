@@ -156,6 +156,9 @@ func TestBothRenderersPrepareTheSameJPEGSource(t *testing.T) {
 		if err != nil || reused != f {
 			t.Fatalf("%s re-encoded an unchanged capture", renderer)
 		}
+		reused.release()
+		f.release()
+		p.close()
 	}
 }
 

@@ -117,6 +117,8 @@ const (
 var cfg *Config
 var appCtx, appCancel = context.WithCancel(context.Background())
 var latestFrame *Frame
+
+// Identity markers only; payload ownership belongs to latestFrame.
 var lastSavedFrame *Frame
 var frames = NewFrameBuffer()
 var graphicsHidden bool
@@ -327,12 +329,15 @@ func runInteractive() error {
 	shutdownWg.Add(1)
 	go func() {
 		defer shutdownWg.Done()
+		defer preparer.close()
 		pipeline.run(appCtx, func(raw *Frame) (*Frame, error) {
 			start := time.Now()
 			previous := preparer.last
 			frame, err := preparer.prepare(raw)
 			if performance != nil {
-				if err != nil {
+				if err == errFrameArenaBusy {
+					performance.record("arena_exhausted", -1, 0)
+				} else if err != nil {
 					performance.record("prepare_error", -1, 0)
 				} else {
 					performance.record("prepare", time.Since(start), 0)
@@ -347,6 +352,9 @@ func runInteractive() error {
 			}
 			return frame, err
 		}, func(f *Frame, err error) {
+			if err == errFrameArenaBusy {
+				return // Bounded pool: drop incoming work rather than queue or block.
+			}
 			if err != nil {
 				postUI(s, frameFailure{err})
 				return
@@ -415,6 +423,9 @@ func cleanShutdown(s tcell.Screen) {
 		_ = grpcConn.Close()
 	}
 	shutdownWg.Wait()
+	frames.Discard()
+	latestFrame.release()
+	latestFrame, displayedFrame, lastSavedFrame = nil, nil, nil
 	finalizeScreen(s)
 	stopServer()
 }
@@ -633,6 +644,7 @@ func invalidateGraphics(s tcell.Screen) {
 
 func redraw(s tcell.Screen) {
 	if f := frames.GetDisplayFrame(); f != nil {
+		latestFrame.release()
 		latestFrame = f
 		// A reused graphics frame can retain its original capture timestamp.
 		// Fence its metadata without throwing away the reusable image payload.
@@ -698,8 +710,9 @@ func runMainLoop(s tcell.Screen) error {
 			case quitEvent:
 				return nil
 			case frameFailure:
+				latestFrame.release()
 				latestFrame = nil
-				frames.GetDisplayFrame()
+				frames.Discard()
 				invalidateGraphics(s)
 				keyboardHandler.status = value.err.Error()
 			case operationResult:
@@ -770,6 +783,7 @@ func ensureLayout(s tcell.Screen) {
 func handleResize(s tcell.Screen) {
 	invalidateGraphics(s)
 	updateScreenDimensions(s)
+	latestFrame.release()
 	latestFrame = nil
 	if keyboardHandler != nil {
 		keyboardHandler.sizeStatus()

@@ -35,19 +35,23 @@ func TestPreparationReusesUnchangedFrameButPreservesDocumentIdentity(t *testing.
 	for _, renderer := range []string{"kitty", "sixel", "tcell"} {
 		t.Run(renderer, func(t *testing.T) {
 			p := &framePreparer{renderer: renderer, palette: "websafe"}
+			defer p.close()
 			raw := pngFrame(t, image.NewRGBA(image.Rect(0, 0, 20, 13)), 1)
 			first, err := p.prepare(raw)
 			if err != nil {
 				t.Fatal(err)
 			}
+			defer first.release()
 			second, err := p.prepare(&Frame{Data: bytes.Clone(raw.Data), Generation: 1})
 			if err != nil || first != second {
 				t.Fatal("unchanged screenshot prepared twice", err)
 			}
+			defer second.release()
 			third, err := p.prepare(&Frame{Data: raw.Data, Generation: 2})
 			if err != nil || third.Generation != 2 || first.Generation != 1 {
 				t.Fatal("document identity lost", err)
 			}
+			defer third.release()
 		})
 	}
 }
@@ -198,6 +202,7 @@ func TestPreparationRejectsOversizedDimensionsBeforePixelAllocation(t *testing.T
 		binary.BigEndian.PutUint32(raw.Data[29:33], crc32.ChecksumIEEE(raw.Data[12:29]))
 		for _, renderer := range []string{"kitty", "sixel", "tcell"} {
 			p := &framePreparer{renderer: renderer, palette: "websafe"}
+			defer p.close()
 			if _, err := p.prepare(raw); err == nil || !strings.Contains(err.Error(), "dimensions") {
 				t.Fatalf("%s accepted oversized dimensions %v or reached pixel decoding: %v", renderer, size, err)
 			}
@@ -248,6 +253,7 @@ func TestSixelPaletteRoundTripAndPartialBands(t *testing.T) {
 					}
 				}
 				p := &framePreparer{renderer: "sixel", palette: name}
+				defer p.close()
 				data, err := p.encode(img)
 				if err != nil {
 					t.Fatal(err)
@@ -325,17 +331,20 @@ func TestSixelBandExactComparison(t *testing.T) {
 	fillImage(base, red)
 
 	p := &framePreparer{renderer: "sixel", palette: "websafe"}
+
+	defer p.close()
 	var generation uint64
-	prepareNext := func(img *image.RGBA) *Frame {
+	prepareNext := func(t *testing.T, img *image.RGBA) *Frame {
 		generation++
 		frame, err := p.prepare(pngFrame(t, img, generation))
 		if err != nil {
 			t.Fatalf("prepare generation %d: %v", generation, err)
 		}
+		t.Cleanup(frame.release)
 		return frame
 	}
 
-	first := prepareNext(base)
+	first := prepareNext(t, base)
 	assertSixelPixels(t, first.Graphics, w, h, func(x, y int) color.Color { return red })
 
 	cases := []struct {
@@ -352,7 +361,7 @@ func TestSixelBandExactComparison(t *testing.T) {
 			fillImage(img, red)
 			img.Set(tc.x, tc.y, blue)
 
-			frame := prepareNext(img)
+			frame := prepareNext(t, img)
 			assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color {
 				if x == tc.x && y == tc.y {
 					return blue
@@ -360,7 +369,7 @@ func TestSixelBandExactComparison(t *testing.T) {
 				return red
 			})
 
-			back := prepareNext(base)
+			back := prepareNext(t, base)
 			if !bytes.Equal(first.Graphics, back.Graphics) {
 				t.Fatal("A -> B -> A did not reproduce the original Sixel output")
 			}
@@ -370,9 +379,9 @@ func TestSixelBandExactComparison(t *testing.T) {
 	t.Run("geometry change", func(t *testing.T) {
 		wide := image.NewRGBA(image.Rect(0, 0, 18, 10))
 		fillImage(wide, blue)
-		assertSixelPixels(t, prepareNext(wide).Graphics, 18, 10, func(x, y int) color.Color { return blue })
+		assertSixelPixels(t, prepareNext(t, wide).Graphics, 18, 10, func(x, y int) color.Color { return blue })
 
-		back := prepareNext(base)
+		back := prepareNext(t, base)
 		if !bytes.Equal(first.Graphics, back.Graphics) {
 			t.Fatal("geometry change and restore did not reproduce the original output")
 		}
@@ -394,8 +403,12 @@ func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
 	fillImage(base, red)
 
 	p := &framePreparer{renderer: "sixel", palette: "websafe"}
-	if _, err := p.prepare(pngFrame(t, base, 1)); err != nil {
+
+	defer p.close()
+	if first, err := p.prepare(pngFrame(t, base, 1)); err != nil {
 		t.Fatalf("prepare A: %v", err)
+	} else {
+		first.release()
 	}
 
 	// Trip the real output-size check mid-loop: every cached band is oversized,
@@ -431,6 +444,7 @@ func TestSixelPreparationRecoversAfterEncodeFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recovery prepare: %v", err)
 	}
+	defer frame.release()
 	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color { return blue })
 }
 
@@ -484,8 +498,12 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 	fillImage(base, red)
 
 	p := &framePreparer{renderer: "sixel", palette: "websafe"}
-	if _, err := p.prepare(pngFrame(t, base, 1)); err != nil {
+
+	defer p.close()
+	if first, err := p.prepare(pngFrame(t, base, 1)); err != nil {
 		t.Fatalf("prepare A: %v", err)
+	} else {
+		first.release()
 	}
 	cachedAfterA := make([]string, len(p.bands.Bands))
 	for i := range p.bands.Bands {
@@ -544,6 +562,7 @@ func TestSixelPreparationRecoversMixedBandsAfterEncodeFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("recovery prepare: %v", err)
 	}
+	defer frame.release()
 	assertSixelPixels(t, frame.Graphics, w, h, func(x, y int) color.Color {
 		if y >= SIXEL_BAND_HEIGHT && y < 2*SIXEL_BAND_HEIGHT {
 			return green // band 1 changed in C and was re-encoded
@@ -883,17 +902,20 @@ func TestSixelShortBandTransitions(t *testing.T) {
 			fillBand(b, lastBand, red) // colors swapped: buffer holds A's rows below the short band
 
 			p := &framePreparer{renderer: "sixel", palette: "websafe"}
+
+			defer p.close()
 			var generation uint64
-			prepareNext := func(img *image.RGBA) *Frame {
+			prepareNext := func(t *testing.T, img *image.RGBA) *Frame {
 				generation++
 				frame, err := p.prepare(pngFrame(t, img, generation))
 				if err != nil {
 					t.Fatalf("prepare generation %d: %v", generation, err)
 				}
+				t.Cleanup(frame.release)
 				return frame
 			}
 
-			first := prepareNext(a)
+			first := prepareNext(t, a)
 			assertSixelPixels(t, first.Graphics, w, h, func(x, y int) color.Color {
 				if y >= lastBand*SIXEL_BAND_HEIGHT {
 					return blue
@@ -901,7 +923,7 @@ func TestSixelShortBandTransitions(t *testing.T) {
 				return red
 			})
 
-			second := prepareNext(b)
+			second := prepareNext(t, b)
 			assertSixelPixels(t, second.Graphics, w, h, func(x, y int) color.Color {
 				if y >= lastBand*SIXEL_BAND_HEIGHT {
 					return red
@@ -909,7 +931,7 @@ func TestSixelShortBandTransitions(t *testing.T) {
 				return blue
 			})
 
-			back := prepareNext(a)
+			back := prepareNext(t, a)
 			if !bytes.Equal(first.Graphics, back.Graphics) {
 				t.Fatal("returning to the previous frame did not reproduce its output")
 			}
@@ -943,14 +965,17 @@ func BenchmarkWebsafePreparation(b *testing.B) {
 		b.Fatal(err)
 	}
 	p := &framePreparer{renderer: "sixel", palette: "websafe"}
+	defer p.close()
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Force a full preparation to measure decode and encode, not deduplication.
-		p.last = nil
+		p.close()
 		p.bands = nil
-		if _, err := p.prepare(&Frame{Data: raw.Bytes(), Generation: 1}); err != nil {
+		if prepared, err := p.prepare(&Frame{Data: raw.Bytes(), Generation: 1}); err != nil {
 			b.Fatal(err)
+		} else {
+			prepared.release()
 		}
 	}
 }
@@ -962,22 +987,28 @@ func BenchmarkUnchangedPreparation(b *testing.B) {
 		b.Fatal(err)
 	}
 	p := &framePreparer{renderer: "sixel", palette: "websafe"}
+	defer p.close()
 	frame := &Frame{Data: raw.Bytes(), Generation: 1}
-	if _, err := p.prepare(frame); err != nil {
+	if prepared, err := p.prepare(frame); err != nil {
 		b.Fatal(err)
+	} else {
+		prepared.release()
 	}
 	b.ReportAllocs()
 	frame = &Frame{Data: bytes.Clone(raw.Bytes()), Generation: 1}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := p.prepare(frame); err != nil {
+		if prepared, err := p.prepare(frame); err != nil {
 			b.Fatal(err)
+		} else {
+			prepared.release()
 		}
 	}
 }
 
 func TestUnchangedPixelsKeepFreshTabState(t *testing.T) {
 	p := framePreparer{renderer: "kitty"}
+	defer p.close()
 	raw := pngFrame(t, image.NewRGBA(image.Rect(0, 0, 8, 8)), 1)
 	raw.State = &pb.BrowserState{Generation: 1, Title: "Loading", Loading: true}
 	first, err := p.prepare(raw)
@@ -986,10 +1017,12 @@ func TestUnchangedPixelsKeepFreshTabState(t *testing.T) {
 	}
 	next := *raw
 	next.State = &pb.BrowserState{Generation: 1, Title: "Done"}
+	defer first.release()
 	second, err := p.prepare(&next)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer second.release()
 	if second.State.Title != "Done" || second.State.Loading || first.State.Title != "Loading" {
 		t.Fatal("cached pixels overwrote state or mutated a published frame")
 	}

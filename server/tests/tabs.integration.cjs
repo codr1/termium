@@ -49,7 +49,7 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     assert.equal(labels.length, 3);
     const hints = await session.capture('png');
     assert.equal(hints.tabId, first.activeTabId);
-    assert.equal(hints.state.activeTabId, first.activeTabId);
+    assert.equal(hints.state, undefined, 'metadata is delivered independently of capture');
     assert.deepEqual([...hints.data.subarray(0,8)], [137,80,78,71,13,10,26,10]);
     await text(labels[2].toLowerCase());
     await page.waitForFunction(() => document.title === 'clicked');
@@ -69,7 +69,8 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     page = await session.ensurePage();
     await page.evaluate(() => { document.body.style.background = '#771122'; });
     const screenshot = await session.capture('png');
-    assert.equal(screenshot.state.activeTabId, second.activeTabId);
+    assert.equal(screenshot.tabId, second.activeTabId);
+    assert.equal(screenshot.state, undefined);
     assert.equal(screenshot.data.readUInt32BE(16), 800);
     assert.equal(screenshot.data.readUInt32BE(20), 600);
 

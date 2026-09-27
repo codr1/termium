@@ -228,8 +228,25 @@ export class BrowserSession {
         await s.active.controls.setViewport(width, height);
         this.viewport = { width, height };
     }
+
+    private captureSelection(): Pick<Snapshot, 'active' | 'generation'> | undefined {
+        const active = this.records.get(this.selected);
+        if (!active || active.page.isClosed()) return undefined;
+        // Navigation can precede the next state poll. Observe its local epoch
+        // without querying Chromium, just as refresh() does for this document.
+        if (this.documentGeneration !== active.controls.generation) {
+            this.documentGeneration = active.controls.generation;
+            this.vimiumStatus = 'Vimium';
+            this.epoch++;
+        }
+        return { active, generation: this.epoch };
+    }
+
     async capture(format: 'png' | 'jpeg'): Promise<Screenshot> {
-        const s = await this.snapshot();
+        // The client independently polls state, including while images are
+        // unchanged or capture is paused. Only cold/closed selection needs a
+        // discovery read here. Freeze provenance before any capture awaits.
+        const s = this.captureSelection() ?? await this.snapshot();
         await s.active.controls.setViewport(this.viewport.width, this.viewport.height);
         let data: Buffer;
         try { data = await s.active.controls.capture(format); }
@@ -237,10 +254,8 @@ export class BrowserSession {
             if (s.active.page.isClosed() || /Target closed|Session closed/.test((error as Error).message)) stale();
             throw error;
         }
-        const after = await this.snapshot();
-        if (after.generation !== s.generation || after.active.id !== s.active.id) stale();
-        const state = await this.state();
-        if (state.generation !== s.generation) stale();
-        return { data, generation: s.generation, tabId: s.active.id, state };
+        // A transitional frame is acceptable; never stamp it with a later
+        // selection's epoch or replay toolbar metadata through screenshots.
+        return { data, generation: s.generation, tabId: s.active.id };
     }
 }

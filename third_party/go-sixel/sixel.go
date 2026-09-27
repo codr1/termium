@@ -160,6 +160,8 @@ type Encoder struct {
 	// Reusable buffers to avoid allocations
 	buf  []byte
 	cset []bool
+	// Owned fixed-palette scratch; never aliases a caller's paletted image.
+	quantized *image.Paletted
 }
 
 // GetCacheStats returns the cache statistics from this encoder’s palette cache (if using fixed palettes)
@@ -215,6 +217,28 @@ func (e *Encoder) EncodePixelData(img image.Image) error {
 	return w.err
 }
 
+// fixedPaletteImage retains one high-water buffer for origin-zero images.
+// Other origins keep fresh storage: the existing source-point-zero drawing
+// behavior can leave clipped pixels unwritten, which must remain zero.
+func (e *Encoder) fixedPaletteImage(bounds image.Rectangle, pal color.Palette) *image.Paletted {
+	width, height := bounds.Dx(), bounds.Dy()
+	if bounds.Min != (image.Point{}) || width <= 0 || height <= 0 {
+		return image.NewPaletted(bounds, pal)
+	}
+	// Divide before multiplying so oversized dimensions still go through
+	// image.NewPaletted's checked allocation instead of overflowing here.
+	if e.quantized == nil || width > cap(e.quantized.Pix)/height {
+		e.quantized = image.NewPaletted(bounds, pal)
+	} else {
+		e.quantized.Pix = e.quantized.Pix[:width*height]
+		e.quantized.Stride = width
+		e.quantized.Rect = bounds
+		e.quantized.Palette = pal
+	}
+	// Both quantization paths overwrite every active pixel at this origin.
+	return e.quantized
+}
+
 // setupEncode quantizes img and resolves the effective raster dimensions and
 // register count shared by Encode and EncodePixelData. It reports ok=false for
 // empty images, which encode to nothing.
@@ -243,7 +267,7 @@ func (e *Encoder) setupEncode(img image.Image) (*image.Paletted, int, int, int, 
 	} else {
 		switch e.Palette {
 		case PaletteWebSafe:
-			paletted = image.NewPaletted(img.Bounds(), palette.WebSafe)
+			paletted = e.fixedPaletteImage(img.Bounds(), palette.WebSafe)
 			nc = len(palette.WebSafe) + 1 // Adjust nc for fixed palette
 			if e.Dither {
 				draw.FloydSteinberg.Draw(paletted, img.Bounds(), img, image.Point{})
@@ -252,7 +276,7 @@ func (e *Encoder) setupEncode(img image.Image) (*image.Paletted, int, int, int, 
 			}
 
 		case PalettePlan9:
-			paletted = image.NewPaletted(img.Bounds(), palette.Plan9)
+			paletted = e.fixedPaletteImage(img.Bounds(), palette.Plan9)
 			nc = len(palette.Plan9) + 1 // Adjust nc for fixed palette
 			if e.Dither {
 				draw.FloydSteinberg.Draw(paletted, img.Bounds(), img, image.Point{})

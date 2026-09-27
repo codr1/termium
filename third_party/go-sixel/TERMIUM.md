@@ -19,6 +19,11 @@ This checked-in module carries the fixes needed by the rendering pipeline:
   dimensions, palette definitions, or terminator. It shares quantization and
   pixel writing with `Encode`; callers must supply matching palette definitions
   themselves. Adaptive-palette band support is out of scope for this entry point.
+- Retain one encoder-owned palette-index buffer for origin-zero fixed-palette
+  quantization, resizing its view for each image and growing storage only when
+  needed. Non-zero-origin images retain fresh allocation to preserve clipping
+  behavior. Adaptive quantization and borrowed paletted inputs stay separate;
+  caller-owned images are never adopted as scratch storage.
 
 The client uses one preparation worker and encodes into bounded memory before
 writing the terminal. Encoder instances are not safe for concurrent use.

@@ -54,6 +54,21 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     await page.evaluate(() => window.fixtureReady);
     await session.setViewport(1215, 560);
     const state = await session.state();
+    const sendKey = key => session.input(InputEvent.fromPartial({
+        kind: InputKind.KEY_INPUT, key, tabId: state.activeTabId, generation: state.generation,
+    }));
+    // PageDown must work without borrowing residual motion from a preceding
+    // ArrowDown. An explicit CDP command must still respect page cancellation.
+    await page.evaluate(() => addEventListener('keydown', event => event.preventDefault(), { once: true }));
+    await sendKey('PageDown');
+    await sleep(200);
+    assert.equal(await page.evaluate(() => scrollY), 0, 'PageDown ignored preventDefault');
+    await sendKey('PageDown');
+    await page.waitForFunction(() => scrollY > 100, { timeout: 3000 });
+    await sleep(250);
+    await sendKey('PageUp');
+    await page.waitForFunction(() => scrollY === 0, { timeout: 3000 });
+    await page.evaluate(() => { window.receivedKeys = 0; window.recentKeys = []; });
     const captureErrors = [];
     let running = true, captures = 0;
     const capturing = (async () => {

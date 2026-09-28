@@ -289,9 +289,15 @@ export class BrowserControls {
                 case InputKind.TEXT_INPUT: await page.keyboard.type(event.text); break;
                 case InputKind.PASTE_INPUT: await page.keyboard.sendCharacter(event.text); break;
                 case InputKind.KEY_INPUT: {
-                    // Headless Chromium on macOS needs the editing command in
-                    // addition to the Command+A key event (no AppKit menu exists).
-                    const commands = process.platform === 'darwin' && event.modifiers === 4 && event.key.toLowerCase() === 'a' ? ['selectAll'] : undefined;
+                    // CDP bypasses AppKit's native key bindings on macOS. Supply
+                    // the browser command with the key event, so page handlers
+                    // can still cancel it via preventDefault (no JS scrolling).
+                    let commands: string[] | undefined;
+                    if (process.platform === 'darwin') {
+                        if (event.modifiers === 4 && event.key.toLowerCase() === 'a') commands = ['selectAll'];
+                        if (event.modifiers === 0 && event.key === 'PageDown') commands = ['scrollPageForward'];
+                        if (event.modifiers === 0 && event.key === 'PageUp') commands = ['scrollPageBackward'];
+                    }
                     await page.keyboard.press(event.key as KeyInput, { commands });
                     break;
                 }

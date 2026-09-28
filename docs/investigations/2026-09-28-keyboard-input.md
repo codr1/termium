@@ -86,7 +86,28 @@ checks), `npm run typecheck`, and the normal client rebuild passed locally on
 Linux. The sustained-video test also passed separately on ea. A final real
 Ghostty check on ea displayed Vimium hints on Hacker News after one `f`; the new
 log recorded the complete operation, including its real keyboard session ID.
-Native macOS validation was not performed in this investigation.
+That initial investigation did not include native macOS validation; see the
+subsequent release-validation finding below.
+
+## macOS finding during release validation
+
+Native CI subsequently exposed a separate PageDown behavior gap. A failing Intel
+Mac run received all 12 requested keys; its last PageDown arrived at scrollY 400,
+with 199,440 pixels of available scroll range, a visible page, BODY focus, and
+ongoing video playback. `j` and ArrowDown advanced the page; PageDown did not.
+The initial mixed-key test sometimes mistook residual ArrowDown animation for
+PageDown progress, so its apparent success was not sufficient coverage.
+
+CDP-injected keyboard events bypass native AppKit bindings. As with the existing
+Command+A handling, unmodified PageDown and PageUp now carry Chromium's explicit
+`scrollPageForward` and `scrollPageBackward` commands on macOS. These remain part
+of the key dispatch, so a page's `preventDefault` can cancel them. Linux handling
+and modified-key combinations are unchanged.
+
+The test now checks PageDown from rest, PageUp back to the top, and page-level
+cancellation before starting its mixed-key/video loop. Both native Mac CI jobs
+are required release gates. Chromium's implementation of the scrolling commands
+is in [editor_command.cc](https://github.com/chromium/chromium/blob/main/third_party/blink/renderer/core/editing/commands/editor_command.cc).
 
 ## Unresolved observation
 

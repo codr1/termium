@@ -53,12 +53,25 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     await page.waitForFunction(() => !!window.fixtureReady, { timeout: 15000 });
     await page.evaluate(() => window.fixtureReady);
     await session.setViewport(1215, 560);
+    // Match interactive use: wait for a rendered frame at the requested size
+    // before sending keys into the newly laid-out viewport.
+    assert.ok((await session.capture('png')).data.length > 0);
     const state = await session.state();
     const sendKey = key => session.input(InputEvent.fromPartial({
         kind: InputKind.KEY_INPUT, key, tabId: state.activeTabId, generation: state.generation,
     }));
+    const waitForScroll = async (predicate, label) => {
+        try { await page.waitForFunction(predicate, { timeout: 3000 }); }
+        catch (error) {
+            const observed = await page.evaluate(() => ({ y: scrollY, keys: receivedKeys,
+                recentKeys, focus: document.hasFocus(), activeElement: document.activeElement?.tagName,
+                videoFrames: document.querySelector('video').getVideoPlaybackQuality().totalVideoFrames }));
+            error.message += `; ${label}; observed=${JSON.stringify(observed)}`;
+            throw error;
+        }
+    };
     await sendKey('ArrowDown');
-    await page.waitForFunction(() => scrollY > 0, { timeout: 3000 });
+    await waitForScroll(() => scrollY > 0, 'ArrowDown from top');
     // Native smooth scrolling need not move equal distances for opposite
     // keystrokes, especially when the second interrupts an animation. Test
     // direction from a known position, not an exact round trip to pixel zero.
@@ -66,7 +79,7 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     await page.evaluate(() => scrollTo({ top: 500, behavior: 'instant' }));
     assert.equal(await page.evaluate(() => scrollY), 500);
     await sendKey('ArrowUp');
-    await page.waitForFunction(() => scrollY < 500, { timeout: 3000 });
+    await waitForScroll(() => scrollY < 500, 'ArrowUp from 500');
     // PageDown must work without borrowing residual motion from a preceding
     // ArrowDown. An explicit CDP command must still respect page cancellation.
     await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
@@ -76,11 +89,11 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     await sleep(200);
     assert.equal(await page.evaluate(() => scrollY), 0, 'PageDown ignored preventDefault');
     await sendKey('PageDown');
-    await page.waitForFunction(() => scrollY > 100, { timeout: 3000 });
+    await waitForScroll(() => scrollY > 100, 'PageDown from top');
     await page.evaluate(() => scrollTo({ top: 1000, behavior: 'instant' }));
     assert.equal(await page.evaluate(() => scrollY), 1000);
     await sendKey('PageUp');
-    await page.waitForFunction(() => scrollY < 1000, { timeout: 3000 });
+    await waitForScroll(() => scrollY < 1000, 'PageUp from 1000');
     await page.evaluate(() => {
         scrollTo({ top: 0, behavior: 'instant' });
         window.receivedKeys = 0; window.recentKeys = [];

@@ -17,6 +17,7 @@ var performance *performanceRecorder
 type performanceRecorder struct {
 	mu                    sync.Mutex
 	path                  string
+	profile               *windowProfile
 	ready                 sync.Once
 	active                bool
 	start, end, lastWrite time.Time
@@ -30,8 +31,18 @@ func startPerformanceRecorder() *performanceRecorder {
 	if path == "" {
 		return nil
 	}
-	p := &performanceRecorder{path: path, counts: make(map[string]uint64), samples: make(map[string][]float64)}
+	profile, err := initWindowProfile(path)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "window profiling:", err)
+		os.Exit(1)
+	}
+	if os.Getenv("TERMIUM_TIMELINE") == "1" {
+		pipelineTimeline = &phaseTimeline{}
+	}
+	p := &performanceRecorder{path: path, profile: profile, counts: make(map[string]uint64), samples: make(map[string][]float64)}
+	shutdownWg.Add(1)
 	go func() {
+		defer shutdownWg.Done()
 		if err := p.run(); err != nil {
 			fmt.Fprintln(os.Stderr, "performance report:", err)
 		}
@@ -66,6 +77,11 @@ func (p *performanceRecorder) run() error {
 	if !waitFrameDelay(appCtx, time.Until(control.Start)) {
 		return appCtx.Err()
 	}
+	if err := p.profile.begin(); err != nil {
+		fmt.Fprintln(os.Stderr, "window profiling:", err)
+		return err
+	}
+	defer p.profile.cancel() // idempotent; finalizes CPU sampling if the window is cancelled
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 	p.mu.Lock()
@@ -73,11 +89,13 @@ func (p *performanceRecorder) run() error {
 	p.end = p.start.Add(control.Duration)
 	p.active = true
 	p.mu.Unlock()
+	fmt.Fprintf(os.Stderr, "measurement window start %s\n", p.start.UTC().Format(time.RFC3339Nano))
 	if !waitFrameDelay(appCtx, control.Duration) {
 		return appCtx.Err()
 	}
 	p.mu.Lock()
 	p.active = false
+	frozenEnd := time.Now() // actual freeze point; logged after unlock
 	runtime.ReadMemStats(&after)
 	report := perf.Client{Schema: perf.Schema, Start: p.start, Seconds: control.Duration.Seconds(),
 		Renderer: cfg.Renderer, Format: cfg.screenshotFormat(), Width: p.width, Height: p.height,
@@ -87,9 +105,23 @@ func (p *performanceRecorder) run() error {
 	for name, values := range p.samples {
 		report.Latency[name] = perf.Summarize(values)
 	}
-	err := perf.WriteJSON(p.path, report)
 	p.mu.Unlock()
-	return err
+	fmt.Fprintf(os.Stderr, "measurement window end %s\n", frozenEnd.UTC().Format(time.RFC3339Nano))
+	// Finalize profiles outside the recorder mutex and after MemStats(after):
+	// diagnostic GC/profile I/O must not contaminate recorder totals. The
+	// harness terminates the client once this file appears, so profiles are
+	// complete before the report is published.
+	if err := pipelineTimeline.save(p.path, p.start, p.end); err != nil {
+		return err
+	}
+	if err := p.profile.end(); err != nil {
+		fmt.Fprintln(os.Stderr, "window profiling:", err)
+		return err
+	}
+	if err := waitServerDiagnostics(appCtx, p.path); err != nil {
+		return err
+	}
+	return perf.WriteJSON(p.path, report)
 }
 
 func (p *performanceRecorder) record(name string, duration time.Duration, bytes int) {

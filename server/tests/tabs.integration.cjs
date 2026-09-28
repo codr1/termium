@@ -117,10 +117,17 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     await text('t');
     await waitFor(async () => (await session.state()).tabs.length===5,'Vimium t on offline welcome page');
     await command(A.NAVIGATE, {url:url+'/frames'});
-    await waitFor(async () => !(await session.state()).loading, 'frame fixture load');
+    // Navigation admission can precede the new document's loading state. An
+    // idle previous page is not evidence that the frame fixture has loaded.
+    await waitFor(async () => {
+        const state = await session.state();
+        return state.url === url+'/frames' && !state.loading;
+    }, 'frame fixture load');
     page = await session.ensurePage();
-    const child = page.frames().find(f => f !== page.mainFrame() && f.url().startsWith('http:'));
-    assert.ok(child, 'cross-origin frame missing');
+    const child = await waitFor(() => page.frames().find(f =>
+        f.parentFrame() === page.mainFrame() && f.url() === `http://127.0.0.1:${frameServer.address().port}/`
+    ), 'cross-origin frame missing');
+    await child.waitForSelector('input', {timeout:6000});
     await child.click('input');
     await text('fjgg');
     assert.equal(await child.$eval('input', e => e.value), 'fjgg');
@@ -162,4 +169,38 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     assert.match(replacement.url,/\/pages\/termium.html$/);
     await text('t');
     await waitFor(async () => (await session.state()).tabs.length===2,'replacement welcome input');
+});
+
+test('capture applies the desired viewport to resized, existing and new tabs', { timeout: 60000 }, async t => {
+    const browser = await puppeteer.launch({ headless: true, pipe: true, enableExtensions: true, defaultViewport: null });
+    t.after(() => browser.close());
+    const session = new BrowserSession(async () => browser, () => {}, () => 'about:blank');
+    const first = await session.ensurePage();
+    await first.goto('data:text/html,<title>Viewport first</title><body>first');
+    const dimensions = async (width, height) => {
+        const frame = await session.capture('png');
+        assert.deepEqual([frame.data.readUInt32BE(16), frame.data.readUInt32BE(20)], [width, height]);
+        assert.deepEqual(await (await session.ensurePage()).evaluate(() => [innerWidth, innerHeight]), [width, height]);
+    };
+    await session.setViewport(400, 217);
+    await dimensions(400, 217);
+    await dimensions(400, 217);
+
+    const second = await browser.newPage();
+    await second.goto('data:text/html,<title>Viewport second</title><body>second');
+    await second.bringToFront();
+    await session.state(); // The independent state path discovers external selection.
+    await dimensions(400, 217);
+    await session.setViewport(513, 301);
+    await dimensions(513, 301);
+
+    await first.bringToFront();
+    await session.state();
+    // No explicit resize on the old tab: capture must propagate the session's
+    // desired dimensions rather than trust that tab's previously applied size.
+    await dimensions(513, 301);
+    await first.reload({ waitUntil: 'load' });
+    await dimensions(513, 301);
+    await session.setViewport(400, 217);
+    await dimensions(400, 217);
 });

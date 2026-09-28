@@ -61,17 +61,19 @@ func BenchmarkRendererPreparation(b *testing.B) {
 			for _, renderer := range []string{"kitty", "sixel"} {
 				b.Run(scene+"/"+source+"/"+renderer, func(b *testing.B) {
 					p := framePreparer{renderer: renderer, palette: "websafe"}
+					defer p.close()
 					raw := &Frame{Data: data, Generation: 1}
 					b.ReportAllocs()
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
 						// Full changed-frame work; keep compression scratch warm.
-						p.last = nil
+						p.close()
 						frame, err := p.prepare(raw)
 						if err != nil {
 							b.Fatal(err)
 						}
 						b.ReportMetric(float64(len(frame.Graphics)), "payload-B")
+						frame.release()
 					}
 				})
 			}

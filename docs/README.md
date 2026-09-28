@@ -16,6 +16,7 @@ Start with [Quickstart](quickstart.md): install, open your first page, and learn
 - [Development](development.md): build, test, and debug the project.
 - [Testing](testing.md): one-command automated checks, CI coverage, and remaining manual checks.
 - [Performance benchmarks](benchmarking.md): repeatable before/after runs, CPU/memory and frame delivery, and real-terminal measurements.
+- [Streaming and raw-frame research](performance/capture-streaming-and-raw-frames.md): recorded capture baseline, standalone results, transport details, and experiments deferred until after release.
 - [Architecture](architecture.md): browser control and rendering.
 - [Website and welcome page](website.md): shared assets, offline behavior, and Cloudflare Pages configuration.
 - [One-command installation plan](plans/one-command-install.md): installer responsibilities and acceptance criteria.

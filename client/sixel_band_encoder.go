@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"image/color/palette"
@@ -59,7 +60,7 @@ func NewBandEncoder(paletteType sixel.PaletteType, width, height int) *BandEncod
 
 // EncodeBand encodes one band as Sixel pixel data: DECGNL row separators and
 // per-register RLE runs only. The introducer, raster dimensions, palette
-// definitions, and terminator are written once per frame by ComposeFullSixel.
+// definitions, and terminator are written once per frame by composeFullSixelInto.
 func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (string, error) {
 	// Clear the buffer
 	be.buffer.Reset()
@@ -87,17 +88,21 @@ func (be *BandEncoder) EncodeBand(img *image.RGBA, bandY int, bandHeight int) (s
 	return be.buffer.String(), nil
 }
 
-// ComposeFullSixel creates a complete sixel image from band strings
-func ComposeFullSixel(bands []string, width, height int, pal color.Palette) string {
-	// Pre-allocate buffer with estimated capacity
-	// Estimate: header(~30) + palette(~2KB) + bands data
-	estimatedSize := 30 + 2048
+func composeFullSixelInto(bands []string, width, height int, pal color.Palette, alloc frameAllocator) ([]byte, error) {
+	// At most 256 fixed colors, dimensions and band separators fit this
+	// allowance. Reserve the output once, directly in the frame's storage.
+	size := 8192
 	for _, band := range bands {
-		estimatedSize += len(band)
+		if len(band)+1 > maxFrameBytes-size {
+			return nil, fmt.Errorf("Sixel output exceeds 32 MiB; reduce the terminal size")
+		}
+		size += len(band) + 1
 	}
-
-	var buf bytes.Buffer
-	buf.Grow(estimatedSize)
+	storage, err := allocateFrameBytes(alloc, size)
+	if err != nil {
+		return nil, err
+	}
+	buf := bytes.NewBuffer(storage[:0])
 
 	// Write sixel header with dimensions
 	// Format: ESC P <P1>;<P2>;<P3> q "Pan;Pad;Ph;Pv
@@ -109,7 +114,7 @@ func ComposeFullSixel(bands []string, width, height int, pal color.Palette) stri
 
 	// Write palette definitions (if using fixed palette)
 	if pal != nil {
-		writePalette(&buf, pal)
+		writePalette(buf, pal)
 	}
 
 	// Write each band's pixel data
@@ -132,7 +137,7 @@ func ComposeFullSixel(bands []string, width, height int, pal color.Palette) stri
 	// DECGRA ST (ESC \)
 	buf.Write([]byte{0x1b, 0x5c})
 
-	return buf.String()
+	return buf.Bytes(), nil
 }
 
 // writePalette writes color palette definitions to the buffer

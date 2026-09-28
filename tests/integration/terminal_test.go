@@ -48,18 +48,22 @@ func TestTerminalBrowser(t *testing.T) {
 		}
 	})
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/" && !s.Loading })
-	waitDisplay := func(text, address string) {
+	waitScreen := func(description string, ready func() bool) {
 		t.Helper()
 		tick := time.NewTicker(20 * time.Millisecond)
 		defer tick.Stop()
 		deadline := time.After(5 * time.Second)
-		for !output.visible(text, address) {
+		for !ready() {
 			select {
 			case <-tick.C:
 			case <-deadline:
-				t.Fatalf("client never displayed %q", text)
+				t.Fatalf("client never displayed %s", description)
 			}
 		}
+	}
+	waitDisplay := func(text, address string) {
+		t.Helper()
+		waitScreen(text, func() bool { return output.visible(text, address) })
 	}
 	waitDisplay("Ready", url+"/")
 	write := func(text string) { t.Helper(); _, err := io.WriteString(terminal, text); requireOK(t, err) }
@@ -73,6 +77,10 @@ func TestTerminalBrowser(t *testing.T) {
 	write("\x0c" + url + "/second\r")
 	waitState(t, c, func(s *pb.BrowserState) bool { return s.Url == url+"/second" && !s.Loading })
 	waitDisplay("Ready", url+"/second")
+	// The address editor can show the destination while the client still has
+	// old navigation metadata. Wait for its rendered, enabled Back control
+	// before issuing the one click; server readiness alone is insufficient.
+	waitScreen("enabled Back at the second page", func() bool { return output.backReady(url + "/second") })
 	// Click the toolbar Back button, then edit the original form again.
 	output.Reset()
 	write("\x1b[<0;3;2M\x1b[<0;3;2m")
@@ -160,7 +168,8 @@ func (b *lockedBuffer) String() string { b.mu.Lock(); defer b.mu.Unlock(); retur
 func (b *lockedBuffer) Reset() { b.mu.Lock(); defer b.mu.Unlock(); b.data.Reset() }
 
 // Assert the current emulated screen, never a historical ANSI substring. The
-// address and Ready status must belong to the same completed UI projection.
+// terminal output may arrive in chunks, so actionable controls need their
+// own readiness check in addition to these text checks.
 func (b *lockedBuffer) visible(text, address string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -168,3 +177,22 @@ func (b *lockedBuffer) visible(text, address string) bool {
 	return strings.Contains(value, text) && (address == "" || strings.Contains(value, address+" "))
 }
 func (b *lockedBuffer) resize(w, h int) { b.mu.Lock(); defer b.mu.Unlock(); b.screen.Resize(w, h) }
+
+// The fixed 80-column test terminal renders enabled Back in ANSI white;
+// disabled Back is gray. Inspect the actual control, not a historical escape
+// sequence or the independently polled server state.
+func (b *lockedBuffer) backReady(address string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	value := b.screen.String()
+	if !strings.Contains(value, address+" ") || !strings.Contains(value, "Ready") || !strings.Contains(value, "[Reload]") {
+		return false
+	}
+	for x, char := range "[Back]" {
+		cell := b.screen.Cell(x, 1)
+		if cell.Char != char || cell.FG != vt10x.White {
+			return false
+		}
+	}
+	return true
+}

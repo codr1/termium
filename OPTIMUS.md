@@ -14,18 +14,21 @@ Evaluate the redesign by steady-state command counts, latency, CPU, and responsi
 
 ## Current performance backlog
 
+Release boundary, 2026-09-28: pause new optimization work while qualifying the next release. The [streaming/raw-frame research record](docs/performance/capture-streaming-and-raw-frames.md) consolidates complete-image CDP payloads, the actual local-pipe transport, rate-control options, raw-bitmap alternatives, and the bounded post-release experiment order. Streaming is a standalone toy, not a production feature. Existing [baseline](docs/performance/2026-09-28-baseline.md) and [streaming measurements](docs/performance/2026-09-28-streaming-poc.md) retain their separate scopes.
+
 Reviewed 2026-09-16, updated 2026-09-27 (reusable capture session implemented). The remaining unchecked items are unfinished; their candidate optimizations have no measured benefit yet. Keep the current Go/Node/Puppeteer/Chromium stack as the baseline. Older proposals below are historical notes, not an implementation queue.
 
 - [ ] **Run the full local performance comparison.** Start on the weaker laptop using the [profiling procedure](docs/testing.md#full-local-performance-run-planned). Separate capture, Node/CDP, local RPC, Go preparation/GC, terminal writes, and visible presentation. Compare input latency and long-frame tails as well as frame delivery.
-- [x] **Reusable, dedicated capture CDP session.** Implemented; locally validated/measured 2026-09-27 on Linux/WSL2 (source change predates this stage; A = 92f8e2f vs B = 7a649f3); cross-platform CI and performance acceptance still pending. The steady-state path reuses one capture session across consecutive captures instead of attaching and detaching per frame; see [Implemented: reusable dedicated capture CDP session](#implemented-reusable-dedicated-capture-cdp-session).
-- [ ] **Profile Sixel allocation and palette costs.** The recorded preparation probes show substantial allocations per frame. Locate the allocation/GC and quantization costs before choosing buffer reuse or cache changes; retain pixel correctness and bounded memory. Allocation counts alone do not identify the bottleneck.
-- [ ] **Avoid reapplying an unchanged viewport on every capture.** [BrowserSession.capture](server/src/browser-session.ts) calls `controls.setViewport` for every frame, and [BrowserControls.setViewport](server/src/browser-controls.ts) unconditionally sends `Emulation.setDeviceMetricsOverride`. Track successfully applied dimensions per control session/target, distinct from the desired dimensions. Still initialize a new session/target and propagate the current size to a tab selected after a resize; an unchanged width/height alone is not sufficient to skip work. Do not mark a failed apply as successful. Session creation already applies the viewport, so avoid applying it twice during initialization as well. Verify repeated steady-state captures send no redundant overrides, while resize, tab changes, back/forward restoration, session replacement, and failed-apply recovery retain correct screenshot dimensions. Measure the eliminated command latency; a repeated command alone does not prove Chromium performs another layout or repaint. The capture microbenchmark also omits this per-frame production call.
+- [x] **Reusable, dedicated capture CDP session.** Landed with optimization 1 via PR #22 after all six Linux/macOS test and package checks passed. Earlier local measurements (A = 92f8e2f vs B = 7a649f3) remain recorded below. The steady-state path reuses one capture session across consecutive captures instead of attaching and detaching per frame; see [Implemented: reusable dedicated capture CDP session](#implemented-reusable-dedicated-capture-cdp-session).
+- [x] **Profile Sixel allocation and palette costs (optimization 3).** Bounded CPU/allocation profiling and a fixed-palette storage-reuse experiment are complete. The candidate saved synthetic encoder allocations but slowed the live production canvas workload in both pairings, so it was backed out. A later identical-JPEG replay was 11.9–15.1% faster; the live-pipeline discrepancy remains unexplained. See [the rejected experiment](#investigated-optimization-3--fixed-palette-scratch-reuse-rejected). Production-workload CPU/allocation profiling at both resolutions was recorded 2026-09-27 — see [the profiling record](#investigated-production-sixel-profiling-2026-09-27); broader real-terminal profiling remains open. No rendering optimization from either investigation is retained; the new profiling hooks are diagnostic only.
+- [x] **Avoid reapplying an unchanged viewport on every capture.** Implemented; validated on WSL2 and measured on native Linux ea on 2026-09-27 (A = e663a5e vs B = 41f94b0); its own cross-platform CI still pending. The steady-state path caches successfully applied dimensions per control CDP session, distinct from the desired viewport, and skips `Emulation.setDeviceMetricsOverride` when they match; see [Implemented: optimization 2 — skip unchanged viewport updates](#implemented-optimization-2--skip-unchanged-viewport-updates).
+- [x] **Reuse four frame arenas (optimization 3 follow-up).** Shared Sixel/Kitty/ASCII ownership path implemented and Linux-validated; bounded ea measurements show lower allocation traffic, a Sixel preparation benefit, higher retained memory and an unexplained small Kitty throughput decrease. See [the arena record](#implemented-four-reusable-frame-arenas). Native CI/package qualification remains pending.
 - [ ] **Investigate partial terminal image updates.** Unchanged-image reuse and Sixel band-encoding caches already exist. Updating only changed regions on screen is separate unfinished work. Validate palette/background behavior, cursor placement, scrolling, resize, overlays, and recovery from dropped or failed output across supported terminals before claiming a gain.
-- [x] **Remove per-frame tab/history polling (optimization 1).** Implemented and locally validated on the stacked `capture-metadata-fast-path` branch. Capture reuses the retained selected tab and omits optional screenshot metadata; the existing independent client state poll and explicit commands/input reconcile state. Warmed captures issue two CDP commands with viewport application still retained. Sixel improved in the short ea comparison; Kitty performance acceptance and cross-platform CI remain pending. See [the implementation record](#implemented-optimization-1--remove-per-frame-tabhistory-polling).
+- [x] **Remove per-frame tab/history polling (optimization 1).** Landed via PR #22 with all six Linux/macOS test/package checks green on its exact head; locally validated earlier on the stacked `capture-metadata-fast-path` branch. Capture reuses the retained selected tab and omits optional screenshot metadata; the existing independent client state poll and explicit commands/input reconcile state. Warmed captures issue two CDP commands with viewport application still retained. Sixel improved in the short ea comparison. See [the implementation record](#implemented-optimization-1--remove-per-frame-tabhistory-polling).
 
 ### Numbered optimization priorities
 
-User-selected order (2026-09-27): **1.** Remove per-frame tab/history polling (implemented; performance qualification pending). **2.** Skip unchanged viewport updates. **3.** Profile and optimize Sixel quantization/allocations. **4.** Investigate partial terminal image updates. These numbers supersede the future-work order, not the historical unit names in earlier briefs. Only optimization 1 was implemented in this workstream; 2–4 have not started.
+User-selected order (2026-09-27): **1.** Remove per-frame tab/history polling — landed via PR #22, with all six Linux/macOS test/package checks green on its exact head. **2.** Skip unchanged viewport updates — implemented and locally validated/measured 2026-09-27; performance qualifications below, its own cross-platform CI pending. **3.** Profile Sixel quantization/allocations — investigation complete; buffer-reuse candidate rejected and backed out after production slowdown. **4.** Investigate partial terminal image updates — deferred by user until after release work. These numbers supersede the future-work order, not the historical unit names in earlier briefs. PR #22's CI covers session reuse and optimization 1; it does not cover optimization 2. The initial optimization 3 palette-index candidate remains backed out. Its subsequent four-arena follow-up is implemented and locally validated/measured; the shared path is retained at the user’s direction, with the small Kitty throughput difference explicitly unresolved. See the arena record below.
 
 ### Client audit follow-ups
 
@@ -360,6 +363,339 @@ Kitty is inconclusive in this short sample. Idle capture p50 changed by +6.957/�
 **Disposition:** implementation and functional validation complete; retain the candidate for review, but do not claim universal speedup or mark the no-regression acceptance gate passed. Stop further benchmarking at this boundary. Before landing, resolve Kitty performance acceptance and run cross-platform CI against the chosen combined branch. Optimizations 2–4 remain unstarted.
 
 Raw trace/timing evidence lives on ea at `/tmp/termium-opt1-ea-56TbT2/`, copied locally to `/tmp/termium-opt1-ea-results/`: `trace-{A,B}.json`, `trace.cjs`, `{A1,B1,B2,A2}/result.json` and per-run artifacts, `driver.sh`, `conditions.log`, `exits.txt`, and suite logs. Local analysis adds `codex-summary.json`, `table.md`, and `compare-A1-B1.txt` / `compare-A2-B2.txt`. The production harness ran with `--scenes idle,patch --renderer both --duration 15s --warmup 5s --repeats 1`, using fresh outputs each time. Review raw results before drawing stronger conclusions.
+
+## Implemented: optimization 2 — skip unchanged viewport updates
+
+Recorded 2026-09-27. Source commit `41f94b0` on branch `viewport-cache`, base `e663a5e` (the PR #22 merge). Validated locally on WSL2 and measured on native Linux ea; no native macOS validation or new CI run is claimed for this change, and its own cross-platform CI remains pending.
+
+### Change and behavior
+
+[BrowserControls](server/src/browser-controls.ts) now tracks successfully applied dimensions per control CDP session in a `WeakMap`, kept distinct from the session-wide desired viewport. A warmed capture whose desired size matches the cached applied size sends no `Emulation.setDeviceMetricsOverride`; [BrowserSession.capture](server/src/browser-session.ts) still propagates the desired viewport to the active tab's controls before every capture, so resize, a tab selected after a resize, and new or replaced targets each receive one initial override at unchanged dimensions. A failed apply deletes the cached entry first — failure leaves the browser's size uncertain, so the next attempt resends; initialization failure detaches its session and rethrows while staying retryable, and cleanup of an obsolete initialization is identity-guarded so a late rejection cannot clear its replacement. Capture-session recreation does not disturb the control-session cache because the key is the control session, not the capture session.
+
+### Review and validation
+
+Direct source review plus the coordinator's independent review found no confirmed production defects (`/tmp/termium-opt2-review.md`, including the coordinator adjudication). Seven viewport unit tests cover caching per control session, one initial override for a replaced target at unchanged dimensions, failed-resize retry with invalidation of the previous cached size, failed-initialization detach and recovery, rejected-attach non-poisoning, a late obsolete-init failure not clearing its replacement, and capture-session recreation leaving the control cache intact. Real-browser integration covers resize/tab/reload geometry: the new test resizes, discovers an external tab via state(), propagates to an old tab without explicit resize, and survives reload (1144 ms). Full `npm test` and typecheck passed; the normal executable was restored afterwards. All validation steps exited 0 with no retries: `/tmp/termium-opt2-validation-41f94b0/`. A mutation check in a disposable copy removed the cache invalidation on failure and produced the expected regression failure ("the applied size was not resent after a failure"): `/tmp/termium-opt2-mutation-result.json`.
+
+### Production trace: two commands down to one per warmed capture
+
+On ea, four warmed PNG and four warmed JPEG samples per revision at 640 × 360 after five warmup captures. Baseline A = `e663a5e` issued **2 commands** per sample (`Emulation.setDeviceMetricsOverride` + `Page.captureScreenshot`); candidate B = `41f94b0` issued **1** — `Page.captureScreenshot` only, with valid geometry and consecutive static buffers verified identical within each revision. The trace stores byte sizes, not hashes or bytes, so no cross-role content identity is claimed; PNG and JPEG sizes matched across roles (17,847 / 11,798). A controlled workload of 24 captures plus four explicit state reads used **60 → 36 commands per format**. These are command counts for that workload, not rates or measured latency.
+
+### Paired ABBA comparison on ea
+
+A = `e663a5e`, B = `41f94b0` on ea (AMD Ryzen AI 9 HX 370, Linux amd64), with matching fixtures, toolchain, runtime and options; idle and patch with both default renderers/formats (Sixel/JPEG, Kitty/PNG), 15 s measured + 5 s warmup, one repeat per suite — 16 configurations total on a drained PTY. Binaries were freshly built locally and transferred; the host package manager and user workloads were untouched, and the shared existing benchmark harness is unchanged by this source diff. All four suites exited 0 with no reported error counters; environment metadata is in the raw result JSON and conditions in `conditions.log`. No load-based causal claims are made.
+
+Table values are medians of the two per-run summaries of each revision (A1/A2, B1/B2), not pooled frame percentiles. CPU units are percentages of one core, summed Node + Chromium + Go.
+
+| Workload / renderer | Capture p50 A → B (ms) | Capture p95 A → B (ms) | Summed CPU A → B (% of one core) |
+| --- | ---: | ---: | ---: |
+| idle / Sixel JPEG | 35.75 → 35.37 | 43.95 → 43.91 | 42.12 → 41.50 |
+| idle / Kitty PNG | 38.12 → 37.34 | 47.82 → 46.28 | 48.51 → 48.33 |
+| patch / Sixel JPEG | 36.37 → 35.69 | 53.81 → 53.98 | 45.13 → 44.51 |
+| patch / Kitty PNG | 38.30 → 37.34 | 51.92 → 52.89 | 47.81 → 47.53 |
+
+### Results and limitations
+
+- Small p50 improvements: the summary medians improve by about 0.4–1.0 ms; Kitty capture p50 improved in both pair orders (all four kitty pairs negative).
+- Summed CPU directions are mixed in every workload — one pair up, one down per workload. These summary reductions do not establish a consistent CPU benefit, and no stable CPU reduction is claimed.
+- Patch/Kitty tail: capture p95 increased +0.758/+1.172 ms in both orders and Node CPU rose +0.730/+0.729 percentage points; its frame-age p95 decreased 0.283/1.123 ms and frame-age p99 improved in both orders. Sixel tails are mixed.
+- Capture p99: Kitty improved in both pair orders (idle −1.196/−1.322 ms; patch −0.334/−0.758 ms); Sixel capture p99 is mixed (idle −1.21/+0.857; patch −4.387/+2.006).
+- Capture rates ranged 22.5–23.6/s, near the ~24 scheduler cap and not visible FPS: Kitty capture rate increased in both pair orders on idle and patch, while Sixel rates were flat/mixed; no blanket throughput claim is made from the overlapping range. Patch writes stay at 4/s due to the workload; idle stays at 0.
+- This is not a universal speedup, not proven no-slowdown, and not a visible-FPS gain (drained PTY). These measurements do not establish which phase dominates capture time; no causal attribution is made.
+- Recommendation: record this bounded tradeoff for the next review/CI checkpoint rather than launching more timing runs.
+
+Raw evidence is preserved on ea under `/tmp/termium-opt2-ea-WCNx20/` and copied locally to `/tmp/termium-opt2-ea-results/`: `{A1,B1,B2,A2}/result.json` and per-run artifacts, `trace-{A,B}.json`, compare outputs, `qwen-summary.json` / `coordinator-summary.json`, `conditions.log`, and `exits.txt`. The production harness ran with `--scenes idle,patch --renderer both --duration 15s --warmup 5s --repeats 1`, using fresh outputs each time.
+
+## Implemented: four reusable frame arenas
+
+**2026-09-27. Source `3a5525a`, parent `bb76b52`, branch `frame-arena-pool`; final source at `42ffd50` is byte-identical to `3a5525a`.** This is a separate follow-up to optimization 3; the earlier palette-index reuse candidate remains backed out. Four rotating byte arenas now hold decoded RGBA pixels and final terminal payloads. Each starts with 10 MiB on first use, doubles when required, and resets its allocation cursor without clearing reused bytes. All exposed pixels and payload bytes are overwritten before publication. Growth retains capacity; it does not shrink after a resize.
+
+There is still **one pending display frame**, replaced by newer work. Explicit leases cover the preparation worker's previous frame, pending publication and the UI's current frame (including terminal writes and later redraws). A slot is reusable only after its last owner releases it. If all four slots are occupied, preparation drops the incoming frame instead of waiting or allocating a fifth slot. Unchanged pixels/metadata reuse share a lease. Cancellation, pause, supersession, resize, failure and shutdown release their respective owners. Sixel cached band strings retain independent storage across frames; they are committed only after composition succeeds. No `unsafe`, finalizers or Go experimental arena API is involved.
+
+Sixel composition writes directly into frame storage, removing the intermediate full-document string/copy. Kitty framing also writes into frame storage. Image decoding, band quantization and the encoder's many small allocations remain unchanged: this is not an allocation-free renderer.
+
+### Review and validation
+
+An independent source review found no concrete defects in ownership, output bounds, error/shutdown paths or band cache lifetimes. Focused tests passed with `-race`, including a blocked terminal write while other frames rotate, pending supersession, exhausted-pool recovery, metadata/generation reuse, failed decoding/composition, cancellation/pause, transparent pixels, dimension changes, overlays and resize. Deliberately removing pending-frame release caused the test to exhaust the pool; removing allocation slice-cap bounds caused the neighboring-slice sentinel test to fail. These mutations ran through temporary Go overlays, not edits to the tested production tree.
+
+`npm run typecheck` and one full `npm test` invocation passed: build, lint, server tests, Go race/shuffle tests, real Chromium/Go integration and website tests. The previously intermittent `TestShutdownDuringBrowserLaunch` passed in this run; its earlier failure is not erased or explained by this result. After strengthening the final slice-cap test assertion, the focused arena race suite passed again. The normal non-race client was restored and rebuilt at the source commit. Validation is Linux/WSL2 only; this change and optimization 2 still need their own native macOS/Linux CI and package qualification before release. No PR, push or release was performed.
+
+### Bounded comparison on ea
+
+A = `bb76b52` (runtime identical to `3ff7241`), B = `3a5525a`. Both executables were built with Go 1.27.1-X:nodwarf5 and ran sequentially on ea, native Linux amd64/Ryzen AI 9 HX 370. Server build, browser, Node, lockfile, fixture and dimensions match. The benchmark source was identical; baseline-only test shims make `release()` a no-op and `close()` clear `last`, preserving the old heap-owned benchmark behavior. GC controls were unset. No tests, builds or profiles overlapped timing, and no user workload was killed.
+
+Frozen 1280 × 720 production-fixture captures were replayed without Chromium running during timing. A1 → B1 → B2 → A2, three samples per invocation; commands and input hashes are preserved with the artifacts. These measurements force full preparation and exclude RPC, browser capture, asynchronous output and previous-frame retention. Initial arena allocation is included and amortized over each benchmark's iteration count; B/op is not a warmed steady-state allocation claim.
+
+| Replay workload / pair | Median ms/op A → B | Median bytes/op A → B |
+| --- | ---: | ---: |
+| sixel JPEG A1/B1 | 51.866 → 49.366 | 22,242,136 → 11,491,930 |
+| sixel JPEG A2/B2 | 50.050 → 48.124 | 22,242,130 → 11,328,615 |
+| kitty PNG A1/B1 | 0.305 → 0.196 | 603,441 → 12,379 |
+| kitty PNG A2/B2 | 0.320 → 0.195 | 603,442 → 13,316 |
+
+The production harness then ran canvas with default capture format/palette, each renderer separately in A1 → B1 → B2 → A2 order, 5 s warmup and 15 s measurement. It includes capture, RPC, preparation, pacing and drained-PTY output. Writes/s are **not visible-terminal FPS**.
+
+```sh
+benchmark --scenes canvas --renderer <sixel|kitty> --duration 15s --warmup 5s --repeats 1 --label <run> --out <fresh-directory>
+```
+
+| Renderer / pair | Prepare p50 A → B (ms) | Prepare p95 A → B (ms) | Writes/s A → B | Summed CPU A → B (% one core) |
+| --- | ---: | ---: | ---: | ---: |
+| sixel A1/B1 | 45.153 → 43.150 | 60.180 → 57.930 | 15.333 → 15.333 | 131.291 → 124.783 |
+| sixel A2/B2 | 44.142 → 42.241 | 58.009 → 54.401 | 15.467 → 16.800 | 129.552 → 125.999 |
+| kitty A1/B1 | 0.523 → 0.494 | 0.924 → 0.643 | 15.600 → 15.533 | 55.073 → 56.824 |
+| kitty A2/B2 | 0.516 → 0.509 | 0.913 → 0.618 | 15.800 → 15.400 | 55.524 → 56.132 |
+
+| Renderer / pair | Allocated MB/prepared frame A → B | GC cycles/prepared frame A → B | Sampled client peak RSS MiB A → B |
+| --- | ---: | ---: | ---: |
+| sixel A1/B1 | 24.688 → 10.580 | 1.039 → 0.200 | 77.64 → 132.52 |
+| sixel A2/B2 | 24.472 → 10.538 | 1.017 → 0.198 | 78.86 → 128.50 |
+| kitty A1/B1 | 1.676 → 0.588 | 0.214 → 0.013 | 41.49 → 88.92 |
+| kitty A2/B2 | 1.471 → 0.579 | 0.173 → 0.013 | 41.71 → 88.87 |
+
+Sixel preparation p50 improved 4.3–4.4% in both live pairings, allocated bytes per preparation fell about 57%, and client CPU time per written frame fell from 52.6–54.0 ms to 47.5–50.0 ms. Sixel output rate was equal in one pairing and 8.6% higher in the other. These are benefits measured on Sixel; it does not establish a universal FPS gain or prove that GC caused the speed difference. The tradeoff is higher retained memory: roughly 50–55 MiB more sampled client RSS. The pool can retain more after larger frames.
+
+Kitty initially reduced allocated bytes per preparation by 61–65%, improved preparation tails and client CPU per frame, but writes/s fell 0.4% and 2.5% while summed browser/server/client CPU rose slightly. A single bounded Kitty-only confirmation was therefore run; its results follow below. All original 16 invocations passed without retries, reported no error/arena-exhaustion counters, and retained matching fixture/server hashes.
+
+### Kitty confirmation and shared-path decision
+
+One further Kitty-only A3 → B3 → B4 → A4 sequence used the same binaries/options and fresh artifact directories on ea. All four invocations passed without retries or error/exhaustion counters.
+
+| Pair | Prepare p50 A → B (ms) | Prepare p95 A → B (ms) | Writes/s A → B | Client CPU ms/write A → B |
+| --- | ---: | ---: | ---: | ---: |
+| A3/B3 | 0.433 → 0.490 | 0.814 → 0.617 | 16.000 → 15.800 | 2.833 → 2.489 |
+| A4/B4 | 0.528 → 0.510 | 0.914 → 0.653 | 15.667 → 15.400 | 3.021 → 2.597 |
+
+Across all four Kitty pairings, B wrote 1–6 fewer frames per 15 s (0.4–2.5% lower throughput). Every captured frame was prepared and written; there were no discarded frames or exhausted arenas. Median capture latency was approximately 65 ms versus roughly 0.5 ms preparation. Preparation tails and client CPU time per frame improved in every pairing, while browser/server CPU and capture timing varied. This does **not** establish the cause of the throughput difference. Browser scheduling, pipeline timing, GC and cache behavior are hypotheses, not findings; no profiler or causal experiment was run here. There is no demonstrated Kitty end-to-end speedup. Retained Kitty client RSS rose from roughly 41–44 MiB to 89–101 MiB; ASCII performance was not measured.
+
+A temporary local renderer-specific rollback (`542595c`) was independently reviewed and passed another full suite, but the user explicitly rejected separate allocation paths. It was reverted by `42ffd50` before any further timing or publication. `git diff 3a5525a 42ffd50 -- client` is empty. **The retained implementation uses the same arena ownership/allocation path for Sixel, Kitty and ASCII graphics.** Native renderer encoding remains format-specific. The final normal executable was rebuilt. This preserves the measured shared implementation, including its unresolved small Kitty throughput difference; it does not relabel those measurements as a win. The user accepted retaining the unified path and treating this small difference as a non-blocking follow-up. Future real-terminal measurements may investigate it; no additional profiling or timing rounds are required for this unit, and no universal speedup is claimed.
+
+Evidence: `/tmp/termium-arena-validation/` (review, focused races, full-suite logs, expected-failure mutations and normal builds); `/tmp/termium-arena-results/` (raw replay outputs, all production reports, conditions, executable/source hashes, benchmark source and baseline compatibility shim, driver scripts, derived `summary.json` and `confirmation-summary.json`). Remote originals: `ea:/tmp/termium-arena-ea-8d37H1/`. No performance run was on the busy development workstation. Measurements used drained output, not a real graphical terminal. All twenty timing invocations exited 0; no further rounds or profiler runs were performed.
+
+**Stop boundary:** this arena unit is implemented, reviewed, validated and measured locally/on ea; nothing is pushed. Remaining release work is native Linux/macOS CI and package/installer-update qualification of the chosen revision, terminal smoke tests (including WSL2), and follow-up on the previously intermittent shutdown test. Optimization 4, encoder small-allocation work, and broader profiling remain deferred; they are not automatic release blockers.
+
+## Measured: viewport scaling on ea (2026-09-27)
+
+[Full viewport sweep](docs/performance/2026-09-27-viewport-scaling.md): current
+shared-arena build `2beb236`, unchanged 24 FPS limit, four sizes from 1280×720
+to 3840×2160, default Sixel/JPEG and Kitty/PNG, dense animated canvas. Two passes
+reverse size and renderer order; 16 successful workloads, 5s warmup +15s measured
+each. The near-1080p step is 1920×1072 because the harness uses 16-pixel rows.
+
+| Viewport | Sixel writes/s | Kitty writes/s |
+| --- | ---: | ---: |
+| 1280×720 | 15.93–16.07 | 15.27–15.40 |
+| 1920×1072 | 8.47–8.60 | 15.00 |
+| 2560×1440 | 4.87–4.93 | 14.87–14.93 |
+| 3840×2160 | 2.27 | 10.00 |
+
+At 4K, Sixel preparation p50 is about 350 ms and client peak RSS about 777 MiB;
+Kitty capture p50 is about 99 ms, preparation about 1 ms, and client peak RSS
+157–167 MiB. Size strongly affects the pipeline even below its FPS ceiling.
+No error/drop/arena-exhaustion counters were recorded. These are drained-PTY
+output rates, not visible terminal FPS. No production code or pacing changed.
+Raw evidence: `/tmp/termium-viewport-results`, remote
+`/tmp/termium-viewport-ea-I7TgMm`; reproducible analysis script at
+`/tmp/termium-viewport-comparison/analyze.py`.
+
+## Measured: whole optimization series on ea (2026-09-27)
+
+Compared `aaf1bd6` (September 16, before the first Sixel band optimizations;
+source-tree equivalent to the pre-attribution-rewrite `d2690fd`) with `2beb236`
+(shared four-arena implementation). This includes band comparison/buffer reuse,
+band-only encoding, capture-session reuse, reduced metadata polling, viewport
+caching, and arenas. Earlier work predating that baseline is outside this total.
+The rejected quantization-scratch experiment is absent from both endpoints.
+
+Both endpoints were built with the same Go toolchain and run on ea
+(`192.168.1.100`, Ryzen AI 9 HX 370, Linux), using the same Node, Chromium,
+dependency lock, protocol, harness executable and current fixture. The current
+fixture was used for both revisions to avoid the old patch-aliasing bug. The
+unchanged `server_sha256` in result.json covers the entrypoint only; separate
+browser-controls/session hashes in `build-provenance.json` record the actual
+server implementation differences.
+
+Method: sequential A1 → B1 → B2 → A2; each suite uses
+`--scenes idle,patch,canvas --renderer both --duration 15s --warmup 5s --repeats 1`,
+1280×720, default Websafe Sixel/JPEG and Kitty/PNG. Four suites and all 24 workload
+runs completed successfully. Output went to a drained PTY: writes/s measures
+pipeline output, not visible terminal FPS. Two runs per revision bound the
+strength of timing conclusions; these are observations, not universal gains.
+No builds/tests ran during the measurement sequence. Recorded one-minute ea
+load at suite starts: 0.23, 0.59, 1.39, 1.03; no environmental cause is inferred.
+
+Full-screen canvas results (ranges over the two runs per revision):
+
+| Metric | Sixel before → after | Kitty before → after |
+| --- | --- | --- |
+| Writes/s | 14.87–15.13 → 16.20–16.27 | 15.07 → 15.33–15.47 |
+| Paired throughput change | +7.0%, +9.4% | +1.8%, +2.7% |
+| Prepare p50, ms | 47.01–50.02 → 42.32–42.36 | 0.422–0.454 → 0.511–0.514 |
+| Prepare p95, ms | 61.06–62.26 → 54.67–56.16 | 0.877–0.887 → 0.611–0.636 |
+| Client CPU, ms/write | 55.37–57.58 → 47.99–48.15 | 2.965–3.142 → 2.629–2.652 |
+| All-process CPU, % of one core | 132.83–134.66 → 125.07–125.99 | 59.72–60.11 → 55.61–55.69 |
+| Go allocated MiB/write | 23.55–23.65 → 10.04–10.06 | 1.496–1.551 → 0.539–0.557 |
+| GC cycles/write | 1.004–1.031 → 0.201–0.202 | 0.190–0.212 → 0.013 |
+| Client peak RSS, MiB | 79.86–80.63 → 127.86–131.64 | 41.38–42.13 → 86.96–88.88 |
+
+The canvas allocation reduction is about 57% for Sixel and 63–65% for Kitty,
+with roughly 45–52 MiB additional peak client RSS. Kitty's median preparation
+cost increased by 0.060–0.088 ms while its p95, CPU per write, and throughput
+improved. Individual stage improvements must not be added into an overall FPS
+percentage. Capture still takes roughly 60–69 ms on this workload; preparation
+and capture overlap.
+
+Idle output stayed at zero writes. Total client/server/browser CPU fell from
+44.88–45.35% to 40.49–41.14% for Sixel and 52.65–52.99% to 48.58–50.50% for Kitty.
+Idle capture p95 fell from 45.65–47.79 to 43.90–44.09 ms (Sixel) and
+48.87–49.52 to 46.07–48.86 ms (Kitty).
+
+**Unresolved small-update tradeoff:** patch/Sixel preparation p95 increased
+from 8.13–8.27 to 10.80–10.96 ms in both pairs (+30.6%, +34.7%); client CPU rose
+from 6.46–6.99% to 7.66–8.18%. The combined comparison does not identify which
+change caused it. All patch runs still wrote exactly four frames/s, the fixture's
+update limit; this cannot establish maximum throughput. Sixel patch allocations
+fell from 32.45–32.58 to 9.92–10.32 MiB/s; Kitty patch allocations fell from
+10.00–10.07 to 5.78–6.18 MiB/s. Investigate the Sixel preparation increase as a
+bounded follow-up before calling the series uniformly faster; no new optimization
+or profiling run was started as part of this comparison.
+
+No explicit error, dropped-frame, or arena-exhaustion counters were recorded.
+B2 canvas/Sixel has 243 captures and 244 prepares/writes in its measurement
+window; stages can straddle the window boundary, so counter equality is not a
+valid loss check. Warmup and shutdown lie outside the measured window.
+
+Evidence: `/tmp/termium-series-results/{A1,B1,B2,A2}/result.json`, paired harness
+comparisons, `conditions.log`, `exits.txt`, scripts and build provenance;
+remote originals at `/tmp/termium-series-ea-cf0nQA`. Local build logs/provenance
+are in `/tmp/termium-series-comparison`. These measurements exclude the separate
+welcome-font fixes subsequently made on `fix/welcome-font-regression`.
+
+## Investigated: optimization 3 — fixed-palette scratch reuse (rejected)
+
+**2026-09-27. Decision: do not ship this candidate.** Profiling and a bounded experiment are complete. The allocation reduction did not meet the user's no-repeatable-slowdown acceptance criterion: the production canvas workload became slower in both A/B pairings. Source `2461a11` and regression tests `944b384` are preserved in local history; `848c8ff` backs both out. Runtime and tests after the backout match parent `3ff7241` exactly. No PR, push or release was created. Optimization 4 remains deferred; this result is not a reason to continue experimenting indefinitely before a release.
+
+### Profiles and candidate
+
+A dedicated test executable built with Go 1.27.1-X:nodwarf5 ran on ea (native Linux amd64, Ryzen AI 9 HX 370). CPU and allocation profiles were separate: CPU used ordinary memory sampling; allocation profiles used `-test.memprofilerate=1`, whose instrumented timings are not baseline measurements. Both profiled cases are the existing synthetic 1920 × 1081 `BenchmarkSixelBandChanges` workloads, excluding screenshot capture, image decoding and terminal rendering.
+
+- One-pixel CPU: `memeqbody` accounts for 76.59% of sampled CPU, mostly comparing unchanged bands. Scratch allocation is not the dominant cost in this case.
+- All-pixels CPU: `writePixelData` is 30.57% flat / 51.75% cumulative, `cachedDraw` 23.41% / 41.56%. Pixel accessor/bounds work contributes beneath those callers. These process-wide sample shares include startup; cumulative percentages overlap and must not be added.
+- All-pixels allocated bytes: `image.NewPaletted` is 78.96% of the process profile, motivating retained palette-index storage. The 15.52% attributed to `image.NewRGBA` is benchmark fixture setup/calibration before `ResetTimer`, not repeated frame preparation.
+- Allocation objects differ: `writePixelData` is 36.46%, `RGBA.SubImage` 20.83%, `NewPaletted` 20.83%. Removing the largest byte allocation is not the same as removing most allocation objects or most CPU work.
+
+The candidate retained one encoder-owned high-water palette-index buffer for origin-zero WebSafe/Plan9 images. It updated the active length, stride, bounds and palette; non-zero origins kept fresh allocation to preserve source-point-zero clipping behavior. Adaptive quantization and borrowed paletted inputs were unchanged. Neither CPU pixel loop was rewritten.
+
+### Correctness and validation record
+
+Qwen's independent production-source review found no defects. New tests compared reused/fresh output for both entry points, palette changes, full/short bands, resizing, padded source stride, dithering, transparency and adaptive interludes. Independent known-pixel decoding covered WebSafe and Plan9 white; input-ownership checks protected borrowed paletted images. Four temporary source mutations were rejected by those tests: missing palette update, missing stride update, reuse at non-zero origins, and adoption of caller-owned storage.
+
+Focused Sixel tests passed. Typecheck initially failed because generated TypeScript protocol files were absent in the isolated worktree; after `npm run build:proto`, it passed. Full `npm test` passed build/lint, 23 server tests, Go race/shuffle tests and five Node integration tests, then **failed** Go integration `TestShutdownDuringBrowserLaunch`: cleanup reported an owned browser process still present after shutdown. That test starts the Node server and a blocked browser executable, without Sixel encoding. The same test passed once on the unchanged parent. One candidate integration-suite rerun passed, and four website tests passed separately. This does not establish the cause or erase the initial failure; shutdown process cleanup remains a release follow-up. Normal client executables were restored after testing and again after backout. Validation was Linux/WSL2; this candidate did not run native macOS CI.
+
+### Matched A–B–B–A measurements
+
+A = `3ff7241`, B = `944b384`. Same compiler, benchmark source, browser, Node, lockfile, server build, fixture and options; fresh isolated ea checkouts. No tests/builds overlapped timing. Microbenchmarks ran A1 → B1 → B2 → A2, each with five samples:
+
+```sh
+./<role>-test -test.run '^$' -test.bench '^BenchmarkSixelBandChanges$' -test.benchmem -test.count=5
+```
+
+| Workload / pair | Median ns/op A → B | Change | Median B/op A → B | Allocations/op A → B |
+| --- | ---: | ---: | ---: | ---: |
+| one-pixel A1/B1 | 208,552 → 210,059 | +0.72% | 61,052 → 58,908 | 28 → 26 |
+| one-pixel A2/B2 | 225,698 → 214,071 | −5.15% | 61,052 → 58,908 | 28 → 26 |
+| all-pixels A1/B1 | 13,985,892 → 13,592,071 | −2.82% | 2,337,387 → 106,123 | 2,723 → 2,361 |
+| all-pixels A2/B2 | 14,243,103 → 13,595,189 | −4.55% | 2,337,390 → 106,123 | 2,723 → 2,361 |
+
+This is approximately 95.5% fewer allocated bytes in the synthetic all-pixels encoder workload, **not** 95.5% less application memory. One-pixel timing is mixed. Full sample ranges and raw values are preserved in the evidence.
+
+A separate production-harness A1 → B1 → B2 → A2 sequence used canvas/Sixel with default JPEG capture and WebSafe palette, 15 s measurement, 5 s warmup, one repeat, and a drained PTY:
+
+```sh
+benchmark --scenes canvas --renderer sixel --duration 15s --warmup 5s --repeats 1 --label opt3-<run> --out <fresh-directory>
+```
+
+| Pair | Prepare p50 A → B (ms) | Prepare p95 A → B (ms) | Frame-age p95 A → B (ms) | Writes/s A → B | Summed CPU A → B (% of one core) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| A1/B1 | 43.29 → 51.26 | 55.81 → 65.21 | 123.85 → 132.68 | 16.33 → 14.53 | 130.48 → 133.38 |
+| A2/B2 | 48.02 → 55.56 | 63.79 → 67.76 | 126.13 → 130.73 | 15.40 → 13.80 | 131.60 → 132.99 |
+
+All eight micro/production invocations exited 0, without timing retries; production reported no error counters. The synthetic win did not transfer to this busier workload: preparation p50 worsened 15.7–18.4%, output rate fell about 10–11%, and frame-age tails and CPU rose in both pairings. These short runs do not establish the mechanism or eliminate environmental effects. No GC, machine-load or cache-locality explanation is claimed. Nevertheless, the consistent adverse production result is sufficient to reject this candidate for release under the agreed bar. No visible-terminal FPS claim is made from drained-PTY writes.
+
+### Follow-up: identical canvas JPEG replay on ea
+
+Later on 2026-09-27, at the user's request, the same A/B executables replayed **one identical frozen production-fixture JPEG** on ea. The earlier live experiment also ran on ea; moving from the local workstation is not the difference between these experiments. The production HTML's RAF callbacks were queued, its readiness and one animation callback executed, then animation left frozen. Capture happened once at 1280 × 720, JPEG quality 60; Chromium was closed before timing. Input SHA-256: `a6492fb48b1f3317eaeba4f73ebb697088861d8109b91570104be5b026423e05` (403,209 bytes).
+
+The existing `BenchmarkRendererPreparation/canvas/jpeg.jpg/sixel` ran A1 → B1 → B2 → A2, five samples each, using the original matched Go executables and default GC settings. This benchmark forces full changed-frame preparation with `p.last = nil`, while retaining encoder/compression scratch. It includes JPEG decoding, RGBA conversion and Sixel preparation; it omits the live browser, RPC, asynchronous terminal output and previous-frame retention. No profiler or GC trace was run in this follow-up.
+
+| Run | Median ms/op | Range ms/op | Median allocated B/op | Median allocations/op |
+| --- | ---: | ---: | ---: | ---: |
+| A1 | 50.074 | 49.156–51.665 | 22,242,097 | 1,405,427 |
+| B1 | 44.097 | 43.259–44.844 | 21,239,253 | 1,405,186 |
+| B2 | 43.182 | 42.882–48.542 | 21,237,450 | 1,405,186 |
+| A2 | 50.852 | 49.831–51.003 | 22,244,784 | 1,405,427 |
+
+The candidate was **11.9% / 15.1% faster** in the two replay pairings, with approximately 4.5% fewer allocated bytes and 241 fewer allocation objects per operation. All output lengths were 2,984,411 bytes; this metric is length equality, not a byte-for-byte output comparison. All four runs passed without skips or retries. Raw data/capture hashes/conditions: `/tmp/termium-opt3-replay-results/`; remote binaries and evidence: `/tmp/termium-opt3-replay-ea-qr4hnJ/`.
+
+This contradicts a general claim that buffer reuse inherently slows preparation. It does not explain the earlier live-pipeline regression: retained-frame lifetimes, concurrency/output work, live samples and environmental differences are still unisolated. The candidate remains backed out pending resolution; neither result is discarded, and no machine-load or GC cause is established. Earlier production memory counters recorded roughly one GC cycle and 0.06 ms accumulated GC pause per delivered frame in both versions. That does not establish expensive pauses as the source of the extra 7.5–8 ms, but does not measure all concurrent GC or allocator CPU work either. An arena is a possible later experiment only after identifying relevant allocation/GC costs; none was implemented here.
+
+### Evidence and remaining work
+
+- Profiles, exact profiled executable, compiler provenance, baseline and pprof tables: `/tmp/termium-opt3-evidence/`; ea profiling copy `/tmp/termium-opt3-ea-stageA/`. The first driver used incorrect standalone-test flags and exited 2 before measuring; the corrected `-test.*` commands succeeded. Both statuses are retained.
+- Validation, original failure, retry, mutation evidence and independent source review: `/tmp/termium-opt3-validation/`.
+- Comparisons: `/tmp/termium-opt3-comparison/`, including raw `micro-{A1,B1,B2,A2}.txt`, `canvas-*/result.json`, conditions, exits and `coordinator-summary.json`. Exact A/B test executables and runtime checkouts remain on ea at `/tmp/termium-opt3-ea-n3IylT/`.
+- Local `/tmp` paths are evidence from this investigation, not permanent release assets. Preserve them before cleanup; the decision and key measurements are recorded here.
+
+Release work now takes priority: resolve the intermittent shutdown-cleanup failure, obtain native test/package CI for optimization 2, and qualify install/update of the chosen release archives on advertised platforms. The release candidate keeps optimization 2; it does not include scratch-buffer reuse. A future optimization investigation should profile a representative busy frame through the production preparation path before selecting another change. Pixel conversion/writing and unchanged-band comparison remain candidates, not promised improvements.
+
+## Investigated: production Sixel profiling (2026-09-27)
+
+**2026-09-27. Diagnostic instrumentation and findings — no rendering optimization or speedup claim.** Bounded CPU/allocation profiles of the current client on the live canvas/Sixel pipeline at 1280×720 and 3840×2160 (ea, fresh isolated runtime, matching symbol-bearing binary from `2beb236` + window-profiling recorder). Full record: [docs/performance/2026-09-27-sixel-profiling.md](docs/performance/2026-09-27-sixel-profiling.md); raw profiles and all sixteen pprof text reports under `/tmp/termium-viewport-profile/results/`.
+
+Key findings (30 s windows; cumulative percentages overlap and are not summed):
+
+- CPU: `go-sixel writePixelData` 8.40 s flat / **60.10% cum** at 720p, 8.47 s / **57.73%** at 4K (totals 23.31 s / 25.50 s sampled). JPEG `processSOS` subtree 20.55% / 22.67% cum. Same shape at both resolutions; 4K spends more total CPU (85% vs 78% of wall).
+- Source lines: per-color full-width scan (`sixel.go:395–397`) ~6 s flat combined per run, and the many small `w.Write([]byte{...})` calls (lines 405/423/426) ~4.7–5.1 s cumulative — two distinct hotspots inside `writePixelData`.
+- Allocations: ≈99% of **sampled** allocation objects in `writePixelData` (98.82% / 99.12%; pprof sampling, not `MemStats.Mallocs` — the 4K runtime aggregate is 859,949,810 allocations vs a 151,312,890 sampled delta). `alloc_space` deltas 4,780.99 MiB / 6,010.44 MiB; top flat nodes are `writePixelData`, `bytes.(*Buffer).String`, per-frame `NewYCbCr`/`NewPaletted`.
+- Live heap: arena retention dominates end-of-window inuse — ~40 MiB of ~51 MiB (720p) and ~320 MiB of ~394 MiB (4K). That is Go live heap after a forced GC, not process RSS (~777 MiB 4K peak from sweep evidence). Current arenas do **not** cover third-party encoder temporaries.
+- GC vs allocator: `mallocgcTinySC2` 8.3% / 7.4% flat is tiny-object allocator overhead, not GC; GC-related sampled stacks are approximately 2.02% / 0.78% of CPU. Separately, accumulated GC pauses are 7.12 ms / 1.16 ms; pause time alone is not a measure of GC CPU.
+
+Next candidate focus: **small-byte-slice allocations and writer calls in Sixel emission** (targets both the sampled-allocation share and writer-call CPU); the full-width per-color scan is a second observed hotspot, not a proven fix. GC is not the target. This completes the bounded Go-client profiling pass. This initial pass did not profile Chromium or Kitty. The whole-pipeline follow-up below now covers them; real-terminal paint remains unmeasured. No rendering optimization is implemented in this record.
+
+## Investigated: whole-pipeline capture, Kitty and Sixel (2026-09-27)
+
+**Baseline recorded 2026-09-28:** [ea-canvas-2026-09-27](docs/performance/2026-09-28-baseline.md), with a SHA256 manifest of retained evidence. Standalone streaming trials will use fresh screenshot controls and will not be compared directly to whole-Termium FPS.
+
+The Sixel-only report above was insufficient to explain bottlenecks. Follow-up on ea covers Go work/wait spans, Node V8 profiles and Chromium capture events for **both** renderers at 1280×720 and 3840×2160. Four 10-second traced canvas runs plus two 30-second Kitty CPU/timeline runs completed successfully. This is diagnostic evidence, not an A/B speedup claim.
+
+Full [pipeline report](docs/performance/2026-09-27-pipeline-profiling.md), [interactive measured timeline](docs/performance/2026-09-27-pipeline-timeline.html), and [Kitty/Node CPU functions](docs/performance/2026-09-27-cpu-hot-functions.md).
+
+- **Work/wait:** Sixel preparation works 71.5% / 80.1% of wall time at 720p / 4K and waits for input the remainder. Kitty preparation works only 0.67% / 1.14%; its capture RPC is outstanding 97.9% / 98.9% of the time. Capture and preparation overlap; never add their independent durations to estimate FPS. Existing 1.25× adaptive pacing leaves intentional headroom.
+- **4K mean completed spans:** Sixel capture RPC 135.0 ms, preparation 342.4 ms; Kitty capture 100.7 ms, preparation 1.16 ms. Diagnostic writes/s: 2.3 / 9.8, drained PTY, not terminal paint.
+- **Chromium:** forced-redraw to surface-copy request ~27 ms, copy request to image encoder ~17–18 ms. These include asynchronous work and scheduling, not pure CPU. JPEG image encoding 38.5 ms; PNG 31.7 ms. After image encoding, the browser task continues for ~44.8 / 19.5 ms of thread CPU outside the encoder. Response serialization/copies/cleanup require finer native profiling to assign individual costs.
+- **Bridge:** mean Node base64 decode 0.30 / 0.19 ms, protobuf encode 0.72 / 0.46 ms; Go RPC minus server handler 2.46 / 1.52 ms (includes transport/client decode/scheduling, not pure IPC). These do not account for the ~100 ms screenshot latency.
+- **Kitty CPU:** Go samples total 1.16 / 2.00 s over 30 s (3.9% / 6.7% of one core). Hot functions are base64, syscalls and tcell cell drawing. Node profiles are mostly idle; inspector overhead is separated. Whole-process-tree CPU must not be confused with Go-only CPU.
+- **Environment:** all four traced Termium runs report software compositing/rasterization and SwiftShader on ea. No GPU flags changed; no acceleration benefit is established.
+
+Candidate follow-ups: batch Sixel tiny writes/reuse emission scratch; compare screenshot versus streaming with matching output/freshness measurements; identify the browser response-task CPU and separately test acceleration; evaluate capped capture resolution plus upscaling. Adaptive pacing and text-UI redraw CPU are smaller scheduling/CPU candidates. The fourth-arena scratchpad idea remains deferred. No arena, renderer, pacing, capture format or transport optimization was implemented in this investigation.
+
+Artifacts: `/tmp/termium-pipeline-profile/results` (also `/tmp/termium-pipeline-ea-fGpsxF/results` on ea); exact diagnostic binary, patch, drivers and analysis scripts in `/tmp/termium-pipeline-profile`. The report documents trace boundaries, clock uncertainty, instrumentation overhead and remaining native-stack/real-terminal limitations. Source/static review, Go client race tests and server tests passed; no release/merge/push occurred.
+
+## Investigated: standalone screenshot versus streaming (2026-09-28)
+
+**Baseline logged, proof of concept complete; no Termium integration.** [Recorded baseline](docs/performance/2026-09-28-baseline.md), [experiment report](docs/performance/2026-09-28-streaming-poc.md), [standalone code and commands](experiments/cdp-streaming/README.md).
+
+Sixteen unprofiled capture-only trials on ea: screenshot → stream → stream → screenshot for PNG/JPEG at 720p/4K; fresh browsers, 3 s warmup, 10 s measurement. Same fast image encoders/settings, no 24 FPS cap, 30 Hz animated fixture with a visual frame marker. All runs and 160 saved-image validations passed. These are not terminal or full-Termium FPS.
+
+| Condition | Screenshot frames/s | Stream frames/s | Paired ratio |
+| --- | ---: | ---: | ---: |
+| 720p JPEG | 19.3–20.2 | 30.0 | 1.49–1.55× |
+| 720p PNG | 15.9–18.0 | 30.0 | 1.67–1.89× |
+| 4K JPEG | 7.4–7.5 | 16.8–16.9 | 2.24–2.28× |
+| 4K PNG | 9.9–10.0 | 29.3–29.9 | 2.93–3.02× |
+
+Streaming wins throughput in both run orders, but at 4K it costs more CPU per frame as well as per second. JPEG process-tree CPU rises from ~1.13 cores to 2.93–2.99; sampled logical content-age medians rise from 122–126 ms to 195–197 ms. PNG rises from 0.94–0.97 cores to 3.30–3.45; sampled age shows no consistent improvement (screenshots 75–103 ms; streaming 93–106 ms). All runs still use software compositing. Resource accounting and ten image samples/run have explicit limitations in the report.
+
+**Next bounded question:** control streaming production/freshness near the application's 24 FPS target and test a slow consumer with bounded latest-frame handling. Dropping already-encoded frames alone need not reduce browser CPU. No default switch is warranted yet; 4K Sixel preparation remains a separate bottleneck. Capture scaling/upscaling and acceleration remain separate experiments. Raw receipts, sampled images and hashes are preserved; no push/PR/merge/release performed.
 
 ## Historical investigation and backlog
 

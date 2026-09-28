@@ -52,21 +52,29 @@ func (p *framePipeline) interval() time.Duration {
 }
 func (p *framePipeline) run(ctx context.Context, prepare func(*Frame) (*Frame, error), publish func(*Frame, error)) {
 	for {
+		token := tracePhaseBegin("prepare.wait", time.Time{}) // channel block below; no frame identity until receive
 		select {
 		case <-ctx.Done():
+			tracePhaseEnd(token) // wait interval recorded even when cancelled mid-block
 			return
 		case raw := <-p.pending:
+			tracePhaseEnd(token)
 			if p.paused.Load() {
 				continue
 			}
 			start := time.Now()
+			workToken := tracePhaseBegin("prepare.work", raw.Timestamp)
 			frame, err := prepare(raw)
+			tracePhaseEnd(workToken)
 			p.cost.Store(max(int64(time.Since(start)), p.cost.Load()*7/8))
 			if ctx.Err() != nil {
+				frame.release()
 				return
 			}
 			if !p.paused.Load() {
 				publish(frame, err)
+			} else {
+				frame.release()
 			}
 		}
 	}
@@ -77,6 +85,7 @@ func (p *framePipeline) run(ctx context.Context, prepare func(*Frame) (*Frame, e
 type framePreparer struct {
 	renderer, palette string
 	last              *Frame
+	arenas            frameArenaPool
 	encoder           *sixel.Encoder
 	buffer            bytes.Buffer
 	bands             *BandManager
@@ -84,6 +93,19 @@ type framePreparer struct {
 	kitty             kittyEncoder
 }
 
+// close releases the comparison frame. The worker calls it on shutdown;
+// display/pending leases can outlive the worker safely.
+func (p *framePreparer) close() {
+	p.last.release()
+	p.last = nil
+}
+func (p *framePreparer) remember(f *Frame) {
+	f.retain()
+	p.last.release()
+	p.last = f
+}
+
+// prepare returns one owned lease, independent of the comparison lease in last.
 func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if len(raw.Data) > maxFrameBytes {
 		return nil, fmt.Errorf("Screenshot exceeds the 32 MiB limit")
@@ -98,55 +120,90 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	if dim.Width < 1 || dim.Height < 1 || dim.Width > maxFrameDimension || dim.Height > maxFrameDimension || int64(dim.Width)*int64(dim.Height) > maxFramePixels {
 		return nil, fmt.Errorf("Screenshot dimensions exceed 16384 pixels per side or 16 megapixels")
 	}
-	f := &Frame{Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp, CapturedAt: raw.CapturedAt}
+	arena := p.arenas.acquire()
+	if arena == nil {
+		return nil, errFrameArenaBusy
+	}
+	// Transfer this working lease only on success. Deduplication and errors
+	// return it to the pool without changing the last successful frame.
+	transferred := false
+	defer func() {
+		if !transferred {
+			arena.release()
+		}
+	}()
+	f := &Frame{storage: arena, Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp, CapturedAt: raw.CapturedAt}
 	if p.renderer == "kitty" && format == "png" {
-		f.Graphics, err = encodeKittyPNG(raw.Data)
+		f.Graphics, err = encodeKittyPayloadInto(raw.Data, "f=100,"+kittyPlacement, arena.alloc)
 		if err != nil {
 			return nil, err
 		}
-		p.last = f
+		p.remember(f)
+		transferred = true
 		return f, nil
 	}
 	img, _, err := image.Decode(bytes.NewReader(raw.Data))
 	if err != nil {
 		return nil, err
 	}
-	rgba := image.NewRGBA(img.Bounds())
+	pixels, err := arena.alloc(dim.Width * dim.Height * 4)
+	if err != nil {
+		return nil, err
+	}
+	rgba := &image.RGBA{Pix: pixels, Stride: dim.Width * 4, Rect: img.Bounds()}
 	draw.Draw(rgba, rgba.Bounds(), img, img.Bounds().Min, draw.Src)
 	if p.last != nil && p.last.Image != nil && rgba.Bounds() == p.last.Image.Bounds() && bytes.Equal(rgba.Pix, p.last.Image.Pix) {
 		if f.Generation == p.last.Generation {
 			return p.reuse(raw), nil
 		}
 		f.Image, f.Graphics = p.last.Image, p.last.Graphics
+		f.storage = p.last.storage
+		f.retain()
+		p.remember(f)
+		return f, nil
 	} else {
 		f.Image = rgba
 		if p.renderer != "tcell" {
 			if p.renderer == "kitty" {
-				f.Graphics, err = p.kitty.encodeRGB(rgba)
+				f.Graphics, err = p.kitty.encodeRGBInto(rgba, arena.alloc)
 			} else {
-				f.Graphics, err = p.encode(rgba)
+				f.Graphics, err = p.encodeInto(rgba, arena.alloc)
 			}
 			if err != nil {
 				return nil, err
 			}
 		}
 	}
-	p.last = f
+	p.remember(f)
+	transferred = true
 	return f, nil
 }
 
 // Pixel reuse must not replay old loading, title, or tab-strip metadata.
 func (p *framePreparer) reuse(raw *Frame) *Frame {
 	if proto.Equal(raw.State, p.last.State) {
-		return p.last
+		return p.last.retain()
 	}
 	frame := *p.last
 	frame.State, frame.Timestamp, frame.CapturedAt = raw.State, raw.Timestamp, raw.CapturedAt
-	p.last = &frame
-	return p.last
+	frame.retain()
+	p.remember(&frame)
+	return &frame
 }
 
+// A nil allocator preserves owned heap output for one-off callers.
+type frameAllocator func(int) ([]byte, error)
+
+func allocateFrameBytes(alloc frameAllocator, n int) ([]byte, error) {
+	if alloc != nil {
+		return alloc(n)
+	}
+	return make([]byte, n), nil
+}
 func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {
+	return p.encodeInto(img, nil)
+}
+func (p *framePreparer) encodeInto(img *image.RGBA, alloc frameAllocator) ([]byte, error) {
 	if p.palette == "websafe" {
 		w, h := img.Bounds().Dx(), img.Bounds().Dy()
 		if p.bands == nil || p.bands.Width != w || p.bands.Height != h {
@@ -175,10 +232,14 @@ func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {
 				return nil, fmt.Errorf("Sixel output exceeds 32 MiB; reduce the terminal size")
 			}
 		}
+		output, err := composeFullSixelInto(bands, w, h, p.bandEncoder.palette, alloc)
+		if err != nil {
+			return nil, err
+		}
 		for i := range p.bands.Bands {
 			p.bands.Bands[i].CachedRLE = bands[i]
 		}
-		return []byte(ComposeFullSixel(bands, w, h, p.bandEncoder.palette)), nil
+		return output, nil
 	}
 	p.buffer.Reset()
 	if p.encoder == nil {
@@ -191,7 +252,12 @@ func (p *framePreparer) encode(img *image.RGBA) ([]byte, error) {
 	if err := p.encoder.Encode(img); err != nil {
 		return nil, err
 	}
-	return bytes.Clone(p.buffer.Bytes()), nil
+	output, err := allocateFrameBytes(alloc, p.buffer.Len())
+	if err != nil {
+		return nil, err
+	}
+	copy(output, p.buffer.Bytes())
+	return output, nil
 }
 
 // bandChanged reports whether one horizontal strip of img differs from the

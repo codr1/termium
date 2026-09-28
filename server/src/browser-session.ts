@@ -3,6 +3,7 @@ import * as grpc from '@grpc/grpc-js';
 import { BrowserState, InputEvent, InputKind, NavigationAction, NavigationRequest, Screenshot } from '../generated/bc';
 import { BrowserControls } from './browser-controls';
 import { Vimium } from './vimium';
+import { beginCapturePhase, endCapturePhase } from './capture-diagnostics';
 
 type Tab = { id: string; page: Page; controls: BrowserControls; window: number };
 type Snapshot = { active: Tab; tabs: Tab[]; generation: number; titles: Map<string, string> };
@@ -246,8 +247,12 @@ export class BrowserSession {
         // The client independently polls state, including while images are
         // unchanged or capture is paused. Only cold/closed selection needs a
         // discovery read here. Freeze provenance before any capture awaits.
+        const selection = beginCapturePhase('server.selection');
         const s = this.captureSelection() ?? await this.snapshot();
-        await s.active.controls.setViewport(this.viewport.width, this.viewport.height);
+        endCapturePhase(selection);
+        const viewport = beginCapturePhase('server.viewport');
+        try { await s.active.controls.setViewport(this.viewport.width, this.viewport.height); }
+        finally { endCapturePhase(viewport); }
         let data: Buffer;
         try { data = await s.active.controls.capture(format); }
         catch (error) {

@@ -1,0 +1,462 @@
+{
+  "rows": [
+    {
+      "run": "jpeg-2160-A1",
+      "mode": "screenshot",
+      "format": "jpeg",
+      "height": 2160,
+      "fps": 7.4,
+      "bytesPerSec": 26831354,
+      "bytesPerFrame": 3625858.635135135,
+      "cpuPercent": 113.01329724348987,
+      "cpuMSPerFrameApprox": 152.72067195066197,
+      "peakSumRSSMiB": 1945.8828125,
+      "sampleAgeMedianMS": 125.599853515625,
+      "sampleAgeP95MS": 147.2666015625,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 110.801,
+        "p50": 133.009,
+        "p95": 146.082,
+        "max": 150.112
+      },
+      "payloadChanges": 73,
+      "frames": 74
+    },
+    {
+      "run": "jpeg-2160-A2",
+      "mode": "screenshot",
+      "format": "jpeg",
+      "height": 2160,
+      "fps": 7.5,
+      "bytesPerSec": 27185731,
+      "bytesPerFrame": 3624764.066666667,
+      "cpuPercent": 112.83292066599498,
+      "cpuMSPerFrameApprox": 150.44389422132662,
+      "peakSumRSSMiB": 1894.25390625,
+      "sampleAgeMedianMS": 122.333251953125,
+      "sampleAgeP95MS": 126.333251953125,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 119.729,
+        "p50": 131.343,
+        "p95": 136.58,
+        "max": 138.63
+      },
+      "payloadChanges": 74,
+      "frames": 75
+    },
+    {
+      "run": "jpeg-2160-B1",
+      "mode": "stream",
+      "format": "jpeg",
+      "height": 2160,
+      "fps": 16.9,
+      "bytesPerSec": 61273391,
+      "bytesPerFrame": 3625644.449704142,
+      "cpuPercent": 293.1699001135924,
+      "cpuMSPerFrameApprox": 173.4733136766819,
+      "peakSumRSSMiB": 2206.62109375,
+      "sampleAgeMedianMS": 196.800048828125,
+      "sampleAgeP95MS": 218.466796875,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 168,
+      "frames": 169
+    },
+    {
+      "run": "jpeg-2160-B2",
+      "mode": "stream",
+      "format": "jpeg",
+      "height": 2160,
+      "fps": 16.8,
+      "bytesPerSec": 60889796,
+      "bytesPerFrame": 3624392.601190476,
+      "cpuPercent": 299.25213151682306,
+      "cpuMSPerFrameApprox": 178.12626876001372,
+      "peakSumRSSMiB": 2172.29296875,
+      "sampleAgeMedianMS": 194.966796875,
+      "sampleAgeP95MS": 223.300048828125,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 167,
+      "frames": 168
+    },
+    {
+      "run": "jpeg-720-A1",
+      "mode": "screenshot",
+      "format": "jpeg",
+      "height": 720,
+      "fps": 19.3,
+      "bytesPerSec": 7771195,
+      "bytesPerFrame": 402652.57512953365,
+      "cpuPercent": 54.020551084211206,
+      "cpuMSPerFrameApprox": 27.989922841560208,
+      "peakSumRSSMiB": 1613.69140625,
+      "sampleAgeMedianMS": 31.333251953125,
+      "sampleAgeP95MS": 34.666748046875,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 29.001,
+        "p50": 51.537,
+        "p95": 67.162,
+        "max": 72.548
+      },
+      "payloadChanges": 192,
+      "frames": 193
+    },
+    {
+      "run": "jpeg-720-A2",
+      "mode": "screenshot",
+      "format": "jpeg",
+      "height": 720,
+      "fps": 20.2,
+      "bytesPerSec": 8133170,
+      "bytesPerFrame": 402632.1584158416,
+      "cpuPercent": 52.65064189110833,
+      "cpuMSPerFrameApprox": 26.064674203518976,
+      "peakSumRSSMiB": 1655.875,
+      "sampleAgeMedianMS": 43.566650390625,
+      "sampleAgeP95MS": 49.89990234375,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 29.284,
+        "p50": 49.767,
+        "p95": 66.951,
+        "max": 68.53
+      },
+      "payloadChanges": 201,
+      "frames": 202
+    },
+    {
+      "run": "jpeg-720-B1",
+      "mode": "stream",
+      "format": "jpeg",
+      "height": 720,
+      "fps": 30.0,
+      "bytesPerSec": 12064674,
+      "bytesPerFrame": 402155.7866666667,
+      "cpuPercent": 71.85050533392759,
+      "cpuMSPerFrameApprox": 23.95016844464253,
+      "peakSumRSSMiB": 1649.76171875,
+      "sampleAgeMedianMS": 32.60009765625,
+      "sampleAgeP95MS": 36.266845703125,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 299,
+      "frames": 300
+    },
+    {
+      "run": "jpeg-720-B2",
+      "mode": "stream",
+      "format": "jpeg",
+      "height": 720,
+      "fps": 30.0,
+      "bytesPerSec": 12064674,
+      "bytesPerFrame": 402155.7866666667,
+      "cpuPercent": 66.61512239509238,
+      "cpuMSPerFrameApprox": 22.205040798364127,
+      "peakSumRSSMiB": 1656.83984375,
+      "sampleAgeMedianMS": 32,
+      "sampleAgeP95MS": 34.666748046875,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 299,
+      "frames": 300
+    },
+    {
+      "run": "png-2160-A1",
+      "mode": "screenshot",
+      "format": "png",
+      "height": 2160,
+      "fps": 9.9,
+      "bytesPerSec": 14840648,
+      "bytesPerFrame": 1499055.393939394,
+      "cpuPercent": 97.21939747518552,
+      "cpuMSPerFrameApprox": 98.20141159109649,
+      "peakSumRSSMiB": 1977.27734375,
+      "sampleAgeMedianMS": 103.099853515625,
+      "sampleAgeP95MS": 111.43310546875,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 77.035,
+        "p50": 99.479,
+        "p95": 113.393,
+        "max": 126.808
+      },
+      "payloadChanges": 98,
+      "frames": 99
+    },
+    {
+      "run": "png-2160-A2",
+      "mode": "screenshot",
+      "format": "png",
+      "height": 2160,
+      "fps": 10.0,
+      "bytesPerSec": 14990966,
+      "bytesPerFrame": 1499096.62,
+      "cpuPercent": 93.60041461120672,
+      "cpuMSPerFrameApprox": 93.60041461120672,
+      "peakSumRSSMiB": 1819.8046875,
+      "sampleAgeMedianMS": 74.533203125,
+      "sampleAgeP95MS": 77.533203125,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 77.076,
+        "p50": 99.161,
+        "p95": 105.732,
+        "max": 118.013
+      },
+      "payloadChanges": 99,
+      "frames": 100
+    },
+    {
+      "run": "png-2160-B1",
+      "mode": "stream",
+      "format": "png",
+      "height": 2160,
+      "fps": 29.9,
+      "bytesPerSec": 44822270,
+      "bytesPerFrame": 1499072.5886287626,
+      "cpuPercent": 330.005137072658,
+      "cpuMSPerFrameApprox": 110.36961106108964,
+      "peakSumRSSMiB": 2042.9921875,
+      "sampleAgeMedianMS": 93.466796875,
+      "sampleAgeP95MS": 118.800048828125,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 298,
+      "frames": 299
+    },
+    {
+      "run": "png-2160-B2",
+      "mode": "stream",
+      "format": "png",
+      "height": 2160,
+      "fps": 29.3,
+      "bytesPerSec": 43922295,
+      "bytesPerFrame": 1499054.4197952219,
+      "cpuPercent": 344.87505472524094,
+      "cpuMSPerFrameApprox": 117.70479683455322,
+      "peakSumRSSMiB": 2028.953125,
+      "sampleAgeMedianMS": 106.13330078125,
+      "sampleAgeP95MS": 131.466796875,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 292,
+      "frames": 293
+    },
+    {
+      "run": "png-720-A1",
+      "mode": "screenshot",
+      "format": "png",
+      "height": 720,
+      "fps": 15.9,
+      "bytesPerSec": 7050877,
+      "bytesPerFrame": 443451.3710691824,
+      "cpuPercent": 55.558612002548855,
+      "cpuMSPerFrameApprox": 34.9425232720433,
+      "peakSumRSSMiB": 1644.59375,
+      "sampleAgeMedianMS": 46.63330078125,
+      "sampleAgeP95MS": 47.300048828125,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 29.547,
+        "p50": 65.825,
+        "p95": 69.219,
+        "max": 72.023
+      },
+      "payloadChanges": 158,
+      "frames": 159
+    },
+    {
+      "run": "png-720-A2",
+      "mode": "screenshot",
+      "format": "png",
+      "height": 720,
+      "fps": 18.0,
+      "bytesPerSec": 7982608,
+      "bytesPerFrame": 443478.2055555555,
+      "cpuPercent": 55.37073334638616,
+      "cpuMSPerFrameApprox": 30.761518525770086,
+      "peakSumRSSMiB": 1638.14453125,
+      "sampleAgeMedianMS": 46.800048828125,
+      "sampleAgeP95MS": 50.466796875,
+      "samples": 10,
+      "screenshotRTTMS": {
+        "min": 29.442,
+        "p50": 61.321,
+        "p95": 67.854,
+        "max": 71.011
+      },
+      "payloadChanges": 179,
+      "frames": 180
+    },
+    {
+      "run": "png-720-B1",
+      "mode": "stream",
+      "format": "png",
+      "height": 720,
+      "fps": 30.0,
+      "bytesPerSec": 13305348,
+      "bytesPerFrame": 443511.58666666667,
+      "cpuPercent": 67.86157375635065,
+      "cpuMSPerFrameApprox": 22.620524585450216,
+      "peakSumRSSMiB": 1652.08984375,
+      "sampleAgeMedianMS": 19,
+      "sampleAgeP95MS": 22.666748046875,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 299,
+      "frames": 300
+    },
+    {
+      "run": "png-720-B2",
+      "mode": "stream",
+      "format": "png",
+      "height": 720,
+      "fps": 30.0,
+      "bytesPerSec": 13305348,
+      "bytesPerFrame": 443511.58666666667,
+      "cpuPercent": 69.62128366864232,
+      "cpuMSPerFrameApprox": 23.207094556214106,
+      "peakSumRSSMiB": 1653.796875,
+      "sampleAgeMedianMS": 22.10009765625,
+      "sampleAgeP95MS": 23.766845703125,
+      "samples": 10,
+      "screenshotRTTMS": null,
+      "payloadChanges": 299,
+      "frames": 300
+    }
+  ],
+  "comparisons": [
+    {
+      "format": "jpeg",
+      "height": 720,
+      "screenshot_fps": [
+        19.3,
+        20.2
+      ],
+      "stream_fps": [
+        30.0,
+        30.0
+      ],
+      "paired_ratios": [
+        1.5544041450777202,
+        1.4851485148514851
+      ],
+      "screenshot_cpu": [
+        54.020551084211206,
+        52.65064189110833
+      ],
+      "stream_cpu": [
+        71.85050533392759,
+        66.61512239509238
+      ],
+      "screenshot_sample_age_p50": [
+        31.333251953125,
+        43.566650390625
+      ],
+      "stream_sample_age_p50": [
+        32.60009765625,
+        32
+      ]
+    },
+    {
+      "format": "jpeg",
+      "height": 2160,
+      "screenshot_fps": [
+        7.4,
+        7.5
+      ],
+      "stream_fps": [
+        16.9,
+        16.8
+      ],
+      "paired_ratios": [
+        2.2837837837837833,
+        2.24
+      ],
+      "screenshot_cpu": [
+        113.01329724348987,
+        112.83292066599498
+      ],
+      "stream_cpu": [
+        293.1699001135924,
+        299.25213151682306
+      ],
+      "screenshot_sample_age_p50": [
+        125.599853515625,
+        122.333251953125
+      ],
+      "stream_sample_age_p50": [
+        196.800048828125,
+        194.966796875
+      ]
+    },
+    {
+      "format": "png",
+      "height": 720,
+      "screenshot_fps": [
+        15.9,
+        18.0
+      ],
+      "stream_fps": [
+        30.0,
+        30.0
+      ],
+      "paired_ratios": [
+        1.8867924528301887,
+        1.6666666666666667
+      ],
+      "screenshot_cpu": [
+        55.558612002548855,
+        55.37073334638616
+      ],
+      "stream_cpu": [
+        67.86157375635065,
+        69.62128366864232
+      ],
+      "screenshot_sample_age_p50": [
+        46.63330078125,
+        46.800048828125
+      ],
+      "stream_sample_age_p50": [
+        19,
+        22.10009765625
+      ]
+    },
+    {
+      "format": "png",
+      "height": 2160,
+      "screenshot_fps": [
+        9.9,
+        10.0
+      ],
+      "stream_fps": [
+        29.9,
+        29.3
+      ],
+      "paired_ratios": [
+        3.02020202020202,
+        2.93
+      ],
+      "screenshot_cpu": [
+        97.21939747518552,
+        93.60041461120672
+      ],
+      "stream_cpu": [
+        330.005137072658,
+        344.87505472524094
+      ],
+      "screenshot_sample_age_p50": [
+        103.099853515625,
+        74.533203125
+      ],
+      "stream_sample_age_p50": [
+        93.466796875,
+        106.13330078125
+      ]
+    }
+  ]
+}

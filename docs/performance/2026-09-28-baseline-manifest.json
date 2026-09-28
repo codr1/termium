@@ -1,0 +1,279 @@
+{
+  "baseline": "ea-canvas-2026-09-27",
+  "recorded": "2026-09-28",
+  "source_diagnostics": "3d7ca24",
+  "report_commit": "86398e2",
+  "client_sha256": "972f58ec8190cf9b3c86f23054e47144c396b9606c08d5dfcafd40e2ff625bce",
+  "local_artifact_root": "/tmp/termium-pipeline-profile/results",
+  "remote_artifact_root": "ea:/tmp/termium-pipeline-ea-fGpsxF/results",
+  "files": {
+    "binary-sha256.txt": {
+      "bytes": 672,
+      "sha256": "42aefdae348d6cbc864c5f7c387cfa96c08f1696d4c6c6ef98cb9b088b4595ba"
+    },
+    "kitty-2160/canvas-kitty-1/client.json": {
+      "bytes": 1431,
+      "sha256": "9934100198cd236f7186fd3e179bc3a0dd16309d86fc71735ec0c44d4bd7a4b0"
+    },
+    "kitty-2160/canvas-kitty-1/client.json.chromium.json": {
+      "bytes": 51451408,
+      "sha256": "f8e0d022e6900c3bcb2cfff2e8adb18c81dfedc9f010e31abd639043b2463a72"
+    },
+    "kitty-2160/canvas-kitty-1/client.json.cpuprofile": {
+      "bytes": 8181,
+      "sha256": "d35d15571466fdda2907f7a91318f17b08e815941893b84cba16399688f3ba1a"
+    },
+    "kitty-2160/canvas-kitty-1/client.json.node.cpuprofile": {
+      "bytes": 126716,
+      "sha256": "b8234584b84d82673b6b09499cc583054fb3e600f8bff5a1ab2a5ac0fb0f0702"
+    },
+    "kitty-2160/canvas-kitty-1/client.json.server.timeline.json": {
+      "bytes": 136405,
+      "sha256": "6cca7eb0c72f698462afc832a6e174b9de13d4fafa6d2438e24bea9634a33993"
+    },
+    "kitty-2160/canvas-kitty-1/client.json.timeline.json": {
+      "bytes": 101756,
+      "sha256": "6758e71ee584e6bd6dacba6dc2bb30a01a5638a497dec8cd2c7d573e1e020c50"
+    },
+    "kitty-2160/canvas-kitty-1/client.log": {
+      "bytes": 540,
+      "sha256": "fd969f44e76f66cae8a31f24d19182d4a90353cff563c775910220853754dcec"
+    },
+    "kitty-2160/chrome-analysis.json": {
+      "bytes": 105338,
+      "sha256": "1e442f754e1224912de0b60b18bc689414dd01380b82a505dea39ef924d1d052"
+    },
+    "kitty-2160/node-analysis.json": {
+      "bytes": 18075,
+      "sha256": "8e630a4ece1e27639aa5085a570e1eddcc9475463f2a5541873bbb8ae4ea8288"
+    },
+    "kitty-2160/pipeline-analysis.json": {
+      "bytes": 56645,
+      "sha256": "64feee6ccd566c45f5c9a030f1000bd0bb4a89822b46d6cbe8b7307243c5f64f"
+    },
+    "kitty-2160/response-analysis.json": {
+      "bytes": 34080,
+      "sha256": "fd97125d21bca6ec7bc0c86b6039f80dd6ad3039904a4e5a9508bfe334d20c49"
+    },
+    "kitty-2160/result.json": {
+      "bytes": 204673,
+      "sha256": "b4ad1563c256078fecf725c0ec15047ea3e6ded8b05ce4c4f93babd1089557c3"
+    },
+    "kitty-720/canvas-kitty-1/client.json": {
+      "bytes": 1421,
+      "sha256": "98329964d1e0f9f9185e0eee74547fd87e6ef979eeb20206955a32d425b65313"
+    },
+    "kitty-720/canvas-kitty-1/client.json.chromium.json": {
+      "bytes": 60547754,
+      "sha256": "030e5a56b678d70e446c363118847294602268ce9778ada68b10e2bdba185335"
+    },
+    "kitty-720/canvas-kitty-1/client.json.cpuprofile": {
+      "bytes": 7334,
+      "sha256": "2ae88c4ce013839cf930cbf0dc35c15e317273abd3bfc03ca566bf6119943e7f"
+    },
+    "kitty-720/canvas-kitty-1/client.json.node.cpuprofile": {
+      "bytes": 131283,
+      "sha256": "e09d828e81470b25bf6f9f9be9f17b23ae407448d7e17406ed6ef6d79562b4bf"
+    },
+    "kitty-720/canvas-kitty-1/client.json.server.timeline.json": {
+      "bytes": 210876,
+      "sha256": "168228866ac9130b4b3c633507ee5f246f03adbd7b47fda2f3b4c4254b2717c9"
+    },
+    "kitty-720/canvas-kitty-1/client.json.timeline.json": {
+      "bytes": 162612,
+      "sha256": "87ed4f9584ae7e6636923abb8695b9ced28b617d83f9fcbfe50bb73d76205e75"
+    },
+    "kitty-720/canvas-kitty-1/client.log": {
+      "bytes": 539,
+      "sha256": "04aa64539a6c2db632d14b91e06f8eabf020b36374d6de1ec79ca77bf91dc4af"
+    },
+    "kitty-720/chrome-analysis.json": {
+      "bytes": 156280,
+      "sha256": "84e3f6a9c79864d54ddcf305be96a08f3e4bb99f2012f9838581ddea1df78d2f"
+    },
+    "kitty-720/node-analysis.json": {
+      "bytes": 20926,
+      "sha256": "79a86379e7c209c013c36d10af4558919162f088ed2c216d7254e158df9baa66"
+    },
+    "kitty-720/pipeline-analysis.json": {
+      "bytes": 87013,
+      "sha256": "66e4ed4037c98baec46e0a720a4e1aad133624d276ec84eb01c612a2596c44a1"
+    },
+    "kitty-720/response-analysis.json": {
+      "bytes": 52822,
+      "sha256": "1b3ba03b1fe0c90202ec2485fa839620edeaf4eaaa8fb58acb7b8506ac7ac54c"
+    },
+    "kitty-720/result.json": {
+      "bytes": 182997,
+      "sha256": "df019bced73b2742b06522006ef23dd01013f73bb3bc1836610b1363caa29e86"
+    },
+    "kittycpu-2160/canvas-kitty-1/client.json": {
+      "bytes": 1441,
+      "sha256": "368f74d2b6bb55f15b237dfc4d7fccd2367231d8d9a9b6be72f549eddb83961a"
+    },
+    "kittycpu-2160/canvas-kitty-1/client.json.cpuprofile": {
+      "bytes": 13159,
+      "sha256": "c872c79e784dcfe0828138cc15692d29b61d945a3f0e5acc4cbbd50461c12b29"
+    },
+    "kittycpu-2160/canvas-kitty-1/client.json.timeline.json": {
+      "bytes": 236982,
+      "sha256": "c461d10550377a85e571b48c70ace4043e49dd4c38ad6d20c9b93f8094b9589d"
+    },
+    "kittycpu-2160/canvas-kitty-1/client.log": {
+      "bytes": 546,
+      "sha256": "38ed85250de4a09de6284bfce61d38e85031d8e61df52c33c545abb128520282"
+    },
+    "kittycpu-2160/pipeline-analysis.json": {
+      "bytes": 167532,
+      "sha256": "1178ddd7e86c603b7c55ca8ed7525e96bcd932722324d10195b82ab689911074"
+    },
+    "kittycpu-2160/result.json": {
+      "bytes": 106591,
+      "sha256": "2af154514da2b517809e323e209f758a3ff7306250d7cc2eb56785797d36176f"
+    },
+    "kittycpu-720/canvas-kitty-1/client.json": {
+      "bytes": 1428,
+      "sha256": "5890b8e39c6bf34c1334db4889df0b5c87dee69f553fa8208f9cc8d08d2adf98"
+    },
+    "kittycpu-720/canvas-kitty-1/client.json.cpuprofile": {
+      "bytes": 11622,
+      "sha256": "4cc8b233c2a2c865fc01467529efcc5747ac13f29b834e9b01971b5863e270a7"
+    },
+    "kittycpu-720/canvas-kitty-1/client.json.timeline.json": {
+      "bytes": 367632,
+      "sha256": "7fc4064e64fd0083060f26a327dd6d8d9f728b33433ceb7bea1aeb56984d69c3"
+    },
+    "kittycpu-720/canvas-kitty-1/client.log": {
+      "bytes": 545,
+      "sha256": "980f7d550eadf5c814e9c6fd7af42b65d83363b84355a017616de72ccaf652a9"
+    },
+    "kittycpu-720/pipeline-analysis.json": {
+      "bytes": 259146,
+      "sha256": "eff9b86081b998ed475b003f4d89d03a2f3ac216bf9920287c4c029e0f6b4f2b"
+    },
+    "kittycpu-720/result.json": {
+      "bytes": 106336,
+      "sha256": "8e55bf94a267650106a9fe076d76a6a2d6f67dbe861caabecfb6a3b9c9ce1dd3"
+    },
+    "pprof/kitty-2160-cum.txt": {
+      "bytes": 2090,
+      "sha256": "77fef2518eeda7a67c946410cbc1647d220f6adc7bb02118b60b46069fa78561"
+    },
+    "pprof/kitty-2160-top.txt": {
+      "bytes": 2483,
+      "sha256": "a5c5a7ab33815a6b211b3128dc76f54b9bca268afe86c5df32750fc07737f292"
+    },
+    "pprof/kitty-720-cum.txt": {
+      "bytes": 1936,
+      "sha256": "53cbf124cbbec0240588955890f947711bc1c748d7152ec777c5c4566b5ffc73"
+    },
+    "pprof/kitty-720-top.txt": {
+      "bytes": 2315,
+      "sha256": "303b8af991c3e44effe755208342f8512c96220d3be06452ff709d1b336b7926"
+    },
+    "response-summary.txt": {
+      "bytes": 2062,
+      "sha256": "19bd0fbbab7ec2e763c258ab439aae8f708442326d51733e0cd5a25347db2a8a"
+    },
+    "run.log": {
+      "bytes": 2203,
+      "sha256": "d5f9743a815afc95c0282368e97d42dc6d38c1c8c237d8dd14e4ffc043fdd5e1"
+    },
+    "sixel-2160/canvas-sixel-1/client.json": {
+      "bytes": 1439,
+      "sha256": "81874c4d2440e0898ae13e85b04071a2a5794d973cf3b7b0f391308f90b15afe"
+    },
+    "sixel-2160/canvas-sixel-1/client.json.chromium.json": {
+      "bytes": 37617717,
+      "sha256": "a35bc60a3fc3cde8a6b4e9c72d125bfa7bff5ed11d1ead685fdde2f0ae3a450d"
+    },
+    "sixel-2160/canvas-sixel-1/client.json.cpuprofile": {
+      "bytes": 14888,
+      "sha256": "6af6b94b2d99f8de136477943f01b76c6a8d57a9944ce47c24c0041ca960176f"
+    },
+    "sixel-2160/canvas-sixel-1/client.json.node.cpuprofile": {
+      "bytes": 111051,
+      "sha256": "032fc8539cb7a0b29be3240fa0695b8615446f83eed9eded642f52683f8763c6"
+    },
+    "sixel-2160/canvas-sixel-1/client.json.server.timeline.json": {
+      "bytes": 41334,
+      "sha256": "2b8573e084a90d40702a65e4c337afbd63bd10d0d30304c9e80b1a47eeaca82f"
+    },
+    "sixel-2160/canvas-sixel-1/client.json.timeline.json": {
+      "bytes": 25785,
+      "sha256": "42d36911ad4009c10f5dd1ae75b89eeed9bf7acb0b55d814b7fe925df719cbdd"
+    },
+    "sixel-2160/canvas-sixel-1/client.log": {
+      "bytes": 541,
+      "sha256": "010bb80792f66b4e5d66f6e3ed4814f471324638a17f5a77ff02a1df49a85f51"
+    },
+    "sixel-2160/chrome-analysis.json": {
+      "bytes": 36361,
+      "sha256": "5226ec86a9f9419cc41259087d7fc4d7e9a8c0a81032f20bffe275418692bffb"
+    },
+    "sixel-2160/node-analysis.json": {
+      "bytes": 12528,
+      "sha256": "ca97428fb00ac674122d7d2b03ba488caebd49ec54e4c7369910c8e7a3b92513"
+    },
+    "sixel-2160/pipeline-analysis.json": {
+      "bytes": 15259,
+      "sha256": "76e724bcf40f4749034573205a4afa41bd642aaa8ebc0fcfe3f79bc2e7919450"
+    },
+    "sixel-2160/response-analysis.json": {
+      "bytes": 8531,
+      "sha256": "c6d829621577b89a5be73f9c10add48029cb3cbee3369010581942f6f7276d6d"
+    },
+    "sixel-2160/result.json": {
+      "bytes": 140232,
+      "sha256": "07c06e4c2ae5fc04e6ff48a11be6fdbeaa1584afe1b610effb4d95d146c920d6"
+    },
+    "sixel-720/canvas-sixel-1/client.json": {
+      "bytes": 1440,
+      "sha256": "4f2318e5f4afbd39294db207862928120de0ab156422b56107337cd1af4f97fd"
+    },
+    "sixel-720/canvas-sixel-1/client.json.chromium.json": {
+      "bytes": 59813734,
+      "sha256": "92e9a0bf9e1ecc05fc7397545c81fabdc97250cfae8b4e9558506951bfa26d74"
+    },
+    "sixel-720/canvas-sixel-1/client.json.cpuprofile": {
+      "bytes": 15145,
+      "sha256": "1c2340c2a742c471041b83c50cc004f92341a5b6655e4a9227799ab142edbe1e"
+    },
+    "sixel-720/canvas-sixel-1/client.json.node.cpuprofile": {
+      "bytes": 125719,
+      "sha256": "8f3b4c6d2b351fc392109078ec2ae5ec64cea2047eae2472f1280e88ae900265"
+    },
+    "sixel-720/canvas-sixel-1/client.json.server.timeline.json": {
+      "bytes": 205103,
+      "sha256": "634c20b9be6e514819c8010dde6d6ca0e71f9210a79e7a1cdcac407ec5506bb0"
+    },
+    "sixel-720/canvas-sixel-1/client.json.timeline.json": {
+      "bytes": 158592,
+      "sha256": "82d84cd64f552fd0f6c45f2b8b4de8e7d0cca05a2fcf39c886d8da46f396323b"
+    },
+    "sixel-720/canvas-sixel-1/client.log": {
+      "bytes": 539,
+      "sha256": "9c101c13952c9760f529d24137bbf673a9ec642949c21921c7caa5f17048b099"
+    },
+    "sixel-720/chrome-analysis.json": {
+      "bytes": 157080,
+      "sha256": "531ec0b66cba1d016ded5ff189967dfd9f5edb9fea46600a12d86a7f2c746c20"
+    },
+    "sixel-720/node-analysis.json": {
+      "bytes": 21588,
+      "sha256": "91078987782efbed56832aba4b99422ca5373341d0f29a6a6085dcaf81391264"
+    },
+    "sixel-720/pipeline-analysis.json": {
+      "bytes": 87031,
+      "sha256": "a122185cc467ea2d780a54a5658fd918279a868c88d0656a14703b2f76f465f6"
+    },
+    "sixel-720/response-analysis.json": {
+      "bytes": 53241,
+      "sha256": "1eb2f331487448afe6f8803b595873a403f3bf5a8fde91fa4d5614351b6bc928"
+    },
+    "sixel-720/result.json": {
+      "bytes": 201116,
+      "sha256": "daa6557fb92fa71bcccb06a7738b65f7af75469ab26ed775b4842f54e41dc6b7"
+    }
+  }
+}

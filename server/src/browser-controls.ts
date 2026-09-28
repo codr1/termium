@@ -1,4 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
+import { beginCapturePhase, endCapturePhase } from './capture-diagnostics';
 import { Page, CDPSession, KeyInput, Target, Frame } from 'puppeteer';
 import { BrowserState, InputEvent, InputKind, NavigationAction, NavigationRequest } from '../generated/bc';
 
@@ -23,6 +24,8 @@ export class BrowserControls {
     private error = '';
     private navigation = 0;
     private viewport = { width: 800, height: 600 };
+    // Successful overrides belong to a control session, not a screenshot session.
+    private appliedViewports = new WeakMap<CDPSession, { width: number; height: number }>();
 
     constructor(private readonly ensurePage: () => Promise<Page>) { }
 
@@ -51,18 +54,34 @@ export class BrowserControls {
         if (this.target !== target || !this.cdp) {
             if (this.cdp) void this.cdp.then(session => session.detach()).catch(() => { });
             this.target = target;
-            this.cdp = target.createCDPSession();
-            const apply = this.cdp.then(async session => { await this.applyViewport(session); return session; });
+            const apply = target.createCDPSession().then(async session => {
+                try {
+                    await this.applyViewport(session);
+                    return session;
+                } catch (error) {
+                    void session.detach().catch(() => { });
+                    throw error;
+                }
+            });
             this.cdp = apply;
-            void this.cdp.catch(() => { this.target = undefined; });
+            void apply.catch(() => {
+                // An obsolete initialization must not invalidate its replacement.
+                if (this.cdp === apply) { this.target = undefined; this.cdp = undefined; }
+            });
         }
         return this.cdp;
     }
 
     private async applyViewport(session: CDPSession) {
+        const desired = this.viewport;
+        const applied = this.appliedViewports.get(session);
+        if (applied?.width === desired.width && applied?.height === desired.height) return;
+        // Failure leaves the browser's size uncertain, including the old size.
+        this.appliedViewports.delete(session);
         await session.send('Emulation.setDeviceMetricsOverride', {
-            ...this.viewport, deviceScaleFactor: 1, mobile: false,
+            ...desired, deviceScaleFactor: 1, mobile: false,
         });
+        this.appliedViewports.set(session, desired);
     }
 
     // Capture keeps a dedicated session, isolated from input/history. A
@@ -133,11 +152,15 @@ export class BrowserControls {
         const timer = setTimeout(abort, 3000);
         try {
             if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
-            const result = await session.send('Page.captureScreenshot', {
+            const cdpPhase = beginCapturePhase('cdp.screenshot');
+            let result;
+            try { result = await session.send('Page.captureScreenshot', {
                 format, ...(format === 'jpeg' ? { quality: 60 } : {}),
                 captureBeyondViewport: false, fromSurface: true, optimizeForSpeed: true,
-            });
-            return Buffer.from(result.data, 'base64');
+            }); } finally { endCapturePhase(cdpPhase); }
+            const base64Phase = beginCapturePhase('node.base64_decode');
+            try { return Buffer.from(result.data, 'base64'); }
+            finally { endCapturePhase(base64Phase); }
         } catch (error) {
             // A failed or aborted attempt must not be reused; the next capture
             // attaches a fresh session for the current target.

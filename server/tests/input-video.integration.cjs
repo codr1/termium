@@ -59,21 +59,32 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     }));
     await sendKey('ArrowDown');
     await page.waitForFunction(() => scrollY > 0, { timeout: 3000 });
-    await sleep(250);
+    // Native smooth scrolling need not move equal distances for opposite
+    // keystrokes, especially when the second interrupts an animation. Test
+    // direction from a known position, not an exact round trip to pixel zero.
+    // An instant scroll also cancels the preceding animation before each check.
+    await page.evaluate(() => scrollTo({ top: 500, behavior: 'instant' }));
+    assert.equal(await page.evaluate(() => scrollY), 500);
     await sendKey('ArrowUp');
-    await page.waitForFunction(() => scrollY === 0, { timeout: 3000 });
+    await page.waitForFunction(() => scrollY < 500, { timeout: 3000 });
     // PageDown must work without borrowing residual motion from a preceding
     // ArrowDown. An explicit CDP command must still respect page cancellation.
+    await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
+    assert.equal(await page.evaluate(() => scrollY), 0);
     await page.evaluate(() => addEventListener('keydown', event => event.preventDefault(), { once: true }));
     await sendKey('PageDown');
     await sleep(200);
     assert.equal(await page.evaluate(() => scrollY), 0, 'PageDown ignored preventDefault');
     await sendKey('PageDown');
     await page.waitForFunction(() => scrollY > 100, { timeout: 3000 });
-    await sleep(250);
+    await page.evaluate(() => scrollTo({ top: 1000, behavior: 'instant' }));
+    assert.equal(await page.evaluate(() => scrollY), 1000);
     await sendKey('PageUp');
-    await page.waitForFunction(() => scrollY === 0, { timeout: 3000 });
-    await page.evaluate(() => { window.receivedKeys = 0; window.recentKeys = []; });
+    await page.waitForFunction(() => scrollY < 1000, { timeout: 3000 });
+    await page.evaluate(() => {
+        scrollTo({ top: 0, behavior: 'instant' });
+        window.receivedKeys = 0; window.recentKeys = [];
+    });
     const captureErrors = [];
     let running = true, captures = 0;
     const capturing = (async () => {

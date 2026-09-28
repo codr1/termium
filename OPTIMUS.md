@@ -564,6 +564,8 @@ Next candidate focus: **small-byte-slice allocations and writer calls in Sixel e
 
 ## Investigated: whole-pipeline capture, Kitty and Sixel (2026-09-27)
 
+**Baseline recorded 2026-09-28:** [ea-canvas-2026-09-27](docs/performance/2026-09-28-baseline.md), with a SHA256 manifest of retained evidence. Standalone streaming trials will use fresh screenshot controls and will not be compared directly to whole-Termium FPS.
+
 The Sixel-only report above was insufficient to explain bottlenecks. Follow-up on ea covers Go work/wait spans, Node V8 profiles and Chromium capture events for **both** renderers at 1280×720 and 3840×2160. Four 10-second traced canvas runs plus two 30-second Kitty CPU/timeline runs completed successfully. This is diagnostic evidence, not an A/B speedup claim.
 
 Full [pipeline report](docs/performance/2026-09-27-pipeline-profiling.md), [interactive measured timeline](docs/performance/2026-09-27-pipeline-timeline.html), and [Kitty/Node CPU functions](docs/performance/2026-09-27-cpu-hot-functions.md).

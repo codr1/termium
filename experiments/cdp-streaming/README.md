@@ -2,6 +2,8 @@
 
 This directory runs Puppeteer/CDP directly. It does **not** start or modify Termium's server, Go client, renderer, installer or website. Use it to investigate capture delivery, not terminal FPS.
 
+The browser connection uses a local pipe (`pipe: true`). Each CDP frame event carries a complete base64 PNG/JPEG, just as it would over WebSocket; there is no raw-pixel or delta transport. See [streaming and raw-frame research](../../docs/performance/capture-streaming-and-raw-frames.md) for FPS controls, alternatives, and the post-release plan.
+
 From a checkout with the project's Node dependencies installed:
 
 ```sh

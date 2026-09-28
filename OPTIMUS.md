@@ -14,6 +14,8 @@ Evaluate the redesign by steady-state command counts, latency, CPU, and responsi
 
 ## Current performance backlog
 
+Release boundary, 2026-09-28: pause new optimization work while qualifying the next release. The [streaming/raw-frame research record](docs/performance/capture-streaming-and-raw-frames.md) consolidates complete-image CDP payloads, the actual local-pipe transport, rate-control options, raw-bitmap alternatives, and the bounded post-release experiment order. Streaming is a standalone toy, not a production feature. Existing [baseline](docs/performance/2026-09-28-baseline.md) and [streaming measurements](docs/performance/2026-09-28-streaming-poc.md) retain their separate scopes.
+
 Reviewed 2026-09-16, updated 2026-09-27 (reusable capture session implemented). The remaining unchecked items are unfinished; their candidate optimizations have no measured benefit yet. Keep the current Go/Node/Puppeteer/Chromium stack as the baseline. Older proposals below are historical notes, not an implementation queue.
 
 - [ ] **Run the full local performance comparison.** Start on the weaker laptop using the [profiling procedure](docs/testing.md#full-local-performance-run-planned). Separate capture, Node/CDP, local RPC, Go preparation/GC, terminal writes, and visible presentation. Compare input latency and long-frame tails as well as frame delivery.

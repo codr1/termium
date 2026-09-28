@@ -127,6 +127,9 @@ func startServer() error {
 	serverProcess = exec.Command(nodePath, args...)
 	serverProcess.Dir = loc.workDir
 	serverProcess.Env = env
+	if cfg.Debug {
+		serverProcess.Env = append(serverProcess.Env, "TERMIUM_INPUT_TRACE=1")
+	}
 
 	// Capture stdout to watch for readiness sentinel
 	stdout, err := serverProcess.StdoutPipe()

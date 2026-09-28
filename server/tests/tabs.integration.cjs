@@ -117,10 +117,17 @@ test('bundled Vimium and real Chromium tabs share input, selection and capture',
     await text('t');
     await waitFor(async () => (await session.state()).tabs.length===5,'Vimium t on offline welcome page');
     await command(A.NAVIGATE, {url:url+'/frames'});
-    await waitFor(async () => !(await session.state()).loading, 'frame fixture load');
+    // Navigation admission can precede the new document's loading state. An
+    // idle previous page is not evidence that the frame fixture has loaded.
+    await waitFor(async () => {
+        const state = await session.state();
+        return state.url === url+'/frames' && !state.loading;
+    }, 'frame fixture load');
     page = await session.ensurePage();
-    const child = page.frames().find(f => f !== page.mainFrame() && f.url().startsWith('http:'));
-    assert.ok(child, 'cross-origin frame missing');
+    const child = await waitFor(() => page.frames().find(f =>
+        f.parentFrame() === page.mainFrame() && f.url() === `http://127.0.0.1:${frameServer.address().port}/`
+    ), 'cross-origin frame missing');
+    await child.waitForSelector('input', {timeout:6000});
     await child.click('input');
     await text('fjgg');
     assert.equal(await child.$eval('input', e => e.value), 'fjgg');

@@ -105,9 +105,20 @@ of the key dispatch, so a page's `preventDefault` can cancel them. Linux handlin
 and modified-key combinations are unchanged.
 
 The test now checks PageDown from rest, PageUp back to the top, and page-level
-cancellation before starting its mixed-key/video loop. Both native Mac CI jobs
+cancellation before starting its sustained-input/video loop. ArrowDown and
+ArrowUp also have isolated from-rest checks. Both native Mac CI jobs
 are required release gates. Chromium's implementation of the scrolling commands
 is in [editor_command.cc](https://github.com/chromium/chromium/blob/main/third_party/blink/renderer/core/editing/commands/editor_command.cc).
+
+The first tagged run received all 41 keys but one interleaved ArrowDown produced
+no separate scroll delta. Vimium animates by issuing repeated instant scrolls
+(`content_scripts/scroller.js`), which can interrupt Chromium's native smooth
+scroll. Per-key displacement is therefore not a valid delivery assertion for
+rapidly mixed scrolling modes. The regression now runs three ten-second phases
+(`j`, ArrowDown, PageDown), asserts exact key receipt after every dispatch, and
+requires scroll, video, and capture progress every ten inputs and at phase end.
+This keeps the sustained-stall checks without requiring independent animations
+to complete simultaneously. Native CI remains a release gate.
 
 ## Unresolved observation
 

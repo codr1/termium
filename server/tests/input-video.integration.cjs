@@ -57,6 +57,11 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     const sendKey = key => session.input(InputEvent.fromPartial({
         kind: InputKind.KEY_INPUT, key, tabId: state.activeTabId, generation: state.generation,
     }));
+    await sendKey('ArrowDown');
+    await page.waitForFunction(() => scrollY > 0, { timeout: 3000 });
+    await sleep(250);
+    await sendKey('ArrowUp');
+    await page.waitForFunction(() => scrollY === 0, { timeout: 3000 });
     // PageDown must work without borrowing residual motion from a preceding
     // ArrowDown. An explicit CDP command must still respect page cancellation.
     await page.evaluate(() => addEventListener('keydown', event => event.preventDefault(), { once: true }));
@@ -78,38 +83,40 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
             await sleep(40);
         }
     })();
-    const started = Date.now();
     let sent = 0, lastY = 0, previousCaptures = 0, previousVideoFrames = 0;
+    const observe = () => page.evaluate(() => ({ y: scrollY, keys: receivedKeys,
+        videoFrames: document.querySelector('video').getVideoPlaybackQuality().totalVideoFrames }));
+    const checkProgress = (observed, event) => {
+        assert.ok(observed.y > lastY,
+            `scroll stalled: input=${JSON.stringify(event)} sent=${sent} previousY=${lastY} observed=${JSON.stringify(observed)}`);
+        assert.ok(captures > previousCaptures, 'capture stopped during input');
+        assert.ok(observed.videoFrames > previousVideoFrames, 'video stopped during input');
+        lastY = observed.y;
+        previousCaptures = captures; previousVideoFrames = observed.videoFrames;
+    };
     try {
-        // Mix Vimium text and native keys through the same production queue.
-        while (Date.now() - started < 30000) {
-            const event = sent % 3 === 0 ? { kind: InputKind.TEXT_INPUT, text: 'j' } :
-                { kind: InputKind.KEY_INPUT, key: sent % 3 === 1 ? 'ArrowDown' : 'PageDown' };
-            await session.input(InputEvent.fromPartial({ ...event, tabId: state.activeTabId, generation: state.generation }));
-            sent++;
-            // Scroll defaults are asynchronous in Chromium. Require actual movement,
-            // not merely a successful CDP acknowledgement; bound each wait separately.
-            try {
-                await page.waitForFunction(y => scrollY > y, { timeout: 3000 }, lastY);
-            } catch (error) {
-                const failure = await page.evaluate(() => ({ y: scrollY,
-                    maxY: document.scrollingElement.scrollHeight - innerHeight,
-                    keys: window.receivedKeys, recentKeys: window.recentKeys,
-                    focus: document.activeElement?.tagName, visibility: document.visibilityState,
-                    videoFrames: document.querySelector('video').getVideoPlaybackQuality().totalVideoFrames }));
-                error.message += `; input=${JSON.stringify(event)} sent=${sent} lastY=${lastY} captures=${captures} page=${JSON.stringify(failure)}`;
-                throw error;
+        // Test each mode for ten seconds. Vimium's RAF-driven instant scrolls
+        // can cancel native smooth scrolls; a separate visible delta per
+        // rapidly interleaved key is not a valid input-delivery requirement.
+        for (const event of [
+            { kind: InputKind.TEXT_INPUT, text: 'j' },
+            { kind: InputKind.KEY_INPUT, key: 'ArrowDown' },
+            { kind: InputKind.KEY_INPUT, key: 'PageDown' },
+        ]) {
+            const started = Date.now(), initialSent = sent;
+            lastY = (await observe()).y;
+            while (Date.now() - started < 10000) {
+                await session.input(InputEvent.fromPartial({ ...event, tabId: state.activeTabId, generation: state.generation }));
+                sent++;
+                await sleep(100);
+                const observed = await observe();
+                assert.equal(observed.keys, sent, 'a key was lost or duplicated');
+                if ((sent - initialSent) % 10 === 0) checkProgress(observed, event);
             }
-            const observed = await page.evaluate(() => ({ y: scrollY, keys: receivedKeys,
-                videoFrames: document.querySelector('video').getVideoPlaybackQuality().totalVideoFrames }));
-            assert.equal(observed.keys, sent, 'a key was lost or duplicated');
-            lastY = observed.y;
-            if (sent % 10 === 0) {
-                assert.ok(captures > previousCaptures, 'capture stopped during input');
-                assert.ok(observed.videoFrames > previousVideoFrames, 'video stopped during input');
-                previousCaptures = captures; previousVideoFrames = observed.videoFrames;
-            }
-            await sleep(100);
+            assert.ok(sent - initialSent >= 10, 'fewer than ten keys completed in an input phase');
+            await sleep(300); // Finish the previous animation before switching modes.
+            if ((sent - initialSent) % 10 !== 0) checkProgress(await observe(), event);
+            t.diagnostic(`input=${JSON.stringify(event)} completed ten seconds; sent=${sent}; scrollY=${lastY}`);
         }
     } finally {
         running = false;

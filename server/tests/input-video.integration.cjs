@@ -40,7 +40,12 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
     // handled keys before ordinary page scripts can count them.
     await page.evaluateOnNewDocument(() => {
         window.receivedKeys = 0;
-        addEventListener('keydown', () => window.receivedKeys++, true);
+        window.recentKeys = [];
+        addEventListener('keydown', event => {
+            window.receivedKeys++;
+            window.recentKeys.push({ key: event.key, repeat: event.repeat, y: scrollY });
+            if (window.recentKeys.length > 8) window.recentKeys.shift();
+        }, true);
     });
     const url = `http://127.0.0.1:${fixture.address().port}`;
     // Wait for a committed fixture before waiting for its media promise.
@@ -69,7 +74,17 @@ test('sustained keyboard input scrolls for 30 seconds while autoplay video and P
             sent++;
             // Scroll defaults are asynchronous in Chromium. Require actual movement,
             // not merely a successful CDP acknowledgement; bound each wait separately.
-            await page.waitForFunction(y => scrollY > y, { timeout: 3000 }, lastY);
+            try {
+                await page.waitForFunction(y => scrollY > y, { timeout: 3000 }, lastY);
+            } catch (error) {
+                const failure = await page.evaluate(() => ({ y: scrollY,
+                    maxY: document.scrollingElement.scrollHeight - innerHeight,
+                    keys: window.receivedKeys, recentKeys: window.recentKeys,
+                    focus: document.activeElement?.tagName, visibility: document.visibilityState,
+                    videoFrames: document.querySelector('video').getVideoPlaybackQuality().totalVideoFrames }));
+                error.message += `; input=${JSON.stringify(event)} sent=${sent} lastY=${lastY} captures=${captures} page=${JSON.stringify(failure)}`;
+                throw error;
+            }
             const observed = await page.evaluate(() => ({ y: scrollY, keys: receivedKeys,
                 videoFrames: document.querySelector('video').getVideoPlaybackQuality().totalVideoFrames }));
             assert.equal(observed.keys, sent, 'a key was lost or duplicated');

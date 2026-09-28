@@ -136,6 +136,20 @@ export class BrowserControls {
     }
 
     async capture(format: 'png' | 'jpeg'): Promise<Buffer> {
+        try {
+            return await this.captureOnce(format);
+        } catch (error) {
+            // A target can briefly lose its active compositor without a main
+            // frame navigation. captureOnce has already discarded that session.
+            // Retry this read once on a fresh session; persistent failures and
+            // unrelated errors must still reach the caller.
+            if (!(error instanceof Error) ||
+                !error.message.includes('Protocol error (Page.captureScreenshot): Not attached to an active page')) throw error;
+            return this.captureOnce(format);
+        }
+    }
+
+    private async captureOnce(format: 'png' | 'jpeg'): Promise<Buffer> {
         const page = await this.ensurePage();
         // Render committed content even while images/scripts keep load pending.
         // Document changes are handled by aborting the capture session below.

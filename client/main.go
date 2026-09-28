@@ -432,7 +432,7 @@ func cleanShutdown(s tcell.Screen) {
 
 func setupSignalHandling(s tcell.Screen) {
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 	go func() {
 		defer signal.Stop(signalChan)
 		select {

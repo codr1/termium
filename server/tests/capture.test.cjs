@@ -11,6 +11,66 @@ function makePage() {
     return { page, frame };
 }
 
+for (const scenario of ['recovers', 'persistent', 'unrelated', 'navigation']) {
+    test(`inactive compositor capture retry: ${scenario}`, async t => {
+        t.mock.timers.enable({ apis: ['setTimeout'] });
+        const { page, frame } = makePage();
+        const transient = new Error('Protocol error (Page.captureScreenshot): Not attached to an active page');
+        const other = new Error('Protocol error (Page.captureScreenshot): Invalid parameters');
+        const sessions = [];
+        let screenshots = 0;
+        page.target = () => target;
+        const target = {
+            async createCDPSession() {
+                const input = sessions.length === 0;
+                const session = {
+                    detaches: 0,
+                    async send(method) {
+                        if (input) {
+                            assert.equal(this.detaches, 0, 'capture detached input');
+                            if (method === 'Page.getNavigationHistory') return { entries: [], currentIndex: 0 };
+                            assert.equal(method, 'Emulation.setDeviceMetricsOverride');
+                            return {};
+                        }
+                        assert.equal(method, 'Page.captureScreenshot');
+                        if (++screenshots === 1 || scenario === 'persistent') {
+                            if (scenario === 'navigation') page.emit('framenavigated', frame);
+                            throw scenario === 'unrelated' ? other : transient;
+                        }
+                        return { data: Buffer.from('recovered').toString('base64') };
+                    },
+                    async detach() { this.detaches++; },
+                };
+                sessions.push(session);
+                return session;
+            },
+        };
+        const controls = new BrowserControls(async () => page);
+        await controls.attach(page);
+        const listeners = page.listenerCount('framenavigated');
+        if (scenario === 'recovers') {
+            assert.equal((await controls.capture('png')).toString(), 'recovered');
+            assert.equal(screenshots, 2);
+            assert.ok(sessions[1].detaches > 0);
+            assert.equal(sessions[2].detaches, 0);
+            await controls.capture('jpeg');
+            assert.equal(sessions.length, 3, 'successful retry was not reused');
+        } else {
+            await assert.rejects(controls.capture('png'), error => scenario === 'navigation'
+                ? error.code === 9 : error === (scenario === 'unrelated' ? other : transient));
+            assert.equal(screenshots, scenario === 'persistent' ? 2 : 1, 'incorrect retry budget');
+            assert.ok(sessions.slice(1).every(session => session.detaches > 0));
+        }
+        await controls.state();
+        assert.equal(sessions[0].detaches, 0);
+        assert.equal(page.listenerCount('framenavigated'), listeners);
+        assert.equal(page.listenerCount('close'), 0);
+        const detachCounts = sessions.map(session => session.detaches);
+        t.mock.timers.tick(10_000);
+        assert.deepEqual(sessions.map(session => session.detaches), detachCounts, 'watchdog leaked');
+    });
+}
+
 for (const trigger of ['navigation', 'watchdog']) {
     test(`${trigger} releases a stuck capture and preserves the input session`, async t => {
         t.mock.timers.enable({ apis: ['setTimeout'] });

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -25,7 +26,10 @@ func fileLock(path string, mode int) (*os.File, error) {
 	}
 	if err := unix.Flock(int(f.Fd()), mode|unix.LOCK_NB); err != nil {
 		f.Close()
-		return nil, fmt.Errorf("Termium is busy; close running sessions and retry: %w", err)
+		if errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EAGAIN) {
+			return nil, fmt.Errorf("Termium is busy: lock %q is held by another process; close running sessions or wait for the other installer to finish: %w", path, err)
+		}
+		return nil, fmt.Errorf("cannot lock %q: %w", path, err)
 	}
 	return f, nil
 }

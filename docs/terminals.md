@@ -35,6 +35,16 @@ Kitty and Ghostty are primary graphics targets. A release-tested matrix of termi
 
 Run Termium directly in a terminal while diagnosing display problems. SSH, tmux, and screen introduce additional graphics and input behavior that still needs testing. Native Windows builds are planned.
 
+## xterm setup
+
+For an xterm build with Sixel support, launch a graphics-capable emulation with enough color registers:
+
+```bash
+xterm -ti vt340 -xrm 'XTerm*numColorRegisters: 256'
+```
+
+Run `termium` inside that new window. The demo rig confirmed this configuration; its default VT420 configuration fell back to ASCII graphics. VT340 is one supported configuration, not the only one: xterm also provides a `decGraphicsID` resource to select graphics capabilities independently of the terminal emulation. Neither setting adds Sixel to a build compiled without it. See the [xterm manual](https://invisible-island.net/xterm/manpage/xterm.html) for `-ti`, `decGraphicsID`, and `numColorRegisters`.
+
 ## Sixel performance
 
 Sixel defaults to the fixed `websafe` palette for speed. To request it explicitly:

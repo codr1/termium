@@ -136,8 +136,41 @@ func TestInstallerSerializesConcurrentUpdates(t *testing.T) {
 	if first := <-done; first != nil {
 		t.Fatal(first)
 	}
-	if err == nil || !strings.Contains(err.Error(), "busy") {
+	if err == nil || !strings.Contains(err.Error(), "busy") || !strings.Contains(err.Error(), filepath.Join(home, ".install.lock")) {
 		t.Fatalf("concurrent update accepted: %v", err)
+	}
+}
+
+func TestInstallerAcceptsLeftoverLockFiles(t *testing.T) {
+	source, home, user := installerFixture(t)
+	digest := strings.Repeat("a", 64)
+	if err := installBundle(source, home, user, digest, func(string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	current, err := os.Readlink(filepath.Join(home, "current"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, current, ".active")
+	lease, err := fileLock(path, unix.LOCK_SH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = installBundle(source, home, user, digest, func(string) error { t.Fatal("validated while active"); return nil })
+	if err == nil || !strings.Contains(err.Error(), path) {
+		t.Errorf("busy error omitted held lock: %v", err)
+	}
+	if err := lease.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Neither file is removed. Kernel ownership, not file existence, decides.
+	for _, name := range []string{path, filepath.Join(home, ".install.lock")} {
+		if _, err := os.Stat(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := installBundle(source, home, user, digest, func(string) error { return nil }); err != nil {
+		t.Fatal(err)
 	}
 }
 

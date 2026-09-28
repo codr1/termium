@@ -56,6 +56,12 @@ The installer puts the command at `~/.local/bin/termium` and sets up bash, zsh, 
 
 Each normal launch uses a private Unix socket and a separate temporary Chromium profile. Browsing sessions are not persisted between launches yet.
 
+## If an update reports “Termium is busy”
+
+The installer uses operating-system locks. A lock file left on disk is harmless once its holder exits; deleting it while a process still holds it can defeat update protection.
+
+The lock path distinguishes two cases: `.install.lock` protects an installation in progress, and a version's `.active` lock protects a running session. Close sessions normally or let the other installation finish. On Linux, `lslocks -o PID,COMMAND,PATH` can help identify the holder. If the problem persists with no holder listed, save the complete error and lock path for a bug report; don't delete locks as a workaround.
+
 ## Platforms and limits
 
 | Platform | Bundle target |

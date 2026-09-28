@@ -748,6 +748,9 @@ func runMainLoop(s tcell.Screen) error {
 				keyboardHandler.pasteEvent(ev.Start())
 			}
 		case *tcell.EventKey:
+			if debugEnabled {
+				Debug(fmt.Sprintf("input received key=%d modifiers=%d focus=%s generation=%d tab=%s", ev.Key(), ev.Modifiers(), keyboardHandler.focus, keyboardHandler.state.Generation, keyboardHandler.state.ActiveTabId), DEBUG)
+			}
 			exit, handled := keyboardHandler.globalKey(ev, currentDialog != nil)
 			if exit {
 				return nil

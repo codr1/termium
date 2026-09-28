@@ -1,4 +1,5 @@
 import * as grpc from '@grpc/grpc-js';
+import { inputTrace, inputTraceEnabled } from './input-diagnostics';
 import { beginCapturePhase, endCapturePhase } from './capture-diagnostics';
 import { Page, CDPSession, KeyInput, Target, Frame } from 'puppeteer';
 import { BrowserState, InputEvent, InputKind, NavigationAction, NavigationRequest } from '../generated/bc';
@@ -278,6 +279,10 @@ export class BrowserControls {
         for (const [mask, key] of [[1, 'Alt'], [2, 'Control'], [4, 'Meta'], [8, 'Shift']] as const) {
             if (event.modifiers & mask) modifiers.push(key);
         }
+        // This is Puppeteer's keyboard session, separate from our capture and
+        // pointer/history sessions. Read its ID only for diagnostics.
+        const sessionId = inputTraceEnabled ? (page as Page & { _client?: () => CDPSession })._client?.().id() : undefined;
+        inputTrace('dispatch.begin', { keyboardSession: sessionId, generation: this.generation, kind: event.kind });
         try {
             for (const key of modifiers) await page.keyboard.down(key);
             switch (event.kind) {
@@ -297,6 +302,7 @@ export class BrowserControls {
                         fail(grpc.status.INVALID_ARGUMENT, 'Pointer is outside the viewport');
                     }
                     const cdp = await this.session(); this.x = event.x; this.y = event.y;
+                    if (inputTraceEnabled) inputTrace('pointer.session', { session: cdp.id() });
                     const base = { x: event.x, y: event.y, modifiers: event.modifiers };
                     await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseMoved', buttons: this.held });
                     if (event.kind === InputKind.WHEEL_INPUT) {
@@ -319,6 +325,10 @@ export class BrowserControls {
                 }
                 default: fail(grpc.status.INVALID_ARGUMENT, 'Unknown input kind');
             }
+            inputTrace('dispatch.result', { keyboardSession: sessionId, ok: true });
+        } catch (error) {
+            inputTrace('dispatch.result', { keyboardSession: sessionId, ok: false, error: (error as Error).message });
+            throw error;
         } finally {
             for (const key of modifiers.reverse()) await page.keyboard.up(key).catch(() => { });
         }

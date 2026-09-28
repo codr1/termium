@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	pb "termium/client/pb"
 	"time"
@@ -62,10 +63,16 @@ func (d *inputDispatcher) enqueue(o browserOperation) bool {
 			// A reset or release must still be admitted to prevent stuck drags.
 			release := o.input != nil && (o.input.Kind == pb.InputKind_RESET_INPUT || o.input.Kind == pb.InputKind_POINTER_INPUT && o.input.Buttons == 0 && o.input.ClickCount > 0)
 			if !release {
+				if debugEnabled {
+					Debug("input rejected: queue full", DEBUG)
+				}
 				return false
 			}
 		}
 		d.pending = append(d.pending, o)
+		if debugEnabled && o.input != nil {
+			Debug(fmt.Sprintf("input queued kind=%s key=%s text_bytes=%d generation=%d tab=%s depth=%d", o.input.Kind, o.input.Key, len(o.input.Text), o.input.Generation, o.input.TabId, len(d.pending)), DEBUG)
+		}
 	}
 	select {
 	case d.wake <- struct{}{}:
@@ -104,8 +111,18 @@ func (d *inputDispatcher) run() {
 			if known != nil && generation != 0 && generation < known.Generation {
 				// The read which recovered the first cancellation already proves
 				// these queued actions are stale. Report them without N more RPCs.
+				if debugEnabled {
+					Debug(fmt.Sprintf("input cancelled: queued generation=%d current=%d", generation, known.Generation), DEBUG)
+				}
 				d.notify(operationResult{operation: o, state: known, stale: true})
 				continue
+			}
+			if debugEnabled && o.input != nil {
+				Debug(fmt.Sprintf("input dispatch kind=%s generation=%d tab=%s", o.input.Kind, o.input.Generation, o.input.TabId), DEBUG)
+			}
+			var started time.Time
+			if debugEnabled {
+				started = time.Now()
 			}
 			ctx, cancel := context.WithTimeout(d.ctx, 5*time.Second)
 			result := operationResult{operation: o}
@@ -136,6 +153,9 @@ func (d *inputDispatcher) run() {
 			}
 			if result.state != nil && (known == nil || result.state.Generation >= known.Generation) {
 				known = result.state
+			}
+			if debugEnabled && o.input != nil {
+				Debug(fmt.Sprintf("input result kind=%s generation=%d tab=%s elapsed=%s stale=%t error=%v", o.input.Kind, o.input.Generation, o.input.TabId, time.Since(started), result.stale, result.err), DEBUG)
 			}
 			d.notify(result)
 		}

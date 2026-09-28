@@ -3,6 +3,7 @@ import * as grpc from '@grpc/grpc-js';
 import { BrowserState, InputEvent, InputKind, NavigationAction, NavigationRequest, Screenshot } from '../generated/bc';
 import { BrowserControls } from './browser-controls';
 import { Vimium } from './vimium';
+import { inputTrace, traceInput } from './input-diagnostics';
 import { beginCapturePhase, endCapturePhase } from './capture-diagnostics';
 
 type Tab = { id: string; page: Page; controls: BrowserControls; window: number };
@@ -194,15 +195,18 @@ export class BrowserSession {
     }
 
     input(event: InputEvent): Promise<BrowserState> {
-        return this.enqueue(async () => {
+        return traceInput(event, () => this.enqueue(async () => {
+            inputTrace('dequeued');
             const s = await this.snapshot();
+            inputTrace('selection', { tab: s.active.id, generation: s.generation });
             if ((event.tabId && event.tabId !== s.active.id) || (event.generation && event.generation !== s.generation)) {
                 const old = this.records.get(event.tabId);
                 if (old) await old.controls.resetInput();
                 stale();
             }
             if ([InputKind.KEY_INPUT, InputKind.TEXT_INPUT].includes(event.kind)) {
-                try { this.vimiumStatus = await this.vimium.waitForPage(s.active.page); }
+                inputTrace('vimium.begin');
+                try { this.vimiumStatus = await this.vimium.waitForPage(s.active.page); inputTrace('vimium.ready'); }
                 catch (error) { this.vimiumStatus = (error as Error).message; throw error; }
             }
             try { await s.active.controls.input({ ...event, generation: 0 }); }
@@ -220,7 +224,7 @@ export class BrowserSession {
                 }
             }
             return this.state();
-        });
+        }));
     }
 
     private viewport = { width: 800, height: 600 };

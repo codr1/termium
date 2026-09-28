@@ -581,6 +581,23 @@ Candidate follow-ups: batch Sixel tiny writes/reuse emission scratch; compare sc
 
 Artifacts: `/tmp/termium-pipeline-profile/results` (also `/tmp/termium-pipeline-ea-fGpsxF/results` on ea); exact diagnostic binary, patch, drivers and analysis scripts in `/tmp/termium-pipeline-profile`. The report documents trace boundaries, clock uncertainty, instrumentation overhead and remaining native-stack/real-terminal limitations. Source/static review, Go client race tests and server tests passed; no release/merge/push occurred.
 
+## Investigated: standalone screenshot versus streaming (2026-09-28)
+
+**Baseline logged, proof of concept complete; no Termium integration.** [Recorded baseline](docs/performance/2026-09-28-baseline.md), [experiment report](docs/performance/2026-09-28-streaming-poc.md), [standalone code and commands](experiments/cdp-streaming/README.md).
+
+Sixteen unprofiled capture-only trials on ea: screenshot → stream → stream → screenshot for PNG/JPEG at 720p/4K; fresh browsers, 3 s warmup, 10 s measurement. Same fast image encoders/settings, no 24 FPS cap, 30 Hz animated fixture with a visual frame marker. All runs and 160 saved-image validations passed. These are not terminal or full-Termium FPS.
+
+| Condition | Screenshot frames/s | Stream frames/s | Paired ratio |
+| --- | ---: | ---: | ---: |
+| 720p JPEG | 19.3–20.2 | 30.0 | 1.49–1.55× |
+| 720p PNG | 15.9–18.0 | 30.0 | 1.67–1.89× |
+| 4K JPEG | 7.4–7.5 | 16.8–16.9 | 2.24–2.28× |
+| 4K PNG | 9.9–10.0 | 29.3–29.9 | 2.93–3.02× |
+
+Streaming wins throughput in both run orders, but at 4K it costs more CPU per frame as well as per second. JPEG process-tree CPU rises from ~1.13 cores to 2.93–2.99; sampled logical content-age medians rise from 122–126 ms to 195–197 ms. PNG rises from 0.94–0.97 cores to 3.30–3.45; sampled age shows no consistent improvement (screenshots 75–103 ms; streaming 93–106 ms). All runs still use software compositing. Resource accounting and ten image samples/run have explicit limitations in the report.
+
+**Next bounded question:** control streaming production/freshness near the application's 24 FPS target and test a slow consumer with bounded latest-frame handling. Dropping already-encoded frames alone need not reduce browser CPU. No default switch is warranted yet; 4K Sixel preparation remains a separate bottleneck. Capture scaling/upscaling and acceleration remain separate experiments. Raw receipts, sampled images and hashes are preserved; no push/PR/merge/release performed.
+
 ## Historical investigation and backlog
 
 The remaining sections preserve earlier measurements and proposals. References to the old fixed ticker, debug screenshot writes, repeated full-image transmission, or dialog compositing describe the pre-refactor implementation; consult the implemented record above and current code before treating them as open work.

@@ -31,3 +31,18 @@ Reports include arrivals/s, arrival intervals, bytes/s, payload changes, screens
 For comparisons, use one host/browser/fixture, fresh browser per run, and screenshot → stream → stream → screenshot. Do not run a profiler concurrently. Resource sampling has overhead and misses the final CPU of processes exiting between samples; summed RSS includes shared-page double counting and saved samples. Treat small differences as inconclusive. Compare within this toy first; do not compare its rate directly with the recorded whole-Termium baseline.
 
 Sources: [CDP Page API](https://chromedevtools.github.io/devtools-protocol/tot/Page/), [matching Chromium streaming implementation](https://github.com/chromium/chromium/blob/4999cc1efed37c4d91dc4ce6ec4b0a50e2a9a8cb/content/browser/devtools/protocol/page_handler.cc#L1578). The implementation receives compositor frames, uses a worker-thread image encoder and requires acknowledgements; it still produces encoded image payloads through CDP. This is not raw framebuffer access.
+
+The paths being compared are:
+
+```mermaid
+flowchart LR
+  R[Screenshot request] --> P[Force redraw and obtain surface]
+  P --> E[Encode image] --> Reply[CDP response] --> R
+  C[Compositor frames] --> V[Video capture consumer]
+  V --> W[Worker-thread image encoding] --> Event[CDP frame event]
+  Event --> Ack[Consumer acknowledgement]
+```
+
+Acknowledgement prevents the stream's in-flight allowance from filling. This toy consumes and acknowledges promptly; a production consumer would need explicit bounded ownership/drop behavior and tests for navigation, resize and shutdown.
+
+Recorded experiment: [2026-09-28 ea results and tradeoffs](../../docs/performance/2026-09-28-streaming-poc.md). To reproduce its aggregate tables from the retained sixteen run directories, run `python3 experiments/cdp-streaming/analyze.py RESULTS_ROOT` after all runs and sample validations have completed. The result is `RESULTS_ROOT/summary.json`.

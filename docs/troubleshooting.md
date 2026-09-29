@@ -38,6 +38,10 @@ If the shell's display remains garbled after Termium exits, run `reset` in that 
 
 Normal launches use separate managed browser sessions and private sockets. If two terminals control the same browser, check whether you explicitly selected the same shared `--tcp` server. Run `termium` without that option for an independent session.
 
+## Installation fails inside Docker
+
+If setup stops with `Target closed` and `browser check failed` inside a container, Chromium's sandbox is blocked. Docker's default seccomp profile blocks the namespaces the sandbox needs. Start the container with `--security-opt seccomp=unconfined` and run the installer again as a normal user.
+
 ## Report a problem
 
 Include:

@@ -33,7 +33,13 @@ For the best image quality, use a terminal that implements the [Kitty graphics p
 
 Kitty and Ghostty are primary graphics targets. A release-tested matrix of terminal versions, Linux distributions, and macOS versions has not been published yet. The names above describe intended protocol compatibility, not certification of every version.
 
-Run Termium directly in a terminal while diagnosing display problems. SSH, tmux, and screen introduce additional graphics and input behavior that still needs testing. Native Windows builds are planned.
+Run Termium directly in a terminal while diagnosing display problems.
+
+**SSH:** supported. Run `termium` on the remote Linux host from a local terminal with Kitty graphics or Sixel; Chromium runs remotely and the pages render on your screen. A slow connection lowers the frame rate.
+
+**Terminal multiplexers:** tmux, screen, and herdr do not work well yet. Run Termium directly in the terminal window.
+
+Native Windows builds are planned.
 
 ## xterm setup
 

@@ -4,7 +4,7 @@ for (const block of document.querySelectorAll('pre:has(code.language-bash)')) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'copy-button';
-  button.textContent = 'Copy command';
+  button.textContent = 'Copy';
   button.setAttribute('aria-label', 'Copy command to clipboard');
   button.addEventListener('click', async () => {
     try {
@@ -18,7 +18,7 @@ for (const block of document.querySelectorAll('pre:has(code.language-bash)')) {
       selection.addRange(range);
       button.textContent = 'Selected — copy with your browser';
     }
-    setTimeout(() => { button.textContent = 'Copy command'; }, 2500);
+    setTimeout(() => { button.textContent = 'Copy'; }, 2500);
   });
   block.prepend(button);
 }

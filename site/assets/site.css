@@ -160,3 +160,6 @@ summary { cursor: pointer; font-size: 0.9375rem; font-weight: 500; }
 .github-icon { flex: 0 0 16px; width: 16px; height: 16px; }
 
 .mouse-keys-panel { margin-top: 48px; padding-top: 36px; border-top: 1px solid #304051; }
+.demo-video { padding-block: 0 72px; }
+.demo-video video { display: block; width: 100%; max-width: 100%; height: auto; aspect-ratio: 16 / 9; border: 1px solid #344457; border-radius: 8px; background: #10151e; box-shadow: 0 22px 65px #0005; }
+.demo-video .fine-print { max-width: none; }

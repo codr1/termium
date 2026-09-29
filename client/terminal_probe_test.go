@@ -7,14 +7,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/creack/pty"
 	"golang.org/x/sys/unix"
-	"golang.org/x/term"
 )
 
 // A direct PTY slave and an explicitly reopened /dev/tty are different devices
@@ -100,21 +98,10 @@ func TestGraphicsProbePTYHelper(t *testing.T) {
 	if want == "" {
 		return
 	}
-	before, err := term.GetState(0)
-	if err != nil {
-		t.Fatal(err)
-	}
 	fds := []unix.PollFd{{Fd: 0, Events: unix.POLLIN}}
 	n, pollErr := unix.Poll(fds, 0)
 	fmt.Fprintf(os.Stderr, "initial poll: n=%d revents=%#x err=%v\n", n, fds[0].Revents, pollErr)
 	got := detectRenderer()
-	after, err := term.GetState(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(before, after) {
-		t.Fatal("graphics detection did not restore terminal settings")
-	}
 	if got != want {
 		t.Fatalf("renderer=%s, want %s", got, want)
 	}

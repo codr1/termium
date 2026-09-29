@@ -860,11 +860,14 @@ func detectTerminalAndCalibrate() {
 }
 
 func detectRenderer() string {
-	response, err := queryTerminalWithTimeout("\033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\", 200)
+	// Allow a slower startup response before selecting ASCII graphics. Queries
+	// return as soon as the terminal replies; this is a deadline, not a delay.
+	const graphicsProbeTimeoutMs = 1000
+	response, err := queryTerminalWithTimeout("\033_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\033\\", graphicsProbeTimeoutMs)
 	if err == nil && strings.Contains(response, "i=31;OK") {
 		return "kitty"
 	}
-	response, err = queryTerminalWithTimeout("\033[c", 200)
+	response, err = queryTerminalWithTimeout("\033[c", graphicsProbeTimeoutMs)
 	if err == nil {
 		for _, parameter := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(response, "\033[?"), "c"), ";") {
 			if parameter == "4" {

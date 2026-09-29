@@ -848,6 +848,7 @@ func detectTerminalAndCalibrate() {
 	setDefaultCharSize()
 	if cfg.Renderer == "auto" {
 		cfg.Renderer = detectRenderer()
+		Debug(fmt.Sprintf("Graphics auto-detection selected %s", cfg.Renderer), INFO)
 	}
 	if cfg.Renderer == "tcell" {
 		return
@@ -867,6 +868,11 @@ func detectRenderer() string {
 	if err == nil && strings.Contains(response, "i=31;OK") {
 		return "kitty"
 	}
+	if err != nil {
+		Debug(fmt.Sprintf("Kitty graphics probe failed: %v", err), DEBUG)
+	} else {
+		Debug("Kitty graphics probe did not report support", DEBUG)
+	}
 	response, err = queryTerminalWithTimeout("\033[c", graphicsProbeTimeoutMs)
 	if err == nil {
 		for _, parameter := range strings.Split(strings.TrimSuffix(strings.TrimPrefix(response, "\033[?"), "c"), ";") {
@@ -874,12 +880,17 @@ func detectRenderer() string {
 				return "sixel"
 			}
 		}
+	} else {
+		Debug(fmt.Sprintf("Sixel graphics probe failed: %v", err), DEBUG)
 	}
 	return "tcell"
 }
 
 func queryTerminalWithTimeout(query string, timeoutMs int) (string, error) {
 	fd := int(os.Stdin.Fd())
+	if fd < 0 || fd >= unix.FD_SETSIZE {
+		return "", fmt.Errorf("terminal descriptor %d is outside select range", fd)
+	}
 	old, err := term.MakeRaw(fd)
 	if err != nil {
 		return "", err
@@ -891,8 +902,27 @@ func queryTerminalWithTimeout(query string, timeoutMs int) (string, error) {
 	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
 	response := make([]byte, 0, 128)
 	for time.Now().Before(deadline) {
-		poll := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
-		n, err := unix.Poll(poll, max(1, int(time.Until(deadline).Milliseconds())))
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			break
+		}
+		// The installer reopens stdin through /dev/tty. Darwin's poll returns
+		// POLLNVAL for that device even though reads work; select supports it.
+		var readable unix.FdSet
+		readable.Set(fd)
+		timeout := unix.NsecToTimeval(remaining.Nanoseconds())
+		n, err := unix.Select(fd+1, &readable, nil, nil, &timeout)
+		if err == unix.EINTR {
+			continue
+		}
+		if err != nil {
+			return "", fmt.Errorf("waiting for terminal response: %w", err)
+		}
+		if n == 0 {
+			break
+		}
+		buf := make([]byte, 128)
+		n, err = unix.Read(fd, buf)
 		if err == unix.EINTR {
 			continue
 		}
@@ -900,15 +930,7 @@ func queryTerminalWithTimeout(query string, timeoutMs int) (string, error) {
 			return "", err
 		}
 		if n == 0 {
-			break
-		}
-		if poll[0].Revents&unix.POLLIN == 0 {
-			return "", fmt.Errorf("terminal closed")
-		}
-		buf := make([]byte, 128)
-		n, err = unix.Read(fd, buf)
-		if err != nil {
-			return "", err
+			return "", io.EOF
 		}
 		response = append(response, buf[:n]...)
 		text := string(response)

@@ -30,7 +30,7 @@ button { cursor: pointer; }
 .site-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 30px; font: 0.75rem var(--mono); color: var(--muted); }
 .site-nav a[aria-current="page"] { color: var(--green); }
 .site-nav .nav-install { padding: 10px 15px; border: 1px solid var(--line); border-radius: 4px; color: var(--text); }
-.hero { display: grid; grid-template-columns: 1.08fr 1fr; align-items: center; gap: 52px; padding-block: 90px 80px; }
+.hero { display: grid; grid-template-columns: 0.9fr 1.1fr; align-items: center; gap: 52px; padding-block: 90px 80px; }
 .hero-copy { min-width: 0; }
 .eyebrow { font: 0.625rem/1.6 var(--mono); letter-spacing: 1.6px; color: var(--blue); margin: 0 0 22px; }
 .status-dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--green); }
@@ -113,7 +113,7 @@ summary { cursor: pointer; font-size: 0.9375rem; font-weight: 500; }
 .docs-content code { font: .86em var(--mono); background: #172230; padding: 2px 5px; border-radius: 3px; overflow-wrap: anywhere; color: #b7e9cd; }
 .docs-content pre { position: relative; margin: 22px 0; padding: 24px; overflow-x: auto; background: #121d28; border: 1px solid #2d4054; border-radius: 5px; line-height: 1.7; }
 .docs-content pre code { padding: 0; background: none; font-size: 0.75rem; color: #c9e4d5; overflow-wrap: normal; }
-.copy-button { order: 2; flex: none; margin: 0 0 0 auto; padding: 5px 9px; border: 1px solid #43556b; background: var(--panel); color: var(--muted); border-radius: 3px; font: 0.625rem var(--mono); }
+.copy-button { order: 2; flex: none; white-space: nowrap; margin: 0 0 0 auto; padding: 5px 9px; border: 1px solid #43556b; background: var(--panel); color: var(--muted); border-radius: 3px; font: 0.625rem var(--mono); }
 /* Command and copy button share one row; the command wraps at spaces, never mid-word. */
 pre:has(> .copy-button) { display: flex; align-items: flex-start; gap: 12px; }
 pre:has(> .copy-button) > code { flex: 1; min-width: 0; overflow-wrap: break-word; }
@@ -169,12 +169,13 @@ pre:has(> .copy-button) > code { flex: 1; min-width: 0; overflow-wrap: break-wor
 .hero-video figcaption { margin-top: 12px; color: var(--muted); font: 0.625rem/1.6 var(--mono); }
 .hero-illustration { display: flex; justify-content: center; padding-block: 0 72px; }
 .hero-illustration .terminal-demo { width: 100%; max-width: 560px; }
-/* One column: headline and lede, then the video, then the buttons and install command. */
-@media (max-width: 800px) {
-  .hero { gap: 0; }
+/* Below 1200px the install command no longer fits beside the video, so the hero goes to one column:
+   headline and lede, then the video, then the buttons and install command. */
+@media (max-width: 1199px) {
+  .hero { grid-template-columns: 1fr; gap: 0; }
   .hero-copy { display: contents; }
   .hero-copy > * { order: 3; }
   .hero-copy > .eyebrow, .hero-copy > h1, .hero-copy > .lede { order: 1; }
-  .hero-video { order: 2; width: 100%; margin-bottom: 32px; }
+  .hero-video { order: 2; width: 100%; max-width: 900px; margin-bottom: 32px; }
   .hero-illustration { padding-block: 0 48px; }
 }

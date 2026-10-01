@@ -58,10 +58,12 @@ Press **Ctrl+L** or click the address field. Its contents are selected, so start
 | F10 | Open or close Menu |
 | F1 | Shortcut help |
 | F6 | Toggle mouse keys |
+| F12 | Open developer tools for the current page |
+| F8 or Ctrl+C in page focus | Copy selected page text |
 | Ctrl+Q | Quit confirmation |
 | Escape three times rapidly | Emergency exit, including during dialogs |
 
-Use Menu when a terminal intercepts a shortcut. Menu supports mouse clicks, Up/Down, Tab/Shift+Tab, Enter, and Escape. It contains tab controls, navigation, address, mouse keys, help, and Quit.
+Use Menu when a terminal intercepts a shortcut. Menu supports mouse clicks, Up/Down, Tab/Shift+Tab, Enter, and Escape. It contains tab controls, navigation, address, mouse keys, **Developer tools**, **Copy selected text**, **Extensions**, help, and Quit. On short terminals, use Down or Tab to reveal more entries. The browser tools are currently available on `main`, pending release; see [Browser tools](browser-tools.md).
 
 ## Interact with a page
 
@@ -69,7 +71,7 @@ Click a field and type normally. Page keys include arrows, Tab/Shift+Tab, Enter,
 
 Mouse support includes left/right/middle buttons, hover, double/triple clicks, held-button dragging, wheel scrolling, and back/forward buttons when reported by the terminal. Shift+wheel scrolls horizontally. Drags remain captured until release, including a release outside the page area. Pointer accuracy is limited to the center of a terminal cell.
 
-Use your terminal's paste command. Bracketed paste inserts literal text; pasted text cannot activate Termium shortcuts. Middle-click opens links in tabs; select them from the top row or all-tabs picker. Host clipboard integration and native browser file choosers remain limited; see [Vimium limitations](vimium.md#help-and-limits).
+Drag to select page text, then use **Menu → Copy selected text**, **F8**, or **Ctrl+C** in page focus. Copy requires your terminal to permit OSC 52 clipboard writes. Use your terminal's paste command (commonly Ctrl+Shift+V on Linux or Cmd+V on macOS); bracketed paste inserts literal text without activating Termium shortcuts. Middle-click opens links in tabs. See [Browser tools](browser-tools.md) for clipboard limits, developer tools and loading extensions. Native browser file choosers remain limited.
 
 ## Mouse keys
 

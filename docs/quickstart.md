@@ -22,7 +22,9 @@ Setup supplies the private runtime, downloads and verifies Chromium and Vimium, 
 - **F1**: Termium help. **?**: Vimium help.
 - **Ctrl+Q**, then **Enter**: quit.
 
-The top bar also has tabs, Back, Forward, Reload, an address field, and Menu. Mouse clicks, dragging, and scrolling work alongside keyboard navigation.
+The top bar also has tabs, Back, Forward, Reload, an address field, and Menu (**F10**). Mouse clicks, dragging, and scrolling work alongside keyboard navigation.
+
+On the development build, Menu also includes **Developer tools** (F12), **Copy selected text** (F8), and **Extensions**. Paste with your terminal's paste shortcut. See [Browser tools](browser-tools.md) for availability, selection, clipboard requirements, and unpacked extension loading.
 
 Kitty or sixel graphics are selected automatically, with an ASCII graphics fallback when neither is available. To try the fallback explicitly, use `termium --renderer tcell` in a new terminal.
 

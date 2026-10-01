@@ -79,8 +79,16 @@ If you want sharp terminal text on any terminal, Carbonyl and Browsh are good ch
 
 - **Terminal multiplexers:** tmux, screen, and herdr do not work well yet. Run Termium directly in the terminal window.
 - **Docker:** Chromium's sandbox needs namespaces that Docker's default seccomp profile blocks. Run the container with `--security-opt seccomp=unconfined`.
-- **Text is pixels:** page text is part of the image, so you cannot select it as terminal text, and screen readers do not see it.
+- **Text is pixels:** page text is part of the image, so terminal-native selection and screen readers cannot read it. On `main`, select inside the webpage and use **F10 → Copy selected text** (F8); see [Browser tools](docs/browser-tools.md).
 - **Platforms:** no native Windows or Linux ARM64 packages yet.
+
+## Browser tools on main
+
+Open **F10** or click **Menu** for **Developer tools** (F12), **Copy selected text**
+(F8), and **Extensions**. Drag to select text, copy through the terminal clipboard,
+and paste with your terminal's paste shortcut. Load unpacked extensions with
+`termium --extension /path/to/extension`. These additions are on `main`, pending
+the next release. [Controls, availability and limits](docs/browser-tools.md).
 
 ## Documentation
 

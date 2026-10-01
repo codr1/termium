@@ -53,7 +53,8 @@ test('public site is complete, links resolve, and the welcome page stays separat
       if (url.hash) anchors.push([url.pathname, decodeURIComponent(url.hash.slice(1))]);
     }
   }
-  assert.equal(visited.size, 11, 'Expected product page, docs index, and nine guides');
+  assert.equal(visited.size, 12, 'Expected product page, docs index, and ten guides');
+  assert.ok(visited.has('/docs/browser-tools/'), 'Browser tools must be reachable from the public documentation');
   for (const [route, id] of anchors) {
     await page.goto(origin + route);
     assert.ok(await page.evaluate(id => !!document.getElementById(id), id), `Broken fragment ${route}#${id}`);

@@ -16,6 +16,7 @@ const docs = [
   ['installation', 'Installation', 'Build, install, and launch Termium.', 'Start here'],
   ['getting-started', 'Getting started', 'Your first page, mouse input, menus, and home-page settings.', 'Start here'],
   ['vimium', 'Keyboard & tabs', 'Vimium bindings, real tabs, and the mouse keys.', 'Using Termium'],
+  ['browser-tools', 'Browser tools', 'Developer tools, selection, copy/paste, and unpacked extensions.', 'Using Termium'],
   ['terminals', 'Terminal support', 'Kitty, sixel, ASCII graphics, and graphics performance.', 'Using Termium'],
   ['troubleshooting', 'Troubleshooting', 'Resolve display, navigation, and startup problems.', 'Using Termium'],
   ['development', 'Development', 'Build from source and contribute a change.', 'Contributing'],

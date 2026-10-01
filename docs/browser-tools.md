@@ -1,5 +1,28 @@
 # Developer tools, clipboard and extensions
 
+These features are on the development branch `main`; they are not in the latest
+published release yet. Updating from source makes them available. See
+[development setup](development.md) and [release availability](installation.md).
+
+## Find the tools in Menu
+
+Click **Menu** in the top bar or press **F10**. Use Up/Down (or Tab/Shift+Tab)
+and Enter, or click an item. Escape closes the menu. On short terminals, keep
+moving down to reveal the remaining entries.
+
+| Menu item | What it does | Shortcut |
+| --- | --- | --- |
+| Developer tools | Opens Chromium's inspector for the current page | F12 |
+| Copy selected text | Sends the page's selection to the terminal clipboard | F8 or Ctrl+C in page focus |
+| Extensions | Opens Chromium's extension manager to inspect extensions and options | Menu only |
+| Mouse keys | Enables keyboard movement, clicking and selection by dragging | F6 |
+| Shortcut help | Shows Termium's inline key reference | F1 |
+
+Paste uses your terminal's paste command; there is no menu action that reads the
+host clipboard. Loading an unpacked extension uses `--extension` at launch;
+**Extensions** opens the manager, not a terminal file picker. Sound is still
+being investigated and has no playback or mute control in Menu yet.
+
 ## Inspect a page
 
 Press **F12**, or choose **Developer tools** from the F10 menu. Termium opens

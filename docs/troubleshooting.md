@@ -26,7 +26,22 @@ For sixel, try `--palette websafe`. A smaller terminal window can also reduce re
 
 ## Keyboard shortcuts behave unexpectedly
 
-Arrow keys normally go to the page. If they move a local cursor, press F6 or Escape to leave mouse keys mode. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, F1, F5, F6, and F10; other supported page keys pass through. Terminals may intercept modifiers or mouse buttons before Termium receives them. Consult the [current controls](getting-started.md) and [Vimium navigation](vimium.md).
+Arrow keys normally go to the page. If they move a local cursor, press F6 or Escape to leave mouse keys mode. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, Alt+Home, F1, F5, F6, F8, F10, and F12, plus Ctrl+C while page input is focused; other supported page keys pass through. Terminals may intercept modifiers or mouse buttons before Termium receives them. Consult the [current controls](getting-started.md) and [Vimium navigation](vimium.md).
+
+## Copy, paste, or developer tools are missing
+
+These tools are on `main` and are not in the latest published release yet. A
+source checkout does not update an installed executable: rebuild/install from
+source as described in [development](development.md). Open **F10 → Developer
+tools**, **Copy selected text**, or **Extensions** if your terminal intercepts
+the function keys. Keep moving down in a short menu to reveal additional items.
+
+If copy says “No text selected”, select text inside the webpage first. If it says
+“Copy sent to terminal clipboard” but the clipboard does not change, check your
+terminal's OSC 52 permissions. That message confirms sending, not acceptance.
+Paste with the terminal's paste shortcut, not bare Ctrl+V. Extensions must be
+unpacked directories supplied with `--extension`; the menu opens their manager.
+See [Browser tools](browser-tools.md) for the full behavior and limits.
 
 ## Termium stops responding
 

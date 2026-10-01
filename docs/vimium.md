@@ -49,9 +49,9 @@ Leave this mode before typing into a page field. Outside mouse keys mode, webpag
 
 ## Help and limits
 
-**F1** opens terminal help and **F10** opens Menu. These remain usable on browser-owned pages. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, Alt+Home, F1, F5, F6, and F10. A terminal may intercept keys before Termium receives them.
+**F1** opens terminal help and **F10** opens Menu. These remain usable on browser-owned pages. Termium reserves Ctrl+L, Ctrl+T, Ctrl+W, Ctrl+Q, Ctrl+R, Alt+Left/Right, Alt+Home, F1, F5, F6, F8, F10, and F12, plus Ctrl+C while page input is focused. A terminal may intercept keys before Termium receives them.
 
-Vimium cannot inject into Chromium's protected pages, including `chrome://` pages. Termium shows an unavailable status there; use Ctrl+L or Menu. The bundled welcome page supports Vimium. Native file choosers, host clipboard integration, persistent profiles, and full popup-window behavior are not supported commitments yet. Vimium clipboard commands target Chromium's environment, which may differ from the terminal host over SSH or WSL.
+Vimium cannot inject into Chromium's protected pages, including `chrome://` pages. Termium shows an unavailable status there; use Ctrl+L or Menu. The bundled welcome page supports Vimium. Native file choosers, persistent profiles, and full popup-window behavior remain limited. Termium's **Menu → Copy selected text** / **F8** sends the page selection to the terminal clipboard using OSC 52; paste uses the terminal's own paste shortcut. Vimium clipboard commands target Chromium's environment, which may differ from the terminal host over SSH or WSL. [Browser tools](browser-tools.md) describes the development-build features and their menu entries.
 
 Smooth scrolling is disabled and hints use static, high-contrast styling to reduce graphics work. The webpage and Vimium overlays still travel through Chromium screenshots and the selected Kitty, sixel, or character renderer. Character mode cannot make screenshot text as readable as a graphics terminal.
 

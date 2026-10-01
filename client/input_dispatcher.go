@@ -14,11 +14,13 @@ import (
 )
 
 type browserOperation struct {
+	selection  *pb.NavigationRequest
 	input      *pb.InputEvent
 	navigation *pb.NavigationRequest
 	viewport   *pb.ViewportSize
 }
 type operationResult struct {
+	clipboard *string
 	operation browserOperation
 	state     *pb.BrowserState
 	err       error
@@ -105,6 +107,9 @@ func (d *inputDispatcher) run() {
 			if o.input != nil {
 				generation = o.input.Generation
 			}
+			if o.selection != nil {
+				generation = o.selection.Generation
+			}
 			if o.navigation != nil {
 				generation = o.navigation.Generation
 			}
@@ -128,6 +133,13 @@ func (d *inputDispatcher) run() {
 			result := operationResult{operation: o}
 			var trailer metadata.MD
 			switch {
+			case o.selection != nil:
+				var reply *pb.Message
+				reply, result.err = d.client.GetSelection(ctx, o.selection, grpc.Trailer(&trailer))
+				if reply != nil && result.err == nil {
+					result.state = reply.State
+					result.clipboard = &reply.Text
+				}
 			case o.input != nil:
 				var reply *pb.Message
 				reply, result.err = d.client.SendInput(ctx, o.input, grpc.Trailer(&trailer))

@@ -52,6 +52,7 @@ let dialogIdCounter = 0;
 
 // CLI setup with Commander
 program
+    .option('--extension <directory>', 'Load an unpacked extension (repeatable)', (value: string, previous: string[]) => [...previous, path.resolve(value)], [])
     .option('--homepage <url>', 'Startup and new-tab page', 'https://termium.dev/welcome/')
     .option('-b, --browser <ip:port>', 'Connect to an existing browser instance (ip:port)', '')
     .option('-d, --debug [filename]', 'Enable debug mode (log to stdout or optional file)', '')
@@ -171,6 +172,15 @@ async function launchBrowser() {
             ]
         });
     }
+    try {
+        for (const directory of options.extension as string[]) {
+            await browser!.installExtension(directory);
+        }
+    } catch (error) {
+        if (!options.browser) await browser!.close();
+        browser = null;
+        throw error;
+    }
     startCaptureDiagnostics(browser!);
 }
 
@@ -209,6 +219,10 @@ const browserControlHandlers: BrowserControlServer = {
     browserCommand: async (call, callback) => {
         try { callback(null, await controls.command(call.request)); }
         catch (error) { callback({ code:(error as any).code ?? grpc.status.INTERNAL, message:(error as Error).message, metadata:(error as any).metadata }); }
+    },
+    getSelection: async (call, callback) => {
+        try { callback(null, await controls.getSelection(call.request)); }
+        catch (error) { callback({ code: (error as any).code ?? grpc.status.INTERNAL, message: (error as Error).message, metadata: (error as any).metadata }); }
     },
     sendInput: async (call, callback) => {
         try { const state = await controls.input(call.request); callback(null, { text:'Input dispatched', state }); }

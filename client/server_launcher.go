@@ -116,6 +116,9 @@ func startServer() error {
 	}
 
 	args := []string{loc.scriptPath}
+	for _, directory := range cfg.Extensions {
+		args = append(args, "--extension", directory)
+	}
 	if cfg.Homepage != "" {
 		args = append(args, "--homepage", cfg.Homepage)
 	}

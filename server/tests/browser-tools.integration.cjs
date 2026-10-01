@@ -36,13 +36,17 @@ test('DevTools inspect, capture, switch, close and selection/paste use the activ
  await s.setViewport(800,600);assert.ok((await s.capture('png')).data.length>1000);
  // The real built-in frontend must initialize its panels, not just load a URL.
  await dev.waitForFunction(()=>document.querySelector('.tabbed-pane')!==null,{timeout:5000});
-  const inspected = await dev.evaluate(async () => {
+ // Panels can render before the frontend attaches to its inspected target,
+ // especially on native macOS. Wait for the actual connection, not a DOM shell.
+ const inspected = await dev.waitForFunction(async () => {
   const SDK = await import('./core/sdk/sdk.js');
   const target = SDK.TargetManager.TargetManager.instance().primaryPageTarget();
+  if (!target) return false;
   const reply = await target.runtimeAgent().invoke_evaluate({expression:'document.title',returnByValue:true});
-  return reply.result.value;
- });
- assert.equal(inspected,'Tools fixture','DevTools is connected to the requested page');
+  return reply.result?.value === 'Tools fixture';
+ }, {timeout:10000});
+ assert.equal(await inspected.jsonValue(),true,'DevTools is connected to the requested page');
+ await inspected.dispose();
  state=await cmd(A.SELECT_TAB,{tabId:owner});assert.equal(state.activeTabId,owner);
  state=await cmd(A.DEVTOOLS);assert.equal(state.activeTabId,inspector,'reuse inspector');
  state=await cmd(A.CLOSE_TAB,{tabId:inspector});assert.equal(state.activeTabId,owner);

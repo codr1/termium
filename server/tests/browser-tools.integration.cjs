@@ -1,0 +1,85 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const http=require('node:http');
+const puppeteer=require('puppeteer');
+const {BrowserSession}=require('../dist/src/browser-session');
+const {NavigationRequest,NavigationAction:A,InputEvent,InputKind}=require('../dist/generated/bc');
+
+test('DevTools inspect, capture, switch, close and selection/paste use the active page', {timeout:60000},async t=>{
+ const server=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.end('<title>Tools fixture</title><p id="text" style="width:max-content">inspect this text</p><textarea id="edit"></textarea><input type="password" value="secret">');});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>server.close());
+ const b=await puppeteer.launch({headless:true,pipe:true,enableExtensions:true});t.after(()=>b.close());
+ const s=new BrowserSession(async()=>b);
+ const cmd=(action,fields={})=>s.command(NavigationRequest.fromPartial({action,...fields}));
+ await s.ensurePage();await cmd(A.NAVIGATE,{url:`http://127.0.0.1:${server.address().port}/`});
+ const page=await s.ensurePage();await page.waitForSelector('#text');
+ const rect=await page.$eval('#text',e=>{const r=e.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height}});
+ const pointer=(x,buttons,clickCount)=>s.input(InputEvent.fromPartial({kind:InputKind.POINTER_INPUT,x:Math.round(x),y:Math.round(rect.y+rect.height/2),buttons,clickCount}));
+ await pointer(rect.x,1,1);await pointer(rect.x+rect.width+2,1,0);await pointer(rect.x+rect.width+2,0,1);
+ let state=await s.state();const owner=state.activeTabId;
+ assert.equal((await s.getSelection(NavigationRequest.fromPartial({tabId:owner,generation:state.generation}))).text,'inspect this text');
+ await page.click('#edit');await s.input(InputEvent.fromPartial({kind:InputKind.PASTE_INPUT,text:'literal f 世界\nnext'}));
+ assert.equal(await page.$eval('#edit',e=>e.value),'literal f 世界\nnext');
+ await page.$eval('#edit',e=>e.setSelectionRange(10,14));
+ assert.equal((await s.getSelection(NavigationRequest.fromPartial({}))).text,'世界\nn');
+ await page.click('input');await page.$eval('input',e=>e.select());
+ assert.equal((await s.getSelection(NavigationRequest.fromPartial({}))).text,'');
+ await page.evaluate(async()=>{const f=document.createElement('iframe');f.srcdoc='<input value="frame selection">';const loaded=new Promise(r=>f.onload=r);document.body.append(f);await loaded;});
+ const frame=page.frames().find(f=>f!==page.mainFrame());
+ await frame.click('input');await frame.$eval('input',e=>e.select());
+ assert.equal((await s.getSelection(NavigationRequest.fromPartial({}))).text,'frame selection');
+ await page.evaluate(()=>{const host=document.createElement('div');document.body.append(host);const root=host.attachShadow({mode:'open'});root.innerHTML='<textarea>shadow selection</textarea>';root.querySelector('textarea').focus();root.querySelector('textarea').select();});
+ assert.equal((await s.getSelection(NavigationRequest.fromPartial({}))).text,'shadow selection');
+ await assert.rejects(s.getSelection(NavigationRequest.fromPartial({tabId:'wrong'})),/changed/);
+ state=await cmd(A.DEVTOOLS);assert.match(state.activeTabId,/^devtools:/);const inspector=state.activeTabId;
+ const dev=await s.ensurePage();assert.match(dev.url(),/^devtools:/);
+ await s.setViewport(800,600);assert.ok((await s.capture('png')).data.length>1000);
+ // The real built-in frontend must initialize its panels, not just load a URL.
+ await dev.waitForFunction(()=>document.querySelector('.tabbed-pane')!==null,{timeout:5000});
+ // Panels can render before the frontend attaches to its inspected target,
+ // especially on native macOS. Wait for the actual connection, not a DOM shell.
+ const inspected = await dev.waitForFunction(async () => {
+  const SDK = await import('./core/sdk/sdk.js');
+  const target = SDK.TargetManager.TargetManager.instance().primaryPageTarget();
+  if (!target) return false;
+  const reply = await target.runtimeAgent().invoke_evaluate({expression:'document.title',returnByValue:true});
+  return reply.result?.value === 'Tools fixture';
+ }, {timeout:10000});
+ assert.equal(await inspected.jsonValue(),true,'DevTools is connected to the requested page');
+ await inspected.dispose();
+ state=await cmd(A.SELECT_TAB,{tabId:owner});assert.equal(state.activeTabId,owner);
+ state=await cmd(A.DEVTOOLS);assert.equal(state.activeTabId,inspector,'reuse inspector');
+ state=await cmd(A.CLOSE_TAB,{tabId:inspector});assert.equal(state.activeTabId,owner);
+  state=await cmd(A.DEVTOOLS);const secondInspector=state.activeTabId;
+ state=await cmd(A.CLOSE_TAB,{tabId:owner});
+ assert.ok(!state.tabs.some(t=>t.id===secondInspector),'closing inspected page removes inspector');
+ state=await cmd(A.EXTENSIONS);assert.match(state.url,/^chrome:\/\/extensions/);
+});
+
+test('server loads requested unpacked extensions before opening a page', {timeout:30000}, async t => {
+ const fs=require('node:fs/promises'), os=require('node:os'), path=require('node:path');
+ const {spawn}=require('node:child_process');
+ const grpc=require('@grpc/grpc-js');
+ const {BrowserControlClient}=require('../dist/generated/bc');
+ const dir=await fs.mkdtemp(path.join(os.tmpdir(),'termium-tools-'));t.after(()=>fs.rm(dir,{recursive:true,force:true}));
+ const ext=path.join(dir,'extension with spaces');await fs.mkdir(ext);
+ await fs.writeFile(path.join(ext,'manifest.json'),JSON.stringify({manifest_version:3,name:'Termium integration fixture',version:'1.0',content_scripts:[{matches:['http://127.0.0.1/*'],js:['content.js'],run_at:'document_end'}]}));
+ await fs.writeFile(path.join(ext,'content.js'),`document.title='Extension loaded';`);
+ const fixture=http.createServer((q,r)=>{r.setHeader('content-type','text/html');r.end('<title>Before extension</title><p>page</p>')});await new Promise(r=>fixture.listen(0,'127.0.0.1',r));t.after(()=>fixture.close());
+ const child=spawn(process.execPath,[path.join(__dirname,'../dist/src/server.js'),'--socket',path.join(dir,'server.sock'),'--extension',ext,'--homepage','about:blank'],{stdio:['ignore','pipe','pipe']});
+ let log='';child.stderr.on('data',d=>{log+=d});
+ const closed=new Promise(resolve=>child.once('close',resolve));
+ t.after(async()=>{child.kill('SIGTERM');await closed;});
+ await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>reject(Error('server readiness timeout '+log)),5000);
+  child.once('error',e=>{clearTimeout(timer);reject(e)});
+  child.stdout.on('data',d=>{log+=d;if(log.includes('TERMIUM_READY')){clearTimeout(timer);resolve()}});
+ });
+ const client=new BrowserControlClient('unix:'+path.join(dir,'server.sock'),grpc.credentials.createInsecure());t.after(()=>client.close());
+ const call=(method,arg)=>new Promise((resolve,reject)=>client[method](arg,{deadline:Date.now()+10000},(e,r)=>e?reject(e):resolve(r)));
+ await call('openTab',{});
+ await call('browserCommand',NavigationRequest.fromPartial({action:A.NAVIGATE,url:`http://127.0.0.1:${fixture.address().port}/`}));
+ const end=Date.now()+5000;let state;
+ do {state=await call('getBrowserState',{});if(state.title==='Extension loaded')break;await new Promise(r=>setTimeout(r,20))}while(Date.now()<end);
+ assert.equal(state.title,'Extension loaded');
+});

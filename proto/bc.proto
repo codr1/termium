@@ -13,6 +13,7 @@ service BrowserControl {
   rpc GetCurrentUrl (Empty) returns (Url) {}
   rpc GetBrowserState (Empty) returns (BrowserState) {}
   rpc BrowserCommand (NavigationRequest) returns (BrowserState) {}
+  rpc GetSelection (NavigationRequest) returns (Message) {}
   rpc SendInput (InputEvent) returns (Message) {}
   // Paced clients request only as much capture work as they can present.
   rpc CaptureScreenshot (ScreenshotRequest) returns (Screenshot) {}
@@ -84,6 +85,8 @@ enum NavigationAction {
   CLOSE_TAB = 7;
   REOPEN_TAB = 8;
   HOME = 9;
+  DEVTOOLS = 10;
+  EXTENSIONS = 11;
 }
 
 message NavigationRequest {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"image"
 	"net/url"
@@ -127,6 +128,24 @@ func (kh *KeyboardHandler) applyState(state *pb.BrowserState) {
 	}
 }
 func (kh *KeyboardHandler) result(result operationResult) {
+	if result.clipboard != nil && result.err == nil && !result.stale {
+		text := *result.clipboard
+		if text == "" {
+			kh.status = "No text selected"
+			return
+		}
+		if len(text) > 64*1024 {
+			kh.status = "Selection exceeds clipboard limit"
+			return
+		}
+		_, err := fmt.Fprintf(graphicsOutput, "\x1b]52;c;%s\a", base64.StdEncoding.EncodeToString([]byte(text)))
+		if err != nil {
+			kh.status = err.Error()
+		} else {
+			kh.status = "Copy sent to terminal clipboard"
+		}
+		return
+	}
 	if result.operation.navigation != nil {
 		if kh.pendingNavigation != nil && kh.pendingNavigation != result.operation.navigation {
 			// A newer address/tab command owns the editor and loading state.
@@ -271,6 +290,15 @@ func (kh *KeyboardHandler) action(id string) {
 		return
 	}
 	switch id {
+	case "devtools":
+		kh.navigate(pb.NavigationAction_DEVTOOLS, "")
+	case "extensions":
+		kh.navigate(pb.NavigationAction_EXTENSIONS, "")
+	case "copy":
+		kh.menu = false
+		if kh.submit == nil || !kh.submit(browserOperation{selection: &pb.NavigationRequest{TabId: kh.state.ActiveTabId, Generation: kh.state.Generation}}) {
+			kh.status = "Input queue is busy; try again"
+		}
 	case "home":
 		kh.navigate(pb.NavigationAction_HOME, "")
 	case "address":
@@ -346,6 +374,10 @@ func (kh *KeyboardHandler) globalKey(ev *tcell.EventKey, modal bool) (bool, bool
 	switch {
 	case ctrl(ev, tcell.KeyCtrlL, 'l'):
 		kh.openAddress()
+	case ev.Key() == tcell.KeyF12:
+		kh.action("devtools")
+	case ev.Key() == tcell.KeyF8 || (kh.focus == "page" && ctrl(ev, tcell.KeyCtrlC, 'c')):
+		kh.action("copy")
 	case ev.Key() == tcell.KeyF10:
 		kh.action("menu")
 	case ev.Key() == tcell.KeyF1:

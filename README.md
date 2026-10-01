@@ -88,6 +88,7 @@ If you want sharp terminal text on any terminal, Carbonyl and Browsh are good ch
 | --- | --- |
 | [Installation](docs/installation.md) | One-command setup, availability, and platform targets |
 | [Getting started](docs/getting-started.md) | Opening pages, typing, dialogs, and quitting |
+| [Browser tools](docs/browser-tools.md) | Developer tools (F12), text copy/paste, and unpacked extensions |
 | [Terminal support](docs/terminals.md) | Graphics modes and compatibility |
 | [Troubleshooting](docs/troubleshooting.md) | Display issues, startup failures, and bug reports |
 | [Vimium and tabs](docs/vimium.md) | Bundled keyboard navigation, tabs, mouse coexistence, and limitations |
@@ -96,7 +97,7 @@ If you want sharp terminal text on any terminal, Carbonyl and Browsh are good ch
 
 1. **Multiplexers:** tmux and screen support.
 2. **Distribution:** Homebrew and AUR packages, more clean-machine testing, automated dependency updates.
-3. **Browser polish:** persistent browsing sessions, clipboard integration, dark mode that follows your terminal.
+3. **Browser polish:** persistent browsing sessions, richer clipboard formats, dark mode that follows your terminal.
 4. **Native Windows:** add native packages; Windows through WSL2 is supported today.
 
 The [installation plan](docs/plans/one-command-install.md) and [browser UI plan](docs/plans/browser-ui.md) define the work and release checks. See [GitHub Releases](https://github.com/codr1/termium/releases) for native packages and release notes.

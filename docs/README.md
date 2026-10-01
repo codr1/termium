@@ -10,6 +10,7 @@ Start with [Quickstart](quickstart.md): install, open your first page, and learn
 - [Terminal support](terminals.md): choosing a display mode when troubleshooting.
 - [Troubleshooting](troubleshooting.md): resolving problems and reporting bugs.
 - [Vimium and tabs](vimium.md): keyboard navigation, real tabs, and mouse coexistence.
+- [Browser tools](browser-tools.md): developer tools, text copy/paste, and unpacked extensions.
 
 ## Contributor guides
 
@@ -22,5 +23,7 @@ Start with [Quickstart](quickstart.md): install, open your first page, and learn
 - [One-command installation plan](plans/one-command-install.md): installer responsibilities and acceptance criteria.
 - [Browser UI architecture](plans/browser-ui.md): bundled Vimium, tab identity, and keyboard routing.
 - [Graphics audit](plans/rendering-audit.md): Kitty/Sixel correctness, measured encoding costs, performance priorities, and help UI integration.
+
+- [Browser audio research](research/browser-audio.md): headless playback feasibility and a local audio-sink proof.
 
 Pages marked **planned** describe work that has not shipped. The usage guides describe the current application.

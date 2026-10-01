@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type Config struct {
+	Extensions      []string
 	InitialURL      string
 	Homepage        string
 	SetHomepage     string
@@ -29,6 +31,17 @@ type Config struct {
 
 func parseFlags() (*Config, error) {
 	cfg := &Config{}
+	flag.Func("extension", "Load an unpacked Chromium extension directory (repeatable)", func(value string) error {
+		absolute, err := filepath.Abs(value)
+		if err != nil {
+			return err
+		}
+		if value == "" {
+			return fmt.Errorf("extension directory is required")
+		}
+		cfg.Extensions = append(cfg.Extensions, absolute)
+		return nil
+	})
 
 	showVersion := false
 	flag.BoolVar(&showVersion, "version", false, "Print version and exit")
@@ -117,6 +130,9 @@ func parseFlags() (*Config, error) {
 	}
 
 	// Validate server address format
+	if cfg.ServerAddr != "" && len(cfg.Extensions) > 0 {
+		return nil, fmt.Errorf("--extension applies to a local browser; configure extensions on the remote server")
+	}
 	if cfg.ServerAddr != "" {
 		// TODO: Add validation for ip:port format
 	}

@@ -30,6 +30,8 @@ export class BrowserSession {
     private initializing?: Promise<void>;
     private refreshing?: Promise<Snapshot>;
     private records = new Map<string, Tab>();
+    private inspector?: Tab & { owner: string; targetId: string };
+    private inspectorSelected = false;
     private selected = '';
     private documentGeneration = -1;
     private epoch = 0;
@@ -97,7 +99,15 @@ export class BrowserSession {
             candidates = candidates.filter(info => this.records.get(info.targetId)!.window === window);
         }
         if (candidates.length !== 1) throw Error('Browser is switching tabs; retry');
-        const active = this.records.get(candidates[0].targetId)!;
+        let active = this.records.get(candidates[0].targetId)!;
+        if (this.inspector && (this.inspector.page.isClosed() || !byId.has(this.inspector.owner))) {
+            const old = this.inspector;
+            this.inspector = undefined;
+            this.inspectorSelected = false;
+            this.records.delete(old.id);
+            if (!old.page.isClosed()) await old.page.close().catch(() => {});
+        }
+        if (this.inspectorSelected && this.inspector) active = this.inspector;
         if (replacement) await this.openHome(active);
         if (this.selected !== active.id || this.documentGeneration !== active.controls.generation) {
             const old = this.records.get(this.selected);
@@ -107,8 +117,10 @@ export class BrowserSession {
             this.epoch++;
             if (old && old !== active) await old.controls.resetInput().catch(() => {});
         }
-        return { active, tabs: infos.map(info => this.records.get(info.targetId)!), generation: this.epoch,
-            titles: new Map(infos.map(info => [info.targetId, info.title])) };
+        const tabs = infos.map(info => this.records.get(info.targetId)!);
+        const titles = new Map(infos.map(info => [info.targetId, info.title]));
+        if (this.inspector) { tabs.push(this.inspector); titles.set(this.inspector.id, 'Developer tools'); }
+        return { active, tabs, generation: this.epoch, titles };
     }
 
     async ensurePage() { return (await this.snapshot()).active.page; }
@@ -146,6 +158,17 @@ export class BrowserSession {
             if (!targeted) stale();
             if (request.generation && request.generation !== s.generation) stale();
             switch (request.action) {
+                case NavigationAction.DEVTOOLS:
+                    if (targeted !== s.active) stale();
+                    await this.openInspector(targeted);
+                    break;
+                case NavigationAction.EXTENSIONS: {
+                    this.inspectorSelected = false;
+                    const page = await this.browser.newPage();
+                    await page.goto('chrome://extensions/', { waitUntil: 'domcontentloaded' });
+                    await page.bringToFront();
+                    break;
+                }
                 case NavigationAction.HOME:
                     if (targeted !== s.active) stale();
                     await this.openHome(s.active);
@@ -156,6 +179,7 @@ export class BrowserSession {
                         try { url = new URL(request.url); } catch { throw Object.assign(Error('Enter a valid HTTP or HTTPS address'), { code: grpc.status.INVALID_ARGUMENT }); }
                         if (!['http:', 'https:'].includes(url.protocol)) throw Object.assign(Error('Use an HTTP or HTTPS address'), { code: grpc.status.INVALID_ARGUMENT });
                     }
+                    this.inspectorSelected = false;
                     const p = await this.browser.newPage();
                     await p.bringToFront();
                     const created = await this.snapshot();
@@ -165,8 +189,18 @@ export class BrowserSession {
                     else await this.openHome(ownTab);
                     break;
                 }
-                case NavigationAction.SELECT_TAB: await targeted!.page.bringToFront(); break;
+                case NavigationAction.SELECT_TAB:
+                    this.inspectorSelected = targeted === this.inspector;
+                    if (!this.inspectorSelected) await targeted.page.bringToFront();
+                    break;
                 case NavigationAction.CLOSE_TAB:
+                    if (targeted === this.inspector) {
+                        await this.inspector.page.close();
+                        this.records.delete(targeted.id);
+                        this.inspector = undefined;
+                        this.inspectorSelected = false;
+                        break;
+                    }
                     // Page.close with runBeforeUnload keeps cancellation usable.
                     await targeted!.page.close({ runBeforeUnload: true });
                     break;
@@ -182,6 +216,63 @@ export class BrowserSession {
                     await s.active.controls.command({ ...request, generation: 0 });
             }
             return this.state();
+        });
+    }
+
+    private async openInspector(owner: Tab) {
+        if (owner === this.inspector) return;
+        if (this.inspector && this.inspector.owner !== owner.id) {
+            await this.inspector.page.close();
+            this.records.delete(this.inspector.id);
+            this.inspector = undefined;
+        }
+        if (!this.inspector || this.inspector.page.isClosed()) {
+            const { targetId } = await this.cdp.send('Target.openDevTools', { targetId: owner.id, panelId: 'elements' });
+            // Puppeteer categorizes the built-in DevTools frontend as "other";
+            // it has no normal tab-strip metadata. Keep it as an explicit tab.
+            const target = await this.browser.waitForTarget(t => (t as any)._targetId === targetId, { timeout: 3000 });
+            const page = await target.page();
+            if (!page) throw Error('Chromium did not expose its Developer Tools page');
+            const controls = new BrowserControls(async () => page);
+            await controls.attach(page);
+            this.inspector = { id: `devtools:${targetId}`, targetId, owner: owner.id, page, controls, window: owner.window };
+            this.records.set(this.inspector.id, this.inspector);
+        }
+        this.inspectorSelected = true;
+    }
+
+    getSelection(request: NavigationRequest) {
+        return this.enqueue(async () => {
+            const s = await this.snapshot();
+            if ((request.tabId && request.tabId !== s.active.id) || (request.generation && request.generation !== s.generation)) stale();
+            let text = '';
+            let frame = s.active.page.mainFrame();
+            for (let depth = 0; depth < 32; depth++) {
+                // Follow the focused element chain rather than document.hasFocus:
+                // a headless page can have a valid selection without OS focus.
+                const handle = await frame.evaluateHandle(() => {
+                    let element = document.activeElement;
+                    while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
+                    return element;
+                });
+                try {
+                    const element = handle.asElement();
+                    const child = element ? await element.contentFrame() : null;
+                    if (child) { frame = child; continue; }
+                    text = await frame.evaluate(element => {
+                        if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+                            if (element instanceof HTMLInputElement && element.type === 'password') return '';
+                            return element.value.substring(element.selectionStart ?? 0, element.selectionEnd ?? 0);
+                        }
+                        return window.getSelection()?.toString() ?? '';
+                    }, handle);
+                    break;
+                } finally { await handle.dispose(); }
+            }
+            if (Buffer.byteLength(text, 'utf8') > 64 * 1024) throw Error('Selection exceeds the 64 KiB clipboard limit');
+            const after = await this.snapshot();
+            if (after.generation !== s.generation || after.active.id !== s.active.id) stale();
+            return { text, state: await this.state() };
         });
     }
 

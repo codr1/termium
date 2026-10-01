@@ -324,7 +324,10 @@ export class BrowserControls {
                     const cdp = await this.session(); this.x = event.x; this.y = event.y;
                     if (inputTraceEnabled) inputTrace('pointer.session', { session: cdp.id() });
                     const base = { x: event.x, y: event.y, modifiers: event.modifiers };
-                    await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseMoved', buttons: this.held });
+                    // Chromium needs the active button as well as the held mask
+                    // to treat this as a drag (including text selection).
+                    const button = this.held & 1 ? 'left' : this.held & 2 ? 'right' : this.held & 4 ? 'middle' : 'none';
+                    await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseMoved', buttons: this.held, button });
                     if (event.kind === InputKind.WHEEL_INPUT) {
                         await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseWheel', buttons: this.held, deltaX: event.deltaX, deltaY: event.deltaY });
                         break;

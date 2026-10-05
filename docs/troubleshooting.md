@@ -57,6 +57,44 @@ Normal launches use separate managed browser sessions and private sockets. If tw
 
 If setup stops with `Target closed` and `browser check failed` inside a container, Chromium's sandbox is blocked. Docker's default seccomp profile blocks the namespaces the sandbox needs. Start the container with `--security-opt seccomp=unconfined` and run the installer again as a normal user.
 
+## Chromium closes with `Target closed` on Ubuntu
+
+Ubuntu's AppArmor user-namespace restriction can stop Termium's private Chromium before it opens a page. Check the setting and kernel denials:
+
+```bash
+sysctl kernel.apparmor_restrict_unprivileged_userns
+sudo journalctl -k --grep='apparmor="DENIED".*userns'
+```
+
+If the setting is `1` and the log names Termium's Chromium, give only the installed and development browsers permission to create their sandbox namespace:
+
+```bash
+sudo tee /etc/apparmor.d/termium >/dev/null <<'EOF'
+abi <abi/4.0>,
+include <tunables/global>
+
+profile termium-installed-chromium @{HOME}/.local/share/termium/versions/*/browser/chrome-linux64/chrome flags=(unconfined) {
+  userns,
+}
+
+profile termium-development-chromium @{HOME}/.cache/puppeteer/chrome/*/chrome-linux64/chrome flags=(unconfined) {
+  userns,
+}
+EOF
+sudo apparmor_parser -r /etc/apparmor.d/termium
+termium --doctor
+```
+
+If `TERMIUM_HOME`, `XDG_DATA_HOME`, or Puppeteer's cache points elsewhere, replace the corresponding attachment path with the Chromium path reported in the denial. Profiles are path-based and apply to new browser processes.
+
+For a temporary diagnostic only, disable the additional restriction until reboot, then run `termium --doctor`:
+
+```bash
+sudo sysctl kernel.apparmor_restrict_unprivileged_userns=0
+```
+
+Do not pass `--no-sandbox`. The profile keeps Ubuntu's restriction enabled for other unprofiled applications; the sysctl fallback removes that additional system-wide hardening. See Ubuntu's [AppArmor user-namespace explanation](https://discourse.ubuntu.com/t/understanding-apparmor-user-namespace-restriction/58007) for the security tradeoff.
+
 ## Report a problem
 
 Include:

@@ -79,8 +79,31 @@ The installer tests the actual host rather than silently disabling security feat
 
 ## Updates and storage
 
-Rerun the installer to update. Close running Termium sessions first; concurrent installers and active sessions are protected by locks. Failed validation leaves the current installation selected. Older versions remain available on disk; automatic pruning and uninstall are not implemented yet.
+Rerun the installer to update. Close running Termium sessions first; concurrent installers and active sessions are protected by locks. Failed validation leaves the current installation selected. Older versions remain available on disk; automatic pruning is not implemented yet.
 
 Application files live under `${XDG_DATA_HOME:-~/.local/share}/termium`. `TERMIUM_HOME` can select another application directory; the command remains at `~/.local/bin/termium`. `TERMIUM_NO_MODIFY_PATH=1` opts out of shell integration for managed environments. All paths are user-owned; no system Node or browser installation is modified.
+
+## Uninstall
+
+Close every running Termium session, then inspect the command before removing it:
+
+```bash
+readlink "$HOME/.local/bin/termium"
+```
+
+For a default installation, the result points through `$HOME/.local/share/termium/current`. If it does, remove the command and application files:
+
+```bash
+rm -- "$HOME/.local/bin/termium"
+rm -r -- "${XDG_DATA_HOME:-$HOME/.local/share}/termium"
+```
+
+If you installed with `TERMIUM_HOME`, remove that exact directory instead after checking its value. Remove the blocks between `# >>> termium >>>` and `# <<< termium <<<` from your bash and zsh profiles. For fish, remove `${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/termium.fish` after confirming it contains the same markers.
+
+Saved homepage settings are separate. To remove those too:
+
+```bash
+rm -r -- "${XDG_CONFIG_HOME:-$HOME/.config}/termium"
+```
 
 See [Quickstart](quickstart.md) for your first page and [getting started](getting-started.md) for controls and [terminal support](terminals.md) for renderer choices.

@@ -77,7 +77,7 @@ If you want sharp terminal text on any terminal, Carbonyl and Browsh are good ch
 
 ## Known limitations
 
-- **Terminal multiplexers:** tmux, screen, and herdr do not work well yet. Run Termium directly in the terminal window.
+- **Terminal multiplexers:** tmux 3.3+ works over a Kitty-graphics terminal with `termium --renderer kitty`. screen and herdr do not work well yet.
 - **Docker:** Chromium's sandbox needs namespaces that Docker's default seccomp profile blocks. Run the container with `--security-opt seccomp=unconfined`.
 - **Text is pixels:** page text is part of the image, so terminal-native selection and screen readers cannot read it. On `main`, select inside the webpage and use **F10 → Copy selected text** (F8); see [Browser tools](docs/browser-tools.md).
 - **Platforms:** no native Windows or Linux ARM64 packages yet.
@@ -103,7 +103,7 @@ the next release. [Controls, availability and limits](docs/browser-tools.md).
 
 ## What's next
 
-1. **Multiplexers:** tmux and screen support.
+1. **Multiplexers:** screen and broader multiplexer support.
 2. **Distribution:** Homebrew and AUR packages, more clean-machine testing, automated dependency updates.
 3. **Browser polish:** persistent browsing sessions, richer clipboard formats, dark mode that follows your terminal.
 4. **Native Windows:** add native packages; Windows through WSL2 is supported today.

@@ -292,6 +292,11 @@ func runInteractive() error {
 		activeSocketPath = dir + "/browser.sock"
 	}
 	detectTerminalAndCalibrate()
+	if cfg.Renderer == "kitty" {
+		if err := setupKittySession(); err != nil {
+			return err
+		}
+	}
 	s := initializeScreen()
 	defer cleanShutdown(s)
 	setupSignalHandling(s)
@@ -325,7 +330,8 @@ func runInteractive() error {
 		keyboardHandler.navigate(pb.NavigationAction_NAVIGATE, address)
 	}
 	pipeline.paused.Store(true) // The first redraw releases capture after initial navigation.
-	preparer := &framePreparer{renderer: cfg.Renderer, palette: cfg.Palette}
+	preparer := &framePreparer{renderer: cfg.Renderer, palette: cfg.Palette,
+		kitty: kittyEncoder{tmux: kittySession.tmux, imageID: kittySession.imageID, cell: charSize}}
 	shutdownWg.Add(1)
 	go func() {
 		defer shutdownWg.Done()
@@ -410,7 +416,7 @@ func initializeScreen() tcell.Screen {
 // finalizeScreen properly closes the tcell screen
 func finalizeScreen(s tcell.Screen) {
 	if cfg.Renderer == "kitty" {
-		fmt.Fprint(graphicsOutput, kittyDelete)
+		_, _ = graphicsOutput.Write(kittyDeleteSequence())
 	}
 	s.Fini()
 	Debug("Screen finalized", DEBUG)
@@ -627,6 +633,8 @@ func displayFrame(s tcell.Screen, frame *Frame) error {
 	switch cfg.Renderer {
 	case "tcell":
 		err = displayWithTcell(s, frame.Image)
+	case "kitty":
+		err = writeKittyFrame(graphicsOutput, frame.Graphics, sDims.ViewTop+1, H_BORDER_WIDTH+1, frame.Width, frame.Height)
 	default:
 		err = writeGraphicsFrame(graphicsOutput, frame.Graphics, sDims.ViewTop+1, H_BORDER_WIDTH+1)
 	}
@@ -640,7 +648,8 @@ func invalidateGraphics(s tcell.Screen) {
 	if cfg != nil && cfg.Renderer == "kitty" {
 		// The splash and a partially written frame can own this placement even
 		// when no browser frame has been recorded as successfully displayed.
-		fmt.Fprint(graphicsOutput, kittyDelete)
+		_, _ = graphicsOutput.Write(kittyDeleteSequence())
+		kittySession.placeholderWidth, kittySession.placeholderRows = 0, 0
 	}
 	displayedFrame = nil
 	// Sixel has no portable delete-image command. A real terminal clear is
@@ -856,7 +865,12 @@ func detectTerminalAndCalibrate() {
 	if size, err := unix.IoctlGetWinsize(int(os.Stdout.Fd()), unix.TIOCGWINSZ); err == nil && size.Col > 0 && size.Row > 0 && size.Xpixel >= size.Col && size.Ypixel >= size.Row {
 		charSize = CharSize{int(size.Xpixel / size.Col), int(size.Ypixel / size.Row)}
 	} else if err := calibrateXterm(); err != nil {
-		setDefaultCharSize()
+		if size, ok := tmuxCellSize(); ok {
+			charSize = size
+			Debug(fmt.Sprintf("Using tmux character size: %dx%d pixels", charSize.Width, charSize.Height), INFO)
+		} else {
+			setDefaultCharSize()
+		}
 	}
 }
 

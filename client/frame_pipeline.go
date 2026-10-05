@@ -134,7 +134,7 @@ func (p *framePreparer) prepare(raw *Frame) (*Frame, error) {
 	}()
 	f := &Frame{storage: arena, Data: raw.Data, Generation: raw.Generation, State: raw.State, Width: dim.Width, Height: dim.Height, Timestamp: raw.Timestamp, CapturedAt: raw.CapturedAt}
 	if p.renderer == "kitty" && format == "png" {
-		f.Graphics, err = encodeKittyPayloadInto(raw.Data, "f=100,"+kittyPlacement, arena.alloc)
+		f.Graphics, err = encodeKittyPayloadInto(raw.Data, "f=100,"+p.kitty.placement(dim.Width, dim.Height), arena.alloc, p.kitty.tmux)
 		if err != nil {
 			return nil, err
 		}

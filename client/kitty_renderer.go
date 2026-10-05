@@ -25,6 +25,21 @@ type kittyEncoder struct {
 	compressed bytes.Buffer
 	compressor *zlib.Writer
 	row        []byte
+	tmux       bool
+	imageID    uint32
+	cell       CharSize
+}
+
+func (e *kittyEncoder) placement(width, height int) string {
+	if !e.tmux {
+		return kittyPlacement
+	}
+	id := e.imageID
+	if id == 0 {
+		id = 1
+	}
+	columns, rows := kittyCells(width, height, e.cell)
+	return fmt.Sprintf("a=T,i=%d,p=1,C=1,q=2,U=1,c=%d,r=%d", id, columns, rows)
 }
 
 // JPEG captures have already been decoded for renderer preparation. Send those
@@ -67,7 +82,7 @@ func (e *kittyEncoder) encodeRGBInto(img *image.RGBA, alloc frameAllocator) ([]b
 	if err := e.compressor.Close(); err != nil {
 		return nil, err
 	}
-	return encodeKittyPayloadInto(e.compressed.Bytes(), fmt.Sprintf("f=24,s=%d,v=%d,o=z,%s", bounds.Dx(), bounds.Dy(), kittyPlacement), alloc)
+	return encodeKittyPayloadInto(e.compressed.Bytes(), fmt.Sprintf("f=24,s=%d,v=%d,o=z,%s", bounds.Dx(), bounds.Dy(), e.placement(bounds.Dx(), bounds.Dy())), alloc, e.tmux)
 }
 
 // Explicit lossless PNG capture can pass through unchanged. Both this path and
@@ -77,13 +92,16 @@ func encodeKittyPNG(data []byte) ([]byte, error) {
 }
 
 func encodeKittyPayload(data []byte, control string) ([]byte, error) {
-	return encodeKittyPayloadInto(data, control, nil)
+	return encodeKittyPayloadInto(data, control, nil, false)
 }
-func encodeKittyPayloadInto(data []byte, control string, alloc frameAllocator) ([]byte, error) {
+func encodeKittyPayloadInto(data []byte, control string, alloc frameAllocator, tmux bool) ([]byte, error) {
 	encodedSize := base64.StdEncoding.EncodedLen(len(data))
 	chunks := max(1, (encodedSize+kittyChunkSize-1)/kittyChunkSize)
 	// Conservative framing allowance; guard allocation before growing the buffer.
 	size := encodedSize + chunks*(len(kittyMore)+len(kittyST)) + len(control)
+	if tmux {
+		size += chunks * (len(tmuxPassthroughPrefix) + len(tmuxPassthroughSuffix) + 2)
+	}
 	if size > maxFrameBytes {
 		return nil, fmt.Errorf("Kitty output exceeds 32 MiB; reduce the terminal size")
 	}
@@ -97,6 +115,10 @@ func encodeKittyPayloadInto(data []byte, control string, alloc frameAllocator) (
 	for offset := 0; ; offset += rawChunkSize {
 		end := min(offset+rawChunkSize, len(data))
 		more := end < len(data)
+		if tmux {
+			output.WriteString(tmuxPassthroughPrefix)
+			output.WriteByte('\033') // tmux requires every inner ESC to be doubled.
+		}
 		if offset == 0 {
 			output.WriteString(kittyAPC)
 			output.WriteString(control)
@@ -111,7 +133,13 @@ func encodeKittyPayloadInto(data []byte, control string, alloc frameAllocator) (
 		}
 		base64.StdEncoding.Encode(chunk[:], data[offset:end])
 		output.Write(chunk[:base64.StdEncoding.EncodedLen(end-offset)])
+		if tmux {
+			output.WriteByte('\033')
+		}
 		output.WriteString(kittyST)
+		if tmux {
+			output.WriteString(tmuxPassthroughSuffix)
+		}
 		if !more {
 			return output.Bytes(), nil
 		}
@@ -125,9 +153,10 @@ func displayWithKittyRGBA(img *image.RGBA) error {
 	if err := encoder.Encode(&data, img); err != nil {
 		return err
 	}
-	payload, err := encodeKittyPNG(data.Bytes())
+	kitty := kittyEncoder{tmux: kittySession.tmux, imageID: kittySession.imageID, cell: charSize}
+	payload, err := encodeKittyPayloadInto(data.Bytes(), "f=100,"+kitty.placement(img.Bounds().Dx(), img.Bounds().Dy()), nil, kitty.tmux)
 	if err != nil {
 		return err
 	}
-	return writeGraphicsFrame(graphicsOutput, payload, sDims.ViewTop+1, H_BORDER_WIDTH+1)
+	return writeKittyFrame(graphicsOutput, payload, sDims.ViewTop+1, H_BORDER_WIDTH+1, img.Bounds().Dx(), img.Bounds().Dy())
 }

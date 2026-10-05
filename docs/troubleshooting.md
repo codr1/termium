@@ -18,7 +18,13 @@ Try one of the manual display options in [terminal support](terminals.md). For e
 termium --renderer tcell --splash NONE
 ```
 
-If you use tmux, screen, or SSH, also try launching directly in the local terminal. Include both results when reporting the issue. Character mode skips terminal graphics queries; automatic detection uses bounded timeouts.
+Inside tmux 3.3 or newer on Kitty or another terminal implementing Kitty graphics, bypass automatic detection:
+
+```bash
+termium --renderer kitty
+```
+
+Termium enables graphics passthrough for the current pane. If that fails, check `tmux -V`, `tmux show -Ap allow-passthrough`, and `$TERM` both inside and outside tmux. Also try launching directly in the local terminal and include both results when reporting the issue. screen and herdr are not supported yet. Character mode skips terminal graphics queries; automatic detection uses bounded timeouts.
 
 ## The page feels slow
 

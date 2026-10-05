@@ -37,7 +37,13 @@ Run Termium directly in a terminal while diagnosing display problems.
 
 **SSH:** supported. Run `termium` on the remote Linux host from a local terminal with Kitty graphics or Sixel; Chromium runs remotely and the pages render on your screen. A slow connection lowers the frame rate.
 
-**Terminal multiplexers:** tmux, screen, and herdr do not work well yet. Run Termium directly in the terminal window.
+**Terminal multiplexers:** tmux 3.3 or newer works when its outer terminal supports Kitty graphics. Because tmux does not forward the graphics capability probe, select it explicitly:
+
+```bash
+termium --renderer kitty
+```
+
+Termium enables `allow-passthrough` for the current pane and uses Unicode placeholders so images stay clipped to that pane. This changes only the active pane, not the tmux server's global configuration. screen and herdr do not work well yet; run Termium directly in the terminal window when using them.
 
 Native Windows builds are planned.
 

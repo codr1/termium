@@ -24,9 +24,10 @@ export class BrowserControls {
     private loading = false;
     private error = '';
     private navigation = 0;
-    private viewport = { width: 800, height: 600 };
-    // Successful overrides belong to a control session, not a screenshot session.
-    private appliedViewports = new WeakMap<CDPSession, { width: number; height: number }>();
+    // Width and height are device pixels, as are pointer coordinates.
+    private viewport = { width: 800, height: 600, scale: 1 };
+    // Successful overrides, per control or capture session.
+    private appliedViewports = new WeakMap<CDPSession, { width: number; height: number; scale: number }>();
 
     constructor(private readonly ensurePage: () => Promise<Page>) { }
 
@@ -76,11 +77,13 @@ export class BrowserControls {
     private async applyViewport(session: CDPSession) {
         const desired = this.viewport;
         const applied = this.appliedViewports.get(session);
-        if (applied?.width === desired.width && applied?.height === desired.height) return;
+        if (applied?.width === desired.width && applied?.height === desired.height && applied?.scale === desired.scale) return;
         // Failure leaves the browser's size uncertain, including the old size.
         this.appliedViewports.delete(session);
         await session.send('Emulation.setDeviceMetricsOverride', {
-            ...desired, deviceScaleFactor: 1, mobile: false,
+            width: Math.floor(desired.width / desired.scale),
+            height: Math.floor(desired.height / desired.scale),
+            deviceScaleFactor: desired.scale, mobile: false,
         });
         this.appliedViewports.set(session, desired);
     }
@@ -128,10 +131,11 @@ export class BrowserControls {
         }
     }
 
-    async setViewport(width: number, height: number) {
+    async setViewport(width: number, height: number, scale = 1) {
         await this.ensurePage();
         if (width < 1 || height < 1 || width > 16384 || height > 16384 || width * height > 16 * 1024 * 1024) fail(grpc.status.INVALID_ARGUMENT, 'Invalid viewport size');
-        this.viewport = { width, height };
+        if (!Number.isInteger(scale) || scale < 1 || scale > 4 || width < scale || height < scale) fail(grpc.status.INVALID_ARGUMENT, 'Invalid viewport scale');
+        this.viewport = { width, height, scale };
         await this.applyViewport(await this.session());
     }
 
@@ -144,7 +148,7 @@ export class BrowserControls {
             // Retry this read once on a fresh session; persistent failures and
             // unrelated errors must still reach the caller.
             if (!(error instanceof Error) ||
-                !error.message.includes('Protocol error (Page.captureScreenshot): Not attached to an active page')) throw error;
+                !error.message.includes('Not attached to an active page')) throw error;
             return this.captureOnce(format);
         }
     }
@@ -167,6 +171,8 @@ export class BrowserControls {
         const timer = setTimeout(abort, 3000);
         try {
             if (generation !== this.generation) fail(grpc.status.FAILED_PRECONDITION, 'Page changed during capture');
+            // Without its own override, a session captures at CSS size.
+            if (this.viewport.scale !== 1 || this.appliedViewports.has(session)) await this.applyViewport(session);
             const cdpPhase = beginCapturePhase('cdp.screenshot');
             let result;
             try { result = await session.send('Page.captureScreenshot', {
@@ -321,15 +327,16 @@ export class BrowserControls {
                     if (!viewport || event.x < 0 || event.y < 0 || event.x >= viewport.width || event.y >= viewport.height || event.buttons > 7) {
                         fail(grpc.status.INVALID_ARGUMENT, 'Pointer is outside the viewport');
                     }
-                    const cdp = await this.session(); this.x = event.x; this.y = event.y;
+                    const cdp = await this.session();
+                    this.x = event.x / viewport.scale; this.y = event.y / viewport.scale;
                     if (inputTraceEnabled) inputTrace('pointer.session', { session: cdp.id() });
-                    const base = { x: event.x, y: event.y, modifiers: event.modifiers };
+                    const base = { x: this.x, y: this.y, modifiers: event.modifiers };
                     // Chromium needs the active button as well as the held mask
                     // to treat this as a drag (including text selection).
                     const button = this.held & 1 ? 'left' : this.held & 2 ? 'right' : this.held & 4 ? 'middle' : 'none';
                     await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseMoved', buttons: this.held, button });
                     if (event.kind === InputKind.WHEEL_INPUT) {
-                        await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseWheel', buttons: this.held, deltaX: event.deltaX, deltaY: event.deltaY });
+                        await cdp.send('Input.dispatchMouseEvent', { ...base, type: 'mouseWheel', buttons: this.held, deltaX: event.deltaX / viewport.scale, deltaY: event.deltaY / viewport.scale });
                         break;
                     }
                     for (const [mask, button] of [[1, 'left'], [2, 'right'], [4, 'middle']] as const) {

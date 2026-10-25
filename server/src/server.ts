@@ -232,8 +232,8 @@ const browserControlHandlers: BrowserControlServer = {
     setViewport: async (call: ServerUnaryCall<ViewportSize, Message>, callback: sendUnaryData<Message>) => {
         try {
             await ensurePage();
-            const { width, height } = call.request;
-            await withViewport(() => controls.setViewport(width,height));
+            const { width, height, scale } = call.request;
+            await withViewport(() => controls.setViewport(width, height, scale || 1));
  logDebug(`Viewport set to ${width}x${height}`);
             callback(null, { text: 'Viewport set' });
         } catch (error) {

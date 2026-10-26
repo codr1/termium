@@ -318,11 +318,11 @@ export class BrowserSession {
         }));
     }
 
-    private viewport = { width: 800, height: 600 };
-    async setViewport(width: number, height: number) {
+    private viewport = { width: 800, height: 600, scale: 1 };
+    async setViewport(width: number, height: number, scale = 1) {
         const s = await this.snapshot();
-        await s.active.controls.setViewport(width, height);
-        this.viewport = { width, height };
+        await s.active.controls.setViewport(width, height, scale);
+        this.viewport = { width, height, scale };
     }
 
     private captureSelection(): Pick<Snapshot, 'active' | 'generation'> | undefined {
@@ -346,7 +346,7 @@ export class BrowserSession {
         const s = this.captureSelection() ?? await this.snapshot();
         endCapturePhase(selection);
         const viewport = beginCapturePhase('server.viewport');
-        try { await s.active.controls.setViewport(this.viewport.width, this.viewport.height); }
+        try { await s.active.controls.setViewport(this.viewport.width, this.viewport.height, this.viewport.scale); }
         finally { endCapturePhase(viewport); }
         let data: Buffer;
         try { data = await s.active.controls.capture(format); }

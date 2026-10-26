@@ -523,6 +523,7 @@ func updateViewportSize() error {
 	_, err := grpcClient.SetViewport(ctx, &pb.ViewportSize{
 		Width:  int32(sDims.InnerWidthPx),
 		Height: int32(sDims.InnerHeightPx),
+		Scale:  uint32(cfg.Scale),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to update viewport size: %v", err)
@@ -777,7 +778,12 @@ func runMainLoop(s tcell.Screen) error {
 func updateScreenDimensions(s tcell.Screen) {
 	w, h := s.Size()
 	r := viewportRect(w, h)
-	sDims = ScreenDimensions{Width: w, Height: h, ViewTop: r.Min.Y, LogHeight: 1, LogPanelTop: h - 2, ViewHeight: r.Dy(), InnerWidth: r.Dx(), InnerViewHeight: r.Dy(), InnerWidthPx: r.Dx() * charSize.Width, InnerHeightPx: r.Dy() * charSize.Height}
+	// Screenshots span whole CSS pixels, so their size is a multiple of the scale.
+	wPx, hPx := r.Dx()*charSize.Width, r.Dy()*charSize.Height
+	if cfg != nil && cfg.Scale > 1 {
+		wPx, hPx = wPx-wPx%cfg.Scale, hPx-hPx%cfg.Scale
+	}
+	sDims = ScreenDimensions{Width: w, Height: h, ViewTop: r.Min.Y, LogHeight: 1, LogPanelTop: h - 2, ViewHeight: r.Dy(), InnerWidth: r.Dx(), InnerViewHeight: r.Dy(), InnerWidthPx: wPx, InnerHeightPx: hPx}
 }
 
 // tcell's resize notification is best effort when its event queue is full.
@@ -801,7 +807,7 @@ func handleResize(s tcell.Screen) {
 		keyboardHandler.capturePage = false
 		keyboardHandler.input(&pb.InputEvent{Kind: pb.InputKind_RESET_INPUT})
 		if sDims.InnerWidthPx > 0 && sDims.InnerHeightPx > 0 {
-			keyboardHandler.queue(browserOperation{viewport: &pb.ViewportSize{Width: int32(sDims.InnerWidthPx), Height: int32(sDims.InnerHeightPx)}})
+			keyboardHandler.queue(browserOperation{viewport: &pb.ViewportSize{Width: int32(sDims.InnerWidthPx), Height: int32(sDims.InnerHeightPx), Scale: uint32(cfg.Scale)}})
 		}
 	}
 }

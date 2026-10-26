@@ -2,6 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
 const { BrowserControls } = require('../dist/src/browser-controls');
+const { InputEvent, InputKind } = require('../dist/generated/bc');
 
 // Read width/height from a JPEG's first SOF marker without a decoder.
 function jpegSize(buffer) {
@@ -63,4 +64,22 @@ test('navigation aborts an in-flight capture without disabling resize or future 
     const jpeg = await controls.capture('jpeg');
     assert.deepEqual(jpegSize(jpeg), [400, 217]);
     assert.equal(captureCreations, steadyStateCreations, 'steady-state captures reattached the CDP session');
+});
+
+test('scale renders whole CSS pixels at device resolution and maps pointer input', { timeout: 60000 }, async t => {
+    const browser = await puppeteer.launch({ headless: true, defaultViewport: null, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    t.after(() => browser.close());
+    const page = await browser.newPage();
+    await page.setContent('<body style="height:5000px" onmousedown="window.down=[event.clientX,event.clientY]">');
+    const controls = new BrowserControls(async () => page);
+    await controls.attach(page);
+    // Odd device sizes floor to whole CSS pixels; the client expects this size.
+    await controls.setViewport(1601, 1001, 2);
+    assert.deepEqual(await page.evaluate(() => [innerWidth, innerHeight, devicePixelRatio]), [800, 500, 2]);
+    const png = await controls.capture('png');
+    assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1600, 1000]);
+    for (const buttons of [1, 0]) await controls.input(InputEvent.fromPartial({ kind: InputKind.POINTER_INPUT, x: 400, y: 300, buttons, clickCount: 1 }));
+    assert.deepEqual(await page.evaluate(() => window.down), [200, 150]);
+    await controls.input(InputEvent.fromPartial({ kind: InputKind.WHEEL_INPUT, x: 400, y: 300, deltaY: 200 }));
+    await page.waitForFunction(() => scrollY === 100, { timeout: 5000 });
 });

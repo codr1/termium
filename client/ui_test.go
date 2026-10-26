@@ -363,8 +363,9 @@ func TestLostResizeNotificationStillUpdatesBrowserViewport(t *testing.T) {
 	s := uiScreen(t, 80, 24)
 	kh, ops := recorder()
 	old := keyboardHandler
-	keyboardHandler = kh
-	t.Cleanup(func() { keyboardHandler = old })
+	oldCfg := cfg
+	keyboardHandler, cfg = kh, &Config{Scale: 2}
+	t.Cleanup(func() { keyboardHandler, cfg = old, oldCfg })
 	// SimulationScreen changes size without delivering EventResize, reproducing
 	// the dropped notification in tcell's bounded event queue under frame load.
 	s.SetSize(100, 30)
@@ -372,7 +373,7 @@ func TestLostResizeNotificationStillUpdatesBrowserViewport(t *testing.T) {
 	if sDims.Width != 100 || sDims.Height != 30 {
 		t.Fatal("layout did not catch up")
 	}
-	if len(*ops) != 2 || (*ops)[1].viewport.Width != 784 || (*ops)[1].viewport.Height != 416 {
+	if len(*ops) != 2 || (*ops)[1].viewport.Width != 784 || (*ops)[1].viewport.Height != 416 || (*ops)[1].viewport.Scale != 2 {
 		t.Fatal("browser viewport remained stale", *ops)
 	}
 	ensureLayout(s)

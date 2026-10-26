@@ -27,6 +27,7 @@ type Config struct {
 	Palette         string
 	Renderer        string // auto, sixel, kitty, or tcell
 	CaptureFormat   string // auto, or an explicit shared jpeg/png source
+	Scale           int    // device pixel ratio; the server treats zero as 1
 }
 
 func parseFlags() (*Config, error) {
@@ -68,6 +69,7 @@ func parseFlags() (*Config, error) {
 	flag.StringVar(&cfg.Renderer, "renderer", "auto", "Rendering protocol: auto, sixel, kitty, tcell")
 	flag.StringVar(&cfg.Renderer, "r", "auto", "Rendering protocol (short form)")
 	flag.StringVar(&cfg.CaptureFormat, "capture-format", "auto", "Screenshot source: auto (PNG for Kitty, JPEG otherwise), jpeg, or png")
+	flag.IntVar(&cfg.Scale, "scale", 1, "Device pixel ratio of the display, from 1 to 4 (e.g. 2 on Retina)")
 
 	// Handle both --flag and -flag formats
 	flag.BoolVar(&cfg.Debug, "d", false, "Enable debug output (shorthand)")
@@ -152,6 +154,10 @@ func parseFlags() (*Config, error) {
 
 	if cfg.CaptureFormat != "auto" && cfg.CaptureFormat != "jpeg" && cfg.CaptureFormat != "png" {
 		return nil, fmt.Errorf("invalid capture format %q: must be auto, jpeg, or png", cfg.CaptureFormat)
+	}
+
+	if cfg.Scale < 1 || cfg.Scale > 4 {
+		return nil, fmt.Errorf("invalid scale %d: must be from 1 to 4", cfg.Scale)
 	}
 
 	// Check if splash image exists (only if specified and not NONE)

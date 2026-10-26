@@ -86,7 +86,10 @@ try {
         }
     }
     const goroot = execFileSync('go', ['env', 'GOROOT'], { cwd: root, encoding: 'utf8' }).trim();
-    await fs.copyFile(path.join(goroot, 'LICENSE'), path.join(bundle, 'notices/Go-LICENSE'));
+    // Homebrew's GOROOT is libexec, with LICENSE one level up.
+    const goLicense = await fs.access(path.join(goroot, 'LICENSE'))
+        .then(() => path.join(goroot, 'LICENSE'), () => path.join(goroot, '..', 'LICENSE'));
+    await fs.copyFile(goLicense, path.join(bundle, 'notices/Go-LICENSE'));
     await fs.copyFile(path.join(root, 'README.md'), path.join(bundle, 'README.md'));
     await fs.copyFile(path.join(root, 'LICENSE'), path.join(bundle, 'LICENSE'));
     if (process.platform === 'linux') {
